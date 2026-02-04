@@ -1,0 +1,58 @@
+{
+  "missile": {
+    "color": [
+      255,
+      150,
+      50
+    ],
+    "size": [
+      10,
+      18
+    ],
+    "shape": "triangle",
+    "type": "missile",
+    "speed": 7.0
+  },
+  "plasma": {
+    "color": [
+      200,
+      50,
+      255
+    ],
+    "size": [
+      12,
+      12
+    ],
+    "shape": "circle",
+    "type": "plasma",
+    "speed": 8.0
+  },
+  "laser": {
+    "color": [
+      50,
+      255,
+      255
+    ],
+    "size": [
+      4,
+      20
+    ],
+    "shape": "rectangle",
+    "type": "laser",
+    "speed": 15.0
+  },
+  "default": {
+    "color": [
+      255,
+      255,
+      50
+    ],
+    "size": [
+      6,
+      15
+    ],
+    "shape": "rectangle",
+    "type": "default",
+    "speed": 10.0
+  }
+}

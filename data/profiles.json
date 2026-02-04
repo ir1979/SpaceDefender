@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "Ali": {
+      "name": "Ali",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1770053845.0137181
+    }
+  },
+  "high_scores": []
+}
