@@ -15,13 +15,14 @@ def main():
     # This forces SDL to use a software-based renderer even if hardware is available
     # os.environ['SDL_VIDEODRIVER'] = 'x11'
     # os.environ['LIBGL_ALWAYS_SOFTWARE'] = '1'
-    
+    # Workaround for libGL errors on some Linux systems
     logger = setup_logging()
     logger.info("Starting Space Defender...")
     
     # Start game with profile selection in GUI
     game = Game(None)  # Pass None, profile will be selected in GUI
     game.run()
+    
 
 if __name__ == "__main__":
     main()

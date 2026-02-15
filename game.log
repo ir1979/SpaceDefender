@@ -1,12 +1,18 @@
-2026-02-15 08:20:19 - space_defender - INFO - [logger.py:41] - ================================================================================
-2026-02-15 08:20:19 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
-2026-02-15 08:20:19 - space_defender - INFO - [logger.py:43] - ================================================================================
-2026-02-15 08:20:19 - space_defender - INFO - [main.py:20] - Starting Space Defender...
-2026-02-15 08:20:27 - space_defender.game - INFO - [game.py:1158] - Game started (via menu)
-2026-02-15 08:21:40 - space_defender.game - INFO - [game.py:1162] - Shop opened (via menu)
-2026-02-15 08:21:42 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Fire Rate +2', index=3, cost=90, level=0, max_level=999
-2026-02-15 08:21:42 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 0, can_afford: False, level_ok: True
-2026-02-15 08:21:42 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Fire Rate +2 - insufficient coins
-2026-02-15 08:21:42 - space_defender.shop - INFO - [menus.py:46] - Shop closed via ESC key.
-2026-02-15 08:21:43 - space_defender.game - INFO - [game.py:1158] - Game started (via menu)
-2026-02-15 08:21:59 - space_defender.game - INFO - [game.py:1177] - Game quit (via menu)
+2026-02-15 12:21:53 - space_defender - INFO - [logger.py:41] - ================================================================================
+2026-02-15 12:21:53 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
+2026-02-15 12:21:53 - space_defender - INFO - [logger.py:43] - ================================================================================
+2026-02-15 12:21:53 - space_defender - INFO - [main.py:20] - Starting Space Defender...
+2026-02-15 12:22:04 - space_defender.game - INFO - [game.py:1189] - Game started (via menu)
+2026-02-15 12:22:04 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'Reza': Starting new game. Session coins set to 2467, session score to 0.
+2026-02-15 12:22:27 - space_defender.game - INFO - [game.py:600] - Player collided with enemy. Took 30 damage. Health is now 70/100.
+2026-02-15 12:22:45 - space_defender.game - INFO - [game.py:600] - Player collided with enemy. Took 30 damage. Health is now 40/100.
+2026-02-15 12:22:46 - space_defender.game - INFO - [game.py:600] - Player collided with enemy. Took 30 damage. Health is now 40/100.
+2026-02-15 12:23:07 - space_defender.game - INFO - [game.py:600] - Player collided with enemy. Took 30 damage. Health is now 10/100.
+2026-02-15 12:23:24 - space_defender.game - INFO - [game.py:626] - Player collected power-up: 'health'.
+2026-02-15 12:23:27 - space_defender.game - INFO - [game.py:600] - Player collided with enemy. Took 30 damage. Health is now 10/100.
+2026-02-15 12:23:29 - space_defender.game - INFO - [game.py:600] - Player collided with enemy. Took 30 damage. Health is now -20/100.
+2026-02-15 12:23:29 - space_defender.save_system - INFO - [save_system.py:99] - Profile 'Reza': Ending game. Adding score: 0, coins: 0.
+2026-02-15 12:23:29 - space_defender.save_system - INFO - [save_system.py:100] -   - Before: total_score=186198, total_coins=2467
+2026-02-15 12:23:29 - space_defender.save_system - INFO - [save_system.py:106] -   - After: total_score=186198, total_coins=2467
+2026-02-15 12:23:29 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'Reza' saved successfully.
+2026-02-15 12:23:47 - space_defender.game - INFO - [game.py:1208] - Game quit (via menu)

@@ -289,9 +289,15 @@ class Game:
 
             elif self.state == GameState.SHOP:
                 if self.shop.handle_input(event, self.player):
-                    if self.current_profile and self.player:
-                        self.current_profile.coins = self.player.coins
+                    # This block is entered when the shop is closed.
+                    # We must only save if a purchase was actually made.
+                    if self.current_profile and self.player and self.player.coins != self.current_profile.total_coins:
+                        logger.info(f"Shop closed with a change in coins. "
+                                    f"Old: {self.current_profile.total_coins}, New: {self.player.coins}. Saving profile.")
+                        self.current_profile.sync_after_shop(self.player.coins) # Sync and save
                         SaveSystem.save_profile(self.current_profile)
+                    else:
+                        logger.info("Shop closed without any purchase. No save needed.")
                     self.state = GameState.MAIN_MENU
 
             elif self.state == GameState.QUIT_CONFIRM:
@@ -302,10 +308,12 @@ class Game:
                         self.quit_confirm_selected = True # Select YES
                     elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
                         if self.quit_confirm_selected: # YES
+                            # Player chose to quit the level. We should end the game session
+                            # but not penalize their total accumulated coins.
+                            # The correct way to do this is to simply reload the profile,
+                            # discarding any transient changes from the aborted game.
                             if self.current_profile:
-                                self.current_profile.score = 0
-                                self.current_profile.coins = 0
-                                SaveSystem.save_profile(self.current_profile)
+                                self.current_profile = SaveSystem.load_profile(self.current_profile.name)
                             self.all_sprites.empty()
                             self.state = GameState.MAIN_MENU
                         else: # NO
@@ -314,10 +322,9 @@ class Game:
                         self.state = GameState.PLAYING # Cancel
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.quit_yes_rect and self.quit_yes_rect.collidepoint(event.pos):
+                        # Player chose to quit the level.
                         if self.current_profile:
-                            self.current_profile.score = 0
-                            self.current_profile.coins = 0
-                            SaveSystem.save_profile(self.current_profile)
+                            self.current_profile = SaveSystem.load_profile(self.current_profile.name)
                         self.all_sprites.empty()
                         self.state = GameState.MAIN_MENU
                     elif self.quit_no_rect and self.quit_no_rect.collidepoint(event.pos):
@@ -394,10 +401,13 @@ class Game:
         self.player.x = game_config.SCREEN_WIDTH // 2
         self.player.y = game_config.SCREEN_HEIGHT - 100
         
-        # Set coins and score from profile
+        # Reset session state and set coins from profile for the new game
         if self.current_profile:
-            self.player.coins = self.current_profile.coins
-            self.player.score = self.current_profile.score
+            # This correctly starts a new game session, resetting score
+            # and loading the total accumulated coins for the player to use.
+            self.current_profile.start_new_game()
+            self.player.coins = self.current_profile.coins # from start_new_game()
+            self.player.score = self.current_profile.score # from start_new_game()
         
         self.all_sprites.empty()
         self.enemies.empty()
@@ -501,10 +511,11 @@ class Game:
             # Update timer
             if not self.level.update_timer():
                 if self.current_profile:
+                    coins_earned = self.player.coins - self.current_profile.session_start_coins
                     session_time = time.time() - self.session_start_time
                     self.current_profile.end_game(
                         self.player.score,
-                        self.player.coins,
+                        coins_earned,
                         self.current_level,
                         session_time
                     )
@@ -569,8 +580,12 @@ class Game:
                                 enemy.rect.centerx, enemy.rect.centery,
                                 color_config.RED, 30)
                             self.assets.play_sound('explosion', 0.8)
-                            self.player.coins += enemy.coin_value
-                            self.player.score += enemy.score_value
+                            coins_gained = enemy.coin_value
+                            score_gained = enemy.score_value
+                            self.player.coins += coins_gained
+                            self.player.score += score_gained
+                            logger.debug(f"Enemy destroyed. Player gained {coins_gained} coins, {score_gained} score. "
+                                         f"New totals: {self.player.coins} coins, {self.player.score} score.")
                             enemy.kill()
                         else:
                             self.particle_system.emit_explosion(
@@ -580,17 +595,20 @@ class Game:
             # Check player-enemy collisions
             hit_enemies = pygame.sprite.spritecollide(self.player, self.enemies, True)
             for enemy in hit_enemies:
-                self.player.take_damage(30)
+                damage_taken = 30
+                self.player.take_damage(damage_taken)
+                logger.info(f"Player collided with enemy. Took {damage_taken} damage. Health is now {self.player.health}/{self.player.max_health}.")
                 self.particle_system.emit_explosion(
                     enemy.rect.centerx, enemy.rect.centery, color_config.RED, 25)
                 
                 if self.player.health <= 0:
                     self.assets.play_sound('game_over', 0.8)
                     if self.current_profile:
+                        coins_earned = self.player.coins - self.current_profile.session_start_coins
                         session_time = time.time() - self.session_start_time
                         self.current_profile.end_game(
                             self.player.score,
-                            self.player.coins,
+                            coins_earned,
                             self.current_level,
                             session_time
                         )
@@ -605,6 +623,7 @@ class Game:
             # Check player-powerup collisions
             hit_powerups = pygame.sprite.spritecollide(self.player, self.powerups, True)
             for powerup in hit_powerups:
+                logger.info(f"Player collected power-up: '{powerup.power_type}'.")
                 self.player.activate_powerup(powerup.power_type)
                 self.assets.play_sound('powerup', 0.8)
                 self.particle_system.emit_explosion(
@@ -613,6 +632,18 @@ class Game:
             # Check level complete
             if (self.level.enemies_spawned >= self.level.enemies_to_spawn and
                 len(self.enemies) == 0):
+                if self.current_profile:
+                    # This block was missing. It's crucial for saving progress.
+                    coins_earned = self.player.coins - self.current_profile.session_start_coins
+                    session_time = time.time() - self.session_start_time
+                    self.current_profile.end_game(
+                        self.player.score,
+                        coins_earned,
+                        self.current_level,
+                        session_time
+                    )
+                    SaveSystem.save_profile(self.current_profile)
+
                 self.assets.play_sound('level_complete', 0.8)
                 self.state = GameState.LEVEL_COMPLETE
         

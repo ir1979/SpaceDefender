@@ -5,6 +5,9 @@ import json
 import os
 import time
 from typing import List, Optional, Dict, Any
+from .logger import get_logger
+
+logger = get_logger('space_defender.save_system')
 
 class PlayerProfile:
     """Player profile with persistent data
@@ -28,6 +31,7 @@ class PlayerProfile:
         self.current_score = 0
         self.current_coins = 0
         self.current_level = 1
+        self.session_start_coins = 0 # Track coins at the start of a game session
     
     # expose unified property names for easier usage (backward-compatible)
     @property
@@ -73,22 +77,42 @@ class PlayerProfile:
         profile.total_time_played = data.get('total_time_played', 0)
         profile.last_played = data.get('last_played', time.time())
         # Load transient/session state (prefer new keys, fallback to legacy)
-        profile.current_score = data.get('score', data.get('current_score', 0))
+        # When loading a profile from scratch, the session coins should reflect the total
+        # available coins. The 'coins' field in the save file represents a saved
+        # mid-game state, which we can ignore when starting a fresh session from the menu.
+        profile.current_score = 0 # Always start a new session with 0 score
         profile.current_coins = data.get('coins', data.get('current_coins', 0))
+        profile.current_coins = profile.total_coins
         profile.current_level = data.get('current_level', 1)
         return profile
     
     def start_new_game(self):
         self.current_score = 0
-        self.current_coins = 0
+        self.current_coins = self.total_coins  # Start with the total coins from the profile
         self.current_level = 1
+        self.session_start_coins = self.total_coins  # Remember what we started with
         self.games_played += 1
+        logger.info(f"Profile '{self.name}': Starting new game. "
+                    f"Session coins set to {self.current_coins}, session score to 0.")
     
     def end_game(self, score: int, coins: int, level: int, time_played: float):
+        logger.info(f"Profile '{self.name}': Ending game. Adding score: {score}, coins: {coins}.")
+        logger.info(f"  - Before: total_score={self.total_score}, total_coins={self.total_coins}")
         self.total_score += score
         self.total_coins += coins
         self.highest_level = max(self.highest_level, level)
         self.total_time_played += time_played
+        self.last_played = time.time()
+        logger.info(f"  - After: total_score={self.total_score}, total_coins={self.total_coins}")
+
+    def sync_after_shop(self, session_coins: int):
+        """
+        Syncs the profile's state after a shopping session.
+        The session_coins (from player.coins) becomes the new total.
+        """
+        logger.info(f"Profile '{self.name}': Syncing after shop. New total_coins: {session_coins}")
+        self.current_coins = session_coins
+        self.total_coins = session_coins
         self.last_played = time.time()
 
     def apply_purchase(self, cost: int):
@@ -96,6 +120,7 @@ class PlayerProfile:
         Applies the cost of a purchase to the player's totals.
         This is a transactional method that should be followed by a save.
         """
+        logger.debug(f"Profile '{self.name}': Applying purchase cost: {cost}. Current coins: {self.current_coins}")
         if self.current_coins >= cost:
             self.current_coins -= cost
             # Also deduct from total_coins to persist the change immediately
@@ -123,6 +148,7 @@ class SaveSystem:
             
             with open(SaveSystem.SAVE_FILE, 'w') as f:
                 json.dump(data, f, indent=2)
+            logger.info(f"Profile '{profile.name}' saved successfully.")
         except Exception as e:
             print(f"Error saving profile: {e}")
     
@@ -162,6 +188,7 @@ class SaveSystem:
         profile_data = data.get('profiles', {}).get(name)
         if profile_data:
             return PlayerProfile.from_dict(profile_data)
+        logger.warning(f"Attempted to load profile '{name}', but it was not found.")
         return None
 
     @staticmethod
