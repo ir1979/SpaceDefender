@@ -91,6 +91,19 @@ class PlayerProfile:
         self.total_time_played += time_played
         self.last_played = time.time()
 
+    def apply_purchase(self, cost: int):
+        """
+        Applies the cost of a purchase to the player's totals.
+        This is a transactional method that should be followed by a save.
+        """
+        if self.current_coins >= cost:
+            self.current_coins -= cost
+            # Also deduct from total_coins to persist the change immediately
+            self.total_coins -= cost
+            return True
+        return False
+
+
 class SaveSystem:
     """Handle save data"""
     

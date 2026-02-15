@@ -41,7 +41,10 @@ class Shop:
     def handle_input(self, event: pygame.event.Event, player: 'Player') -> bool:
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
-                return True
+                # Return True to signal the shop should be closed and
+                # return to the previous screen (handled in game.py)
+                logger.info("Shop closed via ESC key.")
+                return True # Signal to close the shop
             elif event.key == pygame.K_UP or event.key == pygame.K_w:
                 self.selected_index = (self.selected_index - 1) % len(self.items)
             elif event.key == pygame.K_DOWN or event.key == pygame.K_s:

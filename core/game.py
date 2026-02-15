@@ -64,8 +64,7 @@ class Game:
     """Main game controller"""
     def __init__(self, profile):
         pygame.init()
-        # Fullscreen mode
-        self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT), pygame.FULLSCREEN)
+        self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
         pygame.display.set_caption(game_config.TITLE)
         self.clock = pygame.time.Clock()
         self.running = True
@@ -167,95 +166,12 @@ class Game:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
+                return # Exit early
             
-            # Profile selection state
-            if self.state == GameState.PROFILE_SELECT:
-                if event.type == pygame.KEYDOWN:
-                    if event.key == pygame.K_ESCAPE:
-                        # Skip to main menu with default profile
-                        if not self.profile:
-                            self.profile = SaveSystem.get_profiles()[0] if SaveSystem.get_profiles() else PlayerProfile("Player")
-                            if not SaveSystem.get_profiles():
-                                SaveSystem.save_profile(self.profile)
-                            # Set selected profile and start level based on its highest level
-                            self._apply_profile_start_level(self.profile)
-                        self.state = GameState.MAIN_MENU
-                    elif event.key == pygame.K_n:
-                        # New profile
-                        self.creating_new_profile = True
-                    elif event.unicode.isdigit():
-                        # Select profile by number
-                        idx = int(event.unicode) - 1
-                        profiles = SaveSystem.get_profiles()
-                        if 0 <= idx < len(profiles):
-                            # Apply profile and set starting level to next after best
-                            self._apply_profile_start_level(profiles[idx])
-                            self.state = GameState.MAIN_MENU
-                    elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
-                        # Delete currently hovered/selected profile
-                        profiles = SaveSystem.get_profiles()
-                        if profiles:
-                            # prefer hover index when available
-                            idx = self.profile_input_value if isinstance(self.profile_input_value, int) else self.profile_selected_index
-                            try:
-                                idx = int(idx)
-                            except Exception:
-                                idx = self.profile_selected_index
-                            if 0 <= idx < len(profiles):
-                                self._delete_profile_at_index(idx)
-                
-                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    # Mouse click on profile selection
-                    for box_rect, idx in self.profile_buttons:
-                        if box_rect.collidepoint(event.pos):
-                            profiles = SaveSystem.get_profiles()
-                            if 0 <= idx < len(profiles):
-                                self._apply_profile_start_level(profiles[idx])
-                                self.state = GameState.MAIN_MENU
-                                break
-                    
-                    # Check new profile button
-                    if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
-                        self.creating_new_profile = True
-                
-                elif event.type == pygame.MOUSEMOTION:
-                    # Update profile input value based on mouse hover for visual feedback
-                    for box_rect, idx in self.profile_buttons:
-                        if box_rect.collidepoint(event.pos):
-                            self.profile_input_value = idx
-                            break
+            # --- State-based Event Handling ---
             
-            elif self.state == GameState.SHOP:
-                if self.shop.handle_input(event, self.player):
-                    # Save player coins back to profile before returning to menu
-                    if self.current_profile and self.player:
-                        self.current_profile.coins = self.player.coins
-                        SaveSystem.save_profile(self.current_profile)
-                    self.state = GameState.MAIN_MENU
-            
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_ESCAPE:
-                    # Do NOT exit the game while inside the shop — return to main menu instead
-                    if self.state == GameState.SHOP:
-                        if self.current_profile and self.player:
-                            self.current_profile.coins = self.player.coins
-                            self.current_profile.score = self.player.score
-                            SaveSystem.save_profile(self.current_profile)
-                        self.state = GameState.MAIN_MENU
-                    elif self.state in [GameState.PLAYING, GameState.MAIN_MENU]:
-                        self.running = False
-                elif event.key == pygame.K_p and self.state == GameState.MAIN_MENU:
-                    logger.info("Game started (via keyboard)")
-                    self.init_game()
-                    self.state = GameState.PLAYING
-                elif event.key == pygame.K_m and self.state == GameState.SHOP:
-                    logger.info("Returned to main menu from shop (via keyboard)")
-                    self.state = GameState.MAIN_MENU
-            
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # Mouse click handling
-                if self.state == GameState.SPLASH_SCREEN:
-                    # Mouse click on splash screen - advance only when loading is complete
+            if self.state == GameState.SPLASH_SCREEN:
+                if event.type in [pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN]:
                     if self.splash_ready:
                         if self.existing_profiles:
                             self.state = GameState.PROFILE_SELECT
@@ -265,46 +181,159 @@ class Game:
                                 game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
                                 self.assets.fonts['medium'])
                         self.splash_skipped = True
-                elif self.state == GameState.MAIN_MENU:
-                    # Check menu buttons
-                    for button_rect, action in self.menu_buttons:
-                        if button_rect.collidepoint(event.pos):
-                            if action == "play":
-                                logger.info("Game started (via mouse)")
-                                self.init_game()
-                                self.state = GameState.PLAYING
-                            elif action == "scores":
-                                logger.info("High scores viewed (via mouse)")
-                                self.state = GameState.HIGH_SCORES
-                            elif action == "profile":
-                                logger.info("Profile selection opened (via mouse)")
-                                self.state = GameState.PROFILE_SELECT
-                            elif action == "quit":
-                                logger.info("Game quit (via mouse)")
-                                self.running = False
+            
+            elif self.state == GameState.NAME_INPUT:
+                if self.text_input:
+                    result = self.text_input.handle_event(event)
+                    if result:
+                        profile_name = result.strip()
+                        if profile_name:
+                            if SaveSystem.profile_exists(profile_name):
+                                self.duplicate_profile_error = True
+                                self.duplicate_error_timer = 180 # 3 seconds at 60 FPS
+                            else:
+                                self.profile = PlayerProfile(profile_name)
+                                SaveSystem.save_profile(self.profile)
+                                self._apply_profile_start_level(self.profile)
+                                self.state = GameState.MAIN_MENU
+            
+            if self.state == GameState.PROFILE_SELECT:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        if not self.profile:
+                            self.profile = SaveSystem.get_profiles()[0] if SaveSystem.get_profiles() else PlayerProfile("Player")
+                            if not SaveSystem.get_profiles():
+                                SaveSystem.save_profile(self.profile)
+                            self._apply_profile_start_level(self.profile)
+                        self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_n:
+                        self.creating_new_profile = True
+                        self.state = GameState.NAME_INPUT
+                        self.text_input = TextInput(
+                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                            self.assets.fonts['medium'])
+                    elif event.unicode.isdigit():
+                        idx = int(event.unicode) - 1
+                        profiles = SaveSystem.get_profiles()
+                        if 0 <= idx < len(profiles):
+                            self._apply_profile_start_level(profiles[idx])
+                            self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
+                        profiles = SaveSystem.get_profiles()
+                        if profiles:
+                            idx = self.profile_selected_index
+                            if 0 <= idx < len(profiles):
+                                self._delete_profile_at_index(idx)
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    for box_rect, idx in self.profile_buttons:
+                        if box_rect.collidepoint(event.pos):
+                            profiles = SaveSystem.get_profiles()
+                            if 0 <= idx < len(profiles):
+                                self._apply_profile_start_level(profiles[idx])
+                                self.state = GameState.MAIN_MENU
+                                break
+                    if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
+                        self.creating_new_profile = True
+                        self.state = GameState.NAME_INPUT
+                        self.text_input = TextInput(
+                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                            self.assets.fonts['medium'])
+                
+                elif event.type == pygame.MOUSEMOTION:
+                    for box_rect, idx in self.profile_buttons:
+                        if box_rect.collidepoint(event.pos):
+                            self.profile_selected_index = idx
                             break
-                elif self.state == GameState.PLAYING:
+            
+            elif self.state == GameState.MAIN_MENU:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_UP, pygame.K_w]:
+                        self.menu_selected_index = (self.menu_selected_index - 1) % len(self.menu_buttons)
+                    elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                        self.menu_selected_index = (self.menu_selected_index + 1) % len(self.menu_buttons)
+                    elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                        if self.menu_buttons:
+                            _, action = self.menu_buttons[self.menu_selected_index]
+                            self._handle_menu_action(action)
+                    elif event.key == pygame.K_ESCAPE:
+                        self.running = False
+                elif event.type == pygame.MOUSEMOTION:
+                    mouse_pos = event.pos
+                    for i, (button_rect, action) in enumerate(self.menu_buttons):
+                        if button_rect.collidepoint(mouse_pos):
+                            self.menu_selected_index = i
+                            break
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.menu_buttons:
+                        _, action = self.menu_buttons[self.menu_selected_index]
+                        self._handle_menu_action(action)
+
+            elif self.state == GameState.PLAYING:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_q, pygame.K_ESCAPE]:
+                        self.state = GameState.QUIT_CONFIRM
+                        self.quit_confirm_selected = True # Default to YES
+                    elif event.key == pygame.K_p:
+                        self.state = GameState.PAUSED
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.player:
                         bullets = self.player.shoot()
-                        for bullet in bullets:
-                            self.bullets.add(bullet)
-                            self.all_sprites.add(bullet)
                         if bullets:
+                            self.bullets.add(*bullets)
+                            self.all_sprites.add(*bullets)
                             self.assets.play_sound('shoot', 0.5)
             
-            elif event.type == pygame.MOUSEMOTION and self.state == GameState.MAIN_MENU:
-                # Update button hover state and selection based on mouse position
-                mouse_pos = event.pos
-                menu_item_found = False
-                for i, (button_rect, action) in enumerate(self.menu_buttons):
-                    if button_rect.collidepoint(mouse_pos):
-                        self.menu_selected_index = i
-                        menu_item_found = True
-                        break
-                if self.play_button:
-                    self.play_button_hovered = self.play_button.collidepoint(mouse_pos)
-                if self.shop_button:
-                    self.shop_button_hovered = self.shop_button.collidepoint(mouse_pos)
+            elif self.state == GameState.PAUSED:
+                if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                    self.state = GameState.PLAYING
+
+            elif self.state == GameState.SHOP:
+                if self.shop.handle_input(event, self.player):
+                    if self.current_profile and self.player:
+                        self.current_profile.coins = self.player.coins
+                        SaveSystem.save_profile(self.current_profile)
+                    self.state = GameState.MAIN_MENU
+
+            elif self.state == GameState.QUIT_CONFIRM:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_LEFT, pygame.K_a]:
+                        self.quit_confirm_selected = False # Select NO
+                    elif event.key in [pygame.K_RIGHT, pygame.K_d]:
+                        self.quit_confirm_selected = True # Select YES
+                    elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                        if self.quit_confirm_selected: # YES
+                            if self.current_profile:
+                                self.current_profile.score = 0
+                                self.current_profile.coins = 0
+                                SaveSystem.save_profile(self.current_profile)
+                            self.all_sprites.empty()
+                            self.state = GameState.MAIN_MENU
+                        else: # NO
+                            self.state = GameState.PLAYING
+                    elif event.key == pygame.K_ESCAPE:
+                        self.state = GameState.PLAYING # Cancel
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.quit_yes_rect and self.quit_yes_rect.collidepoint(event.pos):
+                        if self.current_profile:
+                            self.current_profile.score = 0
+                            self.current_profile.coins = 0
+                            SaveSystem.save_profile(self.current_profile)
+                        self.all_sprites.empty()
+                        self.state = GameState.MAIN_MENU
+                    elif self.quit_no_rect and self.quit_no_rect.collidepoint(event.pos):
+                        self.state = GameState.PLAYING
+
+            elif self.state in [GameState.GAME_OVER, GameState.LEVEL_COMPLETE, GameState.HIGH_SCORES]:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                        if self.state == GameState.LEVEL_COMPLETE:
+                            self.current_level += 1
+                            self.init_game()
+                            self.state = GameState.PLAYING
+                        else:
+                            self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_ESCAPE:
+                        self.state = GameState.MAIN_MENU
 
     def update(self):
         # Update UI state
@@ -317,14 +346,6 @@ class Game:
             self.all_sprites.update()
             self.particle_system.update()
             self._update_starfield()
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_SPACE]:
-                bullets = self.player.shoot()
-                for bullet in bullets:
-                    self.bullets.add(bullet)
-                    self.all_sprites.add(bullet)
-                if bullets:  # Only play sound if bullets were created
-                    self.assets.play_sound('shoot', 0.5)
         elif self.state == GameState.SHOP:
             # Shop logic here (UI handled in draw)
             pass
@@ -333,18 +354,26 @@ class Game:
         self.screen.fill(color_config.BLACK)
         self.draw_starfield()
         
-        if self.state == GameState.PROFILE_SELECT:
+        if self.state == GameState.SPLASH_SCREEN:
+            self.draw_splash_screen()
+        elif self.state == GameState.NAME_INPUT:
+            self.draw_name_input()
+        elif self.state == GameState.PROFILE_SELECT:
             self.draw_profile_select()
+        elif self.state == GameState.MAIN_MENU:
+            self.draw_main_menu()
         elif self.state == GameState.PLAYING:
             self.all_sprites.draw(self.screen)
             self.particle_system.draw(self.screen)
             time_remaining = self.level.time_remaining if self.level else 0
             self.hud.draw(self.screen, self.player, self.current_level, time_remaining)
+        elif self.state == GameState.PAUSED:
+            self.all_sprites.draw(self.screen)
+            self.draw_pause_screen()
         elif self.state == GameState.SHOP:
             self.shop.draw(self.screen, self.player)
-        elif self.state == GameState.MAIN_MENU:
-            self.draw_main_menu()
-        
+        elif self.state == GameState.QUIT_CONFIRM:
+            self.draw_quit_confirm()
         pygame.display.flip()
 
     def run(self):
@@ -447,272 +476,16 @@ class Game:
         if self.current_profile:
             # load saved session state so user can continue where they left off
             self.player.coins = self.current_profile.coins
-            self.player.score = self.current_profile.score
-    
-    def handle_events(self):
-        """Handle all game events"""
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.save_and_exit()
-                self.running = False
+            self.player.score = self.current_profile.score    
 
-            # Keyboard events
-            if event.type == pygame.KEYDOWN:
-                if self.state == GameState.SPLASH_SCREEN:
-                    # Only allow advancing splash screen when loading is complete
-                    if self.splash_ready:
-                        if self.existing_profiles:
-                            self.state = GameState.PROFILE_SELECT
-                        else:
-                            self.state = GameState.NAME_INPUT
-                            self.text_input = TextInput(
-                                game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                                self.assets.fonts['medium'])
-
-                elif self.state == GameState.NAME_INPUT:
-                    if self.text_input and self.text_input.handle_event(event):
-                        if self.text_input.text.strip():
-                            profile_name = self.text_input.text.strip()
-                            # Check if profile with this name already exists - only one per name
-                            if SaveSystem.profile_exists(profile_name):
-                                # Profile already exists - show error
-                                self.duplicate_profile_error = True
-                                self.duplicate_error_timer = 120  # Show error for 2 seconds
-                                # Clear the text input for retry
-                                self.text_input.text = ""
-                            else:
-                                # Profile does not exist - create new one
-                                self.current_profile = PlayerProfile(profile_name)
-                                self.current_profile.start_new_game()
-                                SaveSystem.save_profile(self.current_profile)
-                                # New profile: start from its current_level (usually 1)
-                                self.profile = self.current_profile
-                                self.current_level = self.current_profile.current_level
-                                self.state = GameState.MAIN_MENU
-
-                elif self.state == GameState.PROFILE_SELECT:
-                    profiles = SaveSystem.get_profiles()
-                    if event.key == pygame.K_n:
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
-                        self.state = GameState.NAME_INPUT
-                    elif event.key == pygame.K_ESCAPE:
-                        # Preserve current coins/score in the profile when returning to menu
-                        if self.current_profile and self.player:
-                            self.current_profile.coins = self.player.coins
-                            self.current_profile.score = self.player.score
-                            self.current_profile.current_level = self.current_level
-                            SaveSystem.save_profile(self.current_profile)
-                        self.state = GameState.MAIN_MENU
-                    elif event.key == pygame.K_UP or event.key == pygame.K_w:
-                        if profiles:
-                            self.profile_selected_index = (self.profile_selected_index - 1) % len(profiles)
-                    elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                        if profiles:
-                            self.profile_selected_index = (self.profile_selected_index + 1) % len(profiles)
-                    elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
-                        # Delete currently selected profile via keyboard
-                        if profiles:
-                            idx = self.profile_selected_index
-                            if 0 <= idx < len(profiles):
-                                self._delete_profile_at_index(idx)
-                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
-                        if 0 <= self.profile_selected_index < len(profiles):
-                            self._apply_profile_start_level(profiles[self.profile_selected_index])
-                            self.state = GameState.MAIN_MENU
-
-                elif self.state == GameState.MAIN_MENU:
-                    # Navigation via keyboard
-                    if event.key == pygame.K_UP or event.key == pygame.K_w:
-                        if self.menu_buttons:
-                            self.menu_selected_index = (self.menu_selected_index - 1) % len(self.menu_buttons)
-                    elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
-                        if self.menu_buttons:
-                            self.menu_selected_index = (self.menu_selected_index + 1) % len(self.menu_buttons)
-                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
-                        if 0 <= self.menu_selected_index < len(self.menu_buttons):
-                            _, action = self.menu_buttons[self.menu_selected_index]
-                            self._handle_menu_action(action)
-                    elif event.key == pygame.K_h:
-                        self.state = GameState.HIGH_SCORES
-                    elif event.key == pygame.K_p:
-                        self.state = GameState.PROFILE_SELECT
-                    elif event.key == pygame.K_s:
-                        logger.info("Shop opened (via keyboard shortcut)")
-                        self.state = GameState.SHOP
-                    elif event.key == pygame.K_ESCAPE:
-                        self.save_and_exit()
-                        self.running = False
-
-                elif self.state == GameState.PLAYING:
-                    if event.key == pygame.K_p:
-                        self.state = GameState.PAUSED
-                    elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
-                        # Show quit confirmation dialog
-                        logger.info("Quit confirmation dialog opened")
-                        self.quit_confirm_selected = True  # Default to Yes
-                        self.state = GameState.QUIT_CONFIRM
-
-                elif self.state == GameState.PAUSED:
-                    if event.key == pygame.K_p or event.key == pygame.K_ESCAPE:
-                        self.level.start_time = time.time() - (self.level.time_limit - self.level.time_remaining)
-                        self.state = GameState.PLAYING
-
-                elif self.state == GameState.SHOP:
-                    if self.shop.handle_input(event, self.player):
-                        if self.current_profile:
-                            self.current_profile.coins = self.player.coins
-                            SaveSystem.save_profile(self.current_profile)
-                        self.state = GameState.PLAYING
-
-                elif self.state == GameState.LEVEL_COMPLETE:
-                    if event.key == pygame.K_RETURN:
-                        self.current_level += 1
-                        self.player.coins += game_config.LEVEL_COIN_BONUS
-
-                        if self.current_profile:
-                            self.current_profile.coins = self.player.coins
-                            self.current_profile.score = self.player.score
-                            self.current_profile.current_level = self.current_level
-                            SaveSystem.save_profile(self.current_profile)
-
-                        self.init_game()
-                        self.state = GameState.PLAYING
-                    elif event.key == pygame.K_ESCAPE:
-                        self.state = GameState.MAIN_MENU
-
-                elif self.state == GameState.GAME_OVER:
-                    if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
-                        if self.current_profile:
-                            session_time = time.time() - self.session_start_time
-                            self.current_profile.end_game(
-                                self.player.score, 
-                                self.player.coins,
-                                self.current_level,
-                                session_time
-                            )
-                            SaveSystem.save_profile(self.current_profile)
-                            SaveSystem.save_high_score(
-                                self.current_profile,
-                                self.player.score,
-                                self.current_level
-                            )
-
-                        self.current_level = 1
-                        if self.current_profile:
-                            self.current_profile.start_new_game()
-                            # Ensure game starts at profile's current level after ending a session
-                            self.current_level = self.current_profile.current_level
-                        self.state = GameState.MAIN_MENU
-
-                elif self.state == GameState.HIGH_SCORES:
-                    if event.key == pygame.K_ESCAPE:
-                        self.state = GameState.MAIN_MENU
-
-                elif self.state == GameState.QUIT_CONFIRM:
-                    if event.key == pygame.K_LEFT or event.key == pygame.K_a:
-                        self.quit_confirm_selected = False  # Select No
-                    elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
-                        self.quit_confirm_selected = True  # Select Yes
-                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
-                        if self.quit_confirm_selected:
-                            # Yes - quit and reset coins
-                            logger.info("Quit confirmed - coins reset")
-                            if self.current_profile:
-                                SaveSystem.save_profile(self.current_profile)
-                            self.all_sprites.empty()
-                            self.enemies.empty()
-                            self.bullets.empty()
-                            self.powerups.empty()
-                            self.player = None
-                            self.state = GameState.MAIN_MENU
-                        else:
-                            # No - return to game
-                            logger.info("Quit cancelled - resume playing")
-                            self.state = GameState.PLAYING
-                    elif event.key == pygame.K_ESCAPE:
-                        # ESC cancels confirmation and returns to game
-                        self.state = GameState.PLAYING
-
-            # Mouse click handling (left-click)
-            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if self.state == GameState.MAIN_MENU:
-                    # Click menu buttons (new unified handling)
-                    for button_rect, action in self.menu_buttons:
-                        if button_rect.collidepoint(event.pos):
-                            self._handle_menu_action(action)
-                            break
-                elif self.state == GameState.PROFILE_SELECT:
-                    # Mouse click on profile selection
-                    profiles = SaveSystem.get_profiles()
-                    for box_rect, idx in self.profile_buttons:
-                        if box_rect.collidepoint(event.pos):
-                            if 0 <= idx < len(profiles):
-                                self._apply_profile_start_level(profiles[idx])
-                                self.state = GameState.MAIN_MENU
-                                break
-                    
-                    # Check new profile button
-                    if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
-                        self.state = GameState.NAME_INPUT
-                elif self.state == GameState.PLAYING:
-                    if self.player:
-                        bullets = self.player.shoot()
-                        for bullet in bullets:
-                            self.bullets.add(bullet)
-                            self.all_sprites.add(bullet)
-                            self.particle_system.emit_trail(
-                                bullet.rect.centerx, bullet.rect.centery, color_config.YELLOW)
-                        if bullets:
-                            self.assets.play_sound('shoot', 0.5)
-                elif self.state == GameState.QUIT_CONFIRM:
-                    # Mouse click on Yes/No buttons
-                    if hasattr(self, 'quit_yes_rect') and self.quit_yes_rect.collidepoint(event.pos):
-                        # Yes button clicked - quit confirmed
-                        logger.info("Quit confirmed - coins reset")
-                        if self.current_profile:
-                            SaveSystem.save_profile(self.current_profile)
-                        self.all_sprites.empty()
-                        self.enemies.empty()
-                        self.bullets.empty()
-                        self.powerups.empty()
-                        self.player = None
-                        self.state = GameState.MAIN_MENU
-                    elif hasattr(self, 'quit_no_rect') and self.quit_no_rect.collidepoint(event.pos):
-                        # No button clicked - cancel quit
-                        logger.info("Quit cancelled - resume playing")
-                        self.state = GameState.PLAYING
-
-            # Mouse motion for hover effects and selection synchronization
-            elif event.type == pygame.MOUSEMOTION:
-                mouse_pos = event.pos
-                if self.state == GameState.MAIN_MENU:
-                    # Update selection based on hover over menu buttons
-                    for i, (button_rect, action) in enumerate(self.menu_buttons):
-                        if button_rect.collidepoint(mouse_pos):
-                            self.menu_selected_index = i
-                            break
-                    if self.play_button:
-                        self.play_button_hovered = self.play_button.collidepoint(mouse_pos)
-                    if self.shop_button:
-                        self.shop_button_hovered = self.shop_button.collidepoint(mouse_pos)
-                elif self.state == GameState.PROFILE_SELECT:
-                    # Update profile selection on hover
-                    for box_rect, idx in self.profile_buttons:
-                        if box_rect.collidepoint(mouse_pos):
-                            self.profile_selected_index = idx
-                            break
-    
     def save_and_exit(self):
         if self.current_profile and self.player:
             self.current_profile.coins = self.player.coins
             self.current_profile.score = self.player.score
             self.current_profile.current_level = self.current_level
             SaveSystem.save_profile(self.current_profile)
+        logger.info("Game saved and exiting.")
+        self.running = False
     
     def update(self):
         """Update game state"""

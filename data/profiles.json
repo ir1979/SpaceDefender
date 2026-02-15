@@ -2,16 +2,16 @@
   "profiles": {
     "Reza": {
       "name": "Reza",
-      "total_score": 134022,
-      "total_coins": 7788,
+      "total_score": 134251,
+      "total_coins": 7990,
       "highest_level": 13,
       "games_played": 9,
-      "total_time_played": 945.4967706203461,
-      "last_played": 1770912335.9927738,
+      "total_time_played": 977.1910502910614,
+      "last_played": 1771130030.7571058,
       "score": 0,
-      "coins": 179,
+      "coins": 0,
       "current_score": 0,
-      "current_coins": 179,
+      "current_coins": 0,
       "current_level": 1
     },
     "Said": {
@@ -21,7 +21,12 @@
       "highest_level": 1,
       "games_played": 1,
       "total_time_played": 0,
-      "last_played": 1770728540.657011
+      "last_played": 1770728540.657011,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1
     },
     "Test": {
       "name": "Test",

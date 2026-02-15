@@ -46,6 +46,5 @@ def setup_logging():
 
 def get_logger(name='space_defender'):
     """Get the game logger"""
-    logger = logging.getLogger(name)
-    logger.propagate = True  # Ensure messages propagate to root logger
-    return logger
+    # logging.getLogger handles instance management and propagation by default.
+    return logging.getLogger(name)
