@@ -335,21 +335,6 @@ class Game:
                     elif event.key == pygame.K_ESCAPE:
                         self.state = GameState.MAIN_MENU
 
-    def update(self):
-        # Update UI state
-        if self.duplicate_error_timer > 0:
-            self.duplicate_error_timer -= 1
-            if self.duplicate_error_timer == 0:
-                self.duplicate_profile_error = False
-        
-        if self.state == GameState.PLAYING:
-            self.all_sprites.update()
-            self.particle_system.update()
-            self._update_starfield()
-        elif self.state == GameState.SHOP:
-            # Shop logic here (UI handled in draw)
-            pass
-
     def draw(self):
         self.screen.fill(color_config.BLACK)
         self.draw_starfield()
@@ -376,14 +361,6 @@ class Game:
             self.draw_quit_confirm()
         pygame.display.flip()
 
-    def run(self):
-        while self.running:
-            self.update()
-            self.handle_events()
-            self.draw()
-            self.clock.tick(game_config.FPS)
-        pygame.quit()
-    
     def create_starfield(self) -> List[Tuple[int, int, int]]:
         stars = []
         for _ in range(100):
@@ -489,6 +466,12 @@ class Game:
     
     def update(self):
         """Update game state"""
+        # Update UI state timer
+        if self.duplicate_error_timer > 0:
+            self.duplicate_error_timer -= 1
+            if self.duplicate_error_timer == 0:
+                self.duplicate_profile_error = False
+
         if self.state == GameState.SPLASH_SCREEN:
             # Play background music once
             if not self.background_music_playing:
@@ -1162,10 +1145,10 @@ class Game:
     def run(self):
         """Main game loop"""
         while self.running:
-            self.clock.tick(game_config.FPS)
             self.handle_events()
             self.update()
             self.draw()
+            self.clock.tick(game_config.FPS)
         
         pygame.quit()
 

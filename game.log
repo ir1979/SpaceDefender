@@ -1,32 +1,12 @@
-2026-02-15 08:08:13 - space_defender - INFO - [logger.py:41] - ================================================================================
-2026-02-15 08:08:13 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
-2026-02-15 08:08:13 - space_defender - INFO - [logger.py:43] - ================================================================================
-2026-02-15 08:08:13 - space_defender - INFO - [main.py:20] - Starting Space Defender...
-2026-02-15 08:08:23 - space_defender.game - INFO - [game.py:1179] - Shop opened (via menu)
-2026-02-15 08:08:29 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Speed +1', index=2, cost=80, level=0, max_level=999
-2026-02-15 08:08:29 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 179, can_afford: True, level_ok: True
-2026-02-15 08:08:29 - space_defender.shop - INFO - [menus.py:90] - ✓ Purchase approved: Speed +1 for 80 coins
-2026-02-15 08:08:29 - space_defender.shop - INFO - [menus.py:103] -   -> Speed increased to 7
-2026-02-15 08:08:29 - space_defender.shop - INFO - [menus.py:114] -   -> Item level: 1, New cost: 120
-2026-02-15 08:08:33 - space_defender.shop - INFO - [menus.py:46] - Shop closed via ESC key.
-2026-02-15 08:08:34 - space_defender.game - INFO - [game.py:1175] - Game started (via menu)
-2026-02-15 08:08:48 - space_defender.game - INFO - [game.py:1179] - Shop opened (via menu)
-2026-02-15 08:08:51 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Heal 50 HP', index=4, cost=60, level=0, max_level=999
-2026-02-15 08:08:51 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 0, can_afford: False, level_ok: True
-2026-02-15 08:08:51 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Heal 50 HP - insufficient coins
-2026-02-15 08:08:51 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Heal 50 HP', index=4, cost=60, level=0, max_level=999
-2026-02-15 08:08:51 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 0, can_afford: False, level_ok: True
-2026-02-15 08:08:51 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Heal 50 HP - insufficient coins
-2026-02-15 08:08:52 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Heal 50 HP', index=4, cost=60, level=0, max_level=999
-2026-02-15 08:08:52 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 0, can_afford: False, level_ok: True
-2026-02-15 08:08:52 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Heal 50 HP - insufficient coins
-2026-02-15 08:08:52 - space_defender.shop - INFO - [menus.py:46] - Shop closed via ESC key.
-2026-02-15 08:08:55 - space_defender.game - INFO - [game.py:1191] - Profile selection (via menu)
-2026-02-15 08:08:58 - space_defender.game - INFO - [game.py:1175] - Game started (via menu)
-2026-02-15 08:10:04 - space_defender.game - INFO - [game.py:1179] - Shop opened (via menu)
-2026-02-15 08:10:10 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Fire Rate +2', index=3, cost=90, level=0, max_level=999
-2026-02-15 08:10:10 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 0, can_afford: False, level_ok: True
-2026-02-15 08:10:10 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Fire Rate +2 - insufficient coins
-2026-02-15 08:10:13 - space_defender.shop - INFO - [menus.py:46] - Shop closed via ESC key.
-2026-02-15 08:10:15 - space_defender.game - INFO - [game.py:1188] - High scores viewed (via menu)
-2026-02-15 08:10:19 - space_defender.game - INFO - [game.py:1194] - Game quit (via menu)
+2026-02-15 08:20:19 - space_defender - INFO - [logger.py:41] - ================================================================================
+2026-02-15 08:20:19 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
+2026-02-15 08:20:19 - space_defender - INFO - [logger.py:43] - ================================================================================
+2026-02-15 08:20:19 - space_defender - INFO - [main.py:20] - Starting Space Defender...
+2026-02-15 08:20:27 - space_defender.game - INFO - [game.py:1158] - Game started (via menu)
+2026-02-15 08:21:40 - space_defender.game - INFO - [game.py:1162] - Shop opened (via menu)
+2026-02-15 08:21:42 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Fire Rate +2', index=3, cost=90, level=0, max_level=999
+2026-02-15 08:21:42 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 0, can_afford: False, level_ok: True
+2026-02-15 08:21:42 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Fire Rate +2 - insufficient coins
+2026-02-15 08:21:42 - space_defender.shop - INFO - [menus.py:46] - Shop closed via ESC key.
+2026-02-15 08:21:43 - space_defender.game - INFO - [game.py:1158] - Game started (via menu)
+2026-02-15 08:21:59 - space_defender.game - INFO - [game.py:1177] - Game quit (via menu)

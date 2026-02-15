@@ -2,12 +2,12 @@
   "profiles": {
     "Reza": {
       "name": "Reza",
-      "total_score": 134251,
-      "total_coins": 7990,
+      "total_score": 136548,
+      "total_coins": 8220,
       "highest_level": 13,
       "games_played": 9,
-      "total_time_played": 977.1910502910614,
-      "last_played": 1771130030.7571058,
+      "total_time_played": 1044.3441469669342,
+      "last_played": 1771131094.3385923,
       "score": 0,
       "coins": 0,
       "current_score": 0,
@@ -89,15 +89,15 @@
     },
     {
       "name": "Reza",
-      "score": 2184,
+      "score": 2297,
       "level": 13,
-      "timestamp": 1770912326.3716757
+      "timestamp": 1771131094.340065
     },
     {
       "name": "Reza",
       "score": 2184,
       "level": 13,
-      "timestamp": 1770912336.0083206
+      "timestamp": 1770912326.3716757
     }
   ]
 }
