@@ -6,6 +6,9 @@ import math
 from typing import TYPE_CHECKING, List
 from config.settings import color_config, game_config
 from systems.save_system import SaveSystem
+from systems.logger import get_logger
+
+logger = get_logger('space_defender.shop')
 
 if TYPE_CHECKING:
     from systems.asset_manager import AssetManager
@@ -24,57 +27,95 @@ class Shop:
     def create_shop_items(self):
         return [
             {'name': 'Max Health +20', 'cost': 75, 'description': 'Increase maximum health', 
-             'effect': 'max_health', 'level': 0, 'max_level': 5, 'base_cost': 75},
+             'effect': 'max_health', 'level': 0, 'max_level': 999, 'base_cost': 75},
             {'name': 'Damage +10', 'cost': 100, 'description': 'Increase bullet damage',
-             'effect': 'damage', 'level': 0, 'max_level': 5, 'base_cost': 100},
+             'effect': 'damage', 'level': 0, 'max_level': 999, 'base_cost': 100},
             {'name': 'Speed +1', 'cost': 80, 'description': 'Increase movement speed',
-             'effect': 'speed', 'level': 0, 'max_level': 5, 'base_cost': 80},
+             'effect': 'speed', 'level': 0, 'max_level': 999, 'base_cost': 80},
             {'name': 'Fire Rate +2', 'cost': 90, 'description': 'Shoot faster',
-             'effect': 'fire_rate', 'level': 0, 'max_level': 5, 'base_cost': 90},
+             'effect': 'fire_rate', 'level': 0, 'max_level': 999, 'base_cost': 90},
             {'name': 'Heal 50 HP', 'cost': 60, 'description': 'Restore health',
              'effect': 'heal', 'level': 0, 'max_level': 999, 'base_cost': 60}
         ]
     
     def handle_input(self, event: pygame.event.Event, player: 'Player') -> bool:
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_ESCAPE or event.key == pygame.K_s:
+            if event.key == pygame.K_ESCAPE:
                 return True
             elif event.key == pygame.K_UP or event.key == pygame.K_w:
                 self.selected_index = (self.selected_index - 1) % len(self.items)
-            elif event.key == pygame.K_DOWN:
+            elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
                 self.selected_index = (self.selected_index + 1) % len(self.items)
             elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                 self.purchase(self.selected_index, player)
+        elif event.type == pygame.MOUSEMOTION:
+            # Update selection based on mouse hover (only one active at a time)
+            for i, rect in enumerate(self.item_rects):
+                if rect.collidepoint(event.pos):
+                    self.selected_index = i
+                    break
         elif event.type == pygame.MOUSEBUTTONDOWN:
             # Check if mouse clicked on a shop item
             if event.button == 1:  # Left click
                 for i, rect in enumerate(self.item_rects):
                     if rect.collidepoint(event.pos):
-                        self.selected_index = i
-                        self.purchase(i, player)
+                        # Single click selects, second click purchases
+                        if self.selected_index == i:
+                            self.purchase(i, player)
+                        else:
+                            self.selected_index = i
+                            # play a selection sound for feedback if available
+                            try:
+                                self.assets.play_sound('menu_select', 0.6)
+                            except Exception:
+                                pass
                         break
         return False
     
     def purchase(self, index: int, player: 'Player'):
         item = self.items[index]
+        logger.debug(f"Purchase attempt: item='{item['name']}', index={index}, cost={item['cost']}, level={item['level']}, max_level={item['max_level']}")
+        logger.debug(f"Player coins: {player.coins}, can_afford: {player.coins >= item['cost']}, level_ok: {item['level'] < item['max_level']}")
+        
         if player.coins >= item['cost'] and item['level'] < item['max_level']:
+            # Special condition for 'heal' item: only allow if not at max health
+            if item['effect'] == 'heal' and player.health >= player.max_health:
+                logger.warning(f"✗ Purchase denied: {item['name']} - already at max health")
+                self.assets.play_sound('error', 0.7)
+                return
+
+            logger.info(f"✓ Purchase approved: {item['name']} for {item['cost']} coins")
             player.coins -= item['cost']
             self.assets.play_sound('shop_purchase', 0.7)
             
             if item['effect'] == 'max_health':
                 player.max_health += 20
                 player.health = player.max_health
+                logger.info(f"  -> Max Health increased to {player.max_health}, Health restored to {player.health}")
             elif item['effect'] == 'damage':
                 player.damage += 10
+                logger.info(f"  -> Damage increased to {player.damage}")
             elif item['effect'] == 'speed':
                 player.speed = min(player.speed + 1, 12)
+                logger.info(f"  -> Speed increased to {player.speed}")
             elif item['effect'] == 'fire_rate':
                 player.fire_rate = max(player.fire_rate - 2, 3)
+                logger.info(f"  -> Fire Rate improved to {player.fire_rate}")
             elif item['effect'] == 'heal':
+                old_health = player.health
                 player.health = min(player.health + 50, player.max_health)
+                logger.info(f"  -> Health restored: {old_health} -> {player.health}")
             
             item['level'] += 1
             item['cost'] = int(item['base_cost'] * (1.5 ** item['level']))
+            logger.info(f"  -> Item level: {item['level']}, New cost: {item['cost']}")
+        else:
+            # Play an error sound for denied purchases
+            self.assets.play_sound('error', 0.7)
+            reason = "insufficient coins" if player.coins < item['cost'] \
+                     else ("max level reached" if item['effect'] != 'heal' else "already at max health")
+            logger.warning(f"✗ Purchase denied: {item['name']} - {reason}")
+
     
     def draw(self, surface: pygame.Surface, player: 'Player'):
         overlay = pygame.Surface((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
@@ -117,7 +158,7 @@ class Shop:
             y_offset += 80
         
         instructions = self.assets.fonts['small'].render(
-            "Click/↑↓: Navigate | ENTER/Click: Purchase | ESC: Exit",
+            "Click once: Select | Click again/ENTER: Purchase | ↑↓: Navigate | ESC: Exit",
             True, color_config.UI_TEXT)
         instructions_rect = instructions.get_rect(
             center=(game_config.SCREEN_WIDTH // 2, panel_y + panel_height - 30))

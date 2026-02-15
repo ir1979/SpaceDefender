@@ -6,10 +6,23 @@ import random
 import math
 import time
 from typing import List, Tuple
+import os
+import sys
+# Allow running this file directly (python core/game.py) by adding project
+# root to sys.path when executed as a script. Prefer running via `main.py`
+# or `python -m core.game` during development.
+if __name__ == "__main__" and __package__ is None:
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
 from config.settings import GameState, game_config, color_config
 from systems import ParticleSystem, SaveSystem, PlayerProfile, AssetManager
+from systems.logger import get_logger
 from entities import Player, EnemyFactory, BulletFactory, PowerUp
 from ui import HUD, Shop, TextInput
+
+logger = get_logger('space_defender.game')
 
 class Level:
     """Level manager"""
@@ -51,11 +64,15 @@ class Game:
     """Main game controller"""
     def __init__(self, profile):
         pygame.init()
-        self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+        # Fullscreen mode
+        self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT), pygame.FULLSCREEN)
         pygame.display.set_caption(game_config.TITLE)
         self.clock = pygame.time.Clock()
         self.running = True
-        self.state = GameState.MAIN_MENU
+        
+        # Always start with splash screen
+        self.state = GameState.SPLASH_SCREEN
+        
         self.profile = profile
         self.current_profile = profile  # backward compatibility with older code
         self.session_start_time = time.time()
@@ -65,6 +82,10 @@ class Game:
         self.assets = AssetManager()
         EnemyFactory.load_configs('data/enemies.json')
         BulletFactory.load_configs('data/weapons.json')
+        
+        # Set asset manager for shape rendering (sprite fallback support)
+        from entities.base_entity import ShapeRenderer
+        ShapeRenderer.set_asset_manager(self.assets)
 
         # Game objects
         self.player = None
@@ -87,44 +108,181 @@ class Game:
         self.shop_button = None
         self.play_button_hovered = False
         self.shop_button_hovered = False
+        self.menu_buttons = []
+        self.menu_selected_index = 0  # Track selected menu item (only one active)
+        
+        # Profile selection UI
+        self.profile_buttons = []
+        self.new_profile_button = None
+        self.profile_input = None
+        self.creating_new_profile = False
+        self.profile_input_value = ""
+        self.profile_selected_index = 0  # Track selected profile (only one active)
+        self.duplicate_profile_error = False  # Track duplicate profile name error
+        self.duplicate_error_timer = 0  # Timer to show error message
+        
+        # Quit confirmation UI
+        self.quit_confirm_selected = True  # True = Yes, False = No (default Yes)
+
+        # Splash screen
+        self.splash_timer = 0
+        self.splash_loading_timer = 0  # Slow loading progression timer
+        self.splash_duration = 999999  # Very long - wait for user input instead
+        self.splash_fade_in = 30
+        self.splash_fade_out = 30
+        self.splash_skipped = False  # Track if splash was skipped
+        self.loading_items = []
+        self.loading_progress = 0
+        self.loading_items_total = 0
+        self.background_music_playing = False
+        self.splash_ready = False  # Flag to show "press to continue" message
+        self.text1 = ""
 
         # Background
         self.stars = self.create_starfield()
 
-        self._init_game()
+        # Initialize loading items list
+        self._init_loading_list()
+
+    def _init_loading_list(self):
+        """Create list of items to load during splash screen"""
+        self.loading_items = [
+            "Initializing core systems...",
+            "Loading fonts and assets...",
+            "Loading sound effects...",
+            "Loading sprites...",
+            "Loading enemy configurations...",
+            "Loading weapon configurations...",
+            "Preparing game world...",
+        ]
+        self.loading_items_total = len(self.loading_items)
 
     def _init_game(self):
-        self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
-        self.player.coins = self.profile.current_coins
-        self.all_sprites.add(self.player)
-        self.enemies.empty()
-        self.bullets.empty()
-        self.powerups.empty()
-        self.level = Level(self.current_level)
+        """Legacy method for profile-based game initialization. Routes to init_game()."""
+        if self.profile:
+            self.current_profile = self.profile
+        self.init_game()
 
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 self.running = False
-            if self.state == GameState.SHOP:
+            
+            # Profile selection state
+            if self.state == GameState.PROFILE_SELECT:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        # Skip to main menu with default profile
+                        if not self.profile:
+                            self.profile = SaveSystem.get_profiles()[0] if SaveSystem.get_profiles() else PlayerProfile("Player")
+                            if not SaveSystem.get_profiles():
+                                SaveSystem.save_profile(self.profile)
+                            # Set selected profile and start level based on its highest level
+                            self._apply_profile_start_level(self.profile)
+                        self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_n:
+                        # New profile
+                        self.creating_new_profile = True
+                    elif event.unicode.isdigit():
+                        # Select profile by number
+                        idx = int(event.unicode) - 1
+                        profiles = SaveSystem.get_profiles()
+                        if 0 <= idx < len(profiles):
+                            # Apply profile and set starting level to next after best
+                            self._apply_profile_start_level(profiles[idx])
+                            self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
+                        # Delete currently hovered/selected profile
+                        profiles = SaveSystem.get_profiles()
+                        if profiles:
+                            # prefer hover index when available
+                            idx = self.profile_input_value if isinstance(self.profile_input_value, int) else self.profile_selected_index
+                            try:
+                                idx = int(idx)
+                            except Exception:
+                                idx = self.profile_selected_index
+                            if 0 <= idx < len(profiles):
+                                self._delete_profile_at_index(idx)
+                
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    # Mouse click on profile selection
+                    for box_rect, idx in self.profile_buttons:
+                        if box_rect.collidepoint(event.pos):
+                            profiles = SaveSystem.get_profiles()
+                            if 0 <= idx < len(profiles):
+                                self._apply_profile_start_level(profiles[idx])
+                                self.state = GameState.MAIN_MENU
+                                break
+                    
+                    # Check new profile button
+                    if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
+                        self.creating_new_profile = True
+                
+                elif event.type == pygame.MOUSEMOTION:
+                    # Update profile input value based on mouse hover for visual feedback
+                    for box_rect, idx in self.profile_buttons:
+                        if box_rect.collidepoint(event.pos):
+                            self.profile_input_value = idx
+                            break
+            
+            elif self.state == GameState.SHOP:
                 if self.shop.handle_input(event, self.player):
+                    # Save player coins back to profile before returning to menu
+                    if self.current_profile and self.player:
+                        self.current_profile.coins = self.player.coins
+                        SaveSystem.save_profile(self.current_profile)
                     self.state = GameState.MAIN_MENU
+            
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_ESCAPE:
-                    self.running = False
-                elif event.key == pygame.K_s and self.state == GameState.PLAYING:
-                    self.state = GameState.SHOP
+                    # Do NOT exit the game while inside the shop — return to main menu instead
+                    if self.state == GameState.SHOP:
+                        if self.current_profile and self.player:
+                            self.current_profile.coins = self.player.coins
+                            self.current_profile.score = self.player.score
+                            SaveSystem.save_profile(self.current_profile)
+                        self.state = GameState.MAIN_MENU
+                    elif self.state in [GameState.PLAYING, GameState.MAIN_MENU]:
+                        self.running = False
                 elif event.key == pygame.K_p and self.state == GameState.MAIN_MENU:
+                    logger.info("Game started (via keyboard)")
+                    self.init_game()
                     self.state = GameState.PLAYING
                 elif event.key == pygame.K_m and self.state == GameState.SHOP:
+                    logger.info("Returned to main menu from shop (via keyboard)")
                     self.state = GameState.MAIN_MENU
+            
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 # Mouse click handling
-                if self.state == GameState.MAIN_MENU:
-                    if self.play_button and self.play_button.collidepoint(event.pos):
-                        self.state = GameState.PLAYING
-                    elif self.shop_button and self.shop_button.collidepoint(event.pos):
-                        self.state = GameState.SHOP
+                if self.state == GameState.SPLASH_SCREEN:
+                    # Mouse click on splash screen - advance only when loading is complete
+                    if self.splash_ready:
+                        if self.existing_profiles:
+                            self.state = GameState.PROFILE_SELECT
+                        else:
+                            self.state = GameState.NAME_INPUT
+                            self.text_input = TextInput(
+                                game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                                self.assets.fonts['medium'])
+                        self.splash_skipped = True
+                elif self.state == GameState.MAIN_MENU:
+                    # Check menu buttons
+                    for button_rect, action in self.menu_buttons:
+                        if button_rect.collidepoint(event.pos):
+                            if action == "play":
+                                logger.info("Game started (via mouse)")
+                                self.init_game()
+                                self.state = GameState.PLAYING
+                            elif action == "scores":
+                                logger.info("High scores viewed (via mouse)")
+                                self.state = GameState.HIGH_SCORES
+                            elif action == "profile":
+                                logger.info("Profile selection opened (via mouse)")
+                                self.state = GameState.PROFILE_SELECT
+                            elif action == "quit":
+                                logger.info("Game quit (via mouse)")
+                                self.running = False
+                            break
                 elif self.state == GameState.PLAYING:
                     if self.player:
                         bullets = self.player.shoot()
@@ -133,15 +291,28 @@ class Game:
                             self.all_sprites.add(bullet)
                         if bullets:
                             self.assets.play_sound('shoot', 0.5)
+            
             elif event.type == pygame.MOUSEMOTION and self.state == GameState.MAIN_MENU:
-                # Update button hover state
+                # Update button hover state and selection based on mouse position
                 mouse_pos = event.pos
+                menu_item_found = False
+                for i, (button_rect, action) in enumerate(self.menu_buttons):
+                    if button_rect.collidepoint(mouse_pos):
+                        self.menu_selected_index = i
+                        menu_item_found = True
+                        break
                 if self.play_button:
                     self.play_button_hovered = self.play_button.collidepoint(mouse_pos)
                 if self.shop_button:
                     self.shop_button_hovered = self.shop_button.collidepoint(mouse_pos)
 
     def update(self):
+        # Update UI state
+        if self.duplicate_error_timer > 0:
+            self.duplicate_error_timer -= 1
+            if self.duplicate_error_timer == 0:
+                self.duplicate_profile_error = False
+        
         if self.state == GameState.PLAYING:
             self.all_sprites.update()
             self.particle_system.update()
@@ -160,8 +331,11 @@ class Game:
 
     def draw(self):
         self.screen.fill(color_config.BLACK)
-        self._draw_starfield()
-        if self.state == GameState.PLAYING:
+        self.draw_starfield()
+        
+        if self.state == GameState.PROFILE_SELECT:
+            self.draw_profile_select()
+        elif self.state == GameState.PLAYING:
             self.all_sprites.draw(self.screen)
             self.particle_system.draw(self.screen)
             time_remaining = self.level.time_remaining if self.level else 0
@@ -169,28 +343,8 @@ class Game:
         elif self.state == GameState.SHOP:
             self.shop.draw(self.screen, self.player)
         elif self.state == GameState.MAIN_MENU:
-            font = self.assets.get_font('large')
-            text = font.render("Space Defender", True, color_config.WHITE)
-            self.screen.blit(text, (game_config.SCREEN_WIDTH//2 - 200, 100))
-            menu_font = self.assets.get_font('medium')
-            
-            # Draw Play button
-            play_color = color_config.CYAN if self.play_button_hovered else color_config.YELLOW
-            play_text = menu_font.render("Press P to Play", True, play_color)
-            play_rect = play_text.get_rect(center=(game_config.SCREEN_WIDTH//2, 250))
-            # Add padding for clickable area
-            self.play_button = play_rect.inflate(100, 30)
-            pygame.draw.rect(self.screen, play_color, self.play_button, 2)
-            self.screen.blit(play_text, play_rect)
-            
-            # Draw Shop button
-            shop_color = color_config.CYAN if self.shop_button_hovered else color_config.CYAN
-            shop_text = menu_font.render("Press S for Shop", True, shop_color)
-            shop_rect = shop_text.get_rect(center=(game_config.SCREEN_WIDTH//2, 320))
-            # Add padding for clickable area
-            self.shop_button = shop_rect.inflate(100, 30)
-            pygame.draw.rect(self.screen, shop_color, self.shop_button, 2)
-            self.screen.blit(shop_text, shop_rect)
+            self.draw_main_menu()
+        
         pygame.display.flip()
 
     def run(self):
@@ -225,12 +379,19 @@ class Game:
             pygame.draw.circle(self.screen, color, (int(x), int(y)), size)
     def init_game(self):
         """Initialize game state"""
-        self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
+        # Only create player if it doesn't exist yet
+        if not self.player:
+            self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
+        
+        # Reset player for new game while preserving upgrades
+        self.player.health = self.player.max_health
+        self.player.x = game_config.SCREEN_WIDTH // 2
+        self.player.y = game_config.SCREEN_HEIGHT - 100
         
         # Set coins and score from profile
         if self.current_profile:
-            self.player.coins = self.current_profile.current_coins
-            self.player.score = self.current_profile.current_score
+            self.player.coins = self.current_profile.coins
+            self.player.score = self.current_profile.score
         
         self.all_sprites.empty()
         self.enemies.empty()
@@ -240,6 +401,53 @@ class Game:
         self.all_sprites.add(self.player)
         self.level = Level(self.current_level)
         self.session_start_time = time.time()
+
+    def _delete_profile_at_index(self, idx: int):
+        """Delete profile at given index from saved profiles and update UI state."""
+        profiles = SaveSystem.get_profiles()
+        if not profiles or idx < 0 or idx >= len(profiles):
+            return False
+        name = profiles[idx].name
+        if SaveSystem.delete_profile(name):
+            logger.info(f"Profile deleted: {name}")
+            # Refresh internal lists
+            self.existing_profiles = SaveSystem.get_profiles()
+            # Adjust selected index
+            if self.existing_profiles:
+                self.profile_selected_index = min(idx, len(self.existing_profiles) - 1)
+            else:
+                # No profiles left - prompt for new name
+                self.profile = None
+                self.current_profile = None
+                self.creating_new_profile = True
+                self.state = GameState.NAME_INPUT
+                self.text_input = TextInput(
+                    game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                    self.assets.fonts['medium'])
+            return True
+        return False
+
+    def _apply_profile_start_level(self, profile: 'PlayerProfile'):
+        """Apply a selected profile and set the next starting level based
+        on the profile's best (highest_level) value. Also initialize the player.
+        """
+        try:
+            next_level = int(getattr(profile, 'highest_level', 1)) 
+        except Exception:
+            next_level = 1
+        self.profile = profile
+        self.current_profile = profile
+        self.current_level = max(1, next_level)
+        
+        # Ensure a Player instance exists for this profile
+        if not self.player or self.player is None:
+            self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
+
+        # Always sync player's transient state (coins/score) from the selected profile
+        if self.current_profile:
+            # load saved session state so user can continue where they left off
+            self.player.coins = self.current_profile.coins
+            self.player.score = self.current_profile.score
     
     def handle_events(self):
         """Handle all game events"""
@@ -247,90 +455,133 @@ class Game:
             if event.type == pygame.QUIT:
                 self.save_and_exit()
                 self.running = False
-            
+
+            # Keyboard events
             if event.type == pygame.KEYDOWN:
                 if self.state == GameState.SPLASH_SCREEN:
-                    if self.existing_profiles:
-                        self.state = GameState.PROFILE_SELECT
-                    else:
-                        self.state = GameState.NAME_INPUT
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
-                
+                    # Only allow advancing splash screen when loading is complete
+                    if self.splash_ready:
+                        if self.existing_profiles:
+                            self.state = GameState.PROFILE_SELECT
+                        else:
+                            self.state = GameState.NAME_INPUT
+                            self.text_input = TextInput(
+                                game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                                self.assets.fonts['medium'])
+
                 elif self.state == GameState.NAME_INPUT:
                     if self.text_input and self.text_input.handle_event(event):
                         if self.text_input.text.strip():
-                            self.current_profile = PlayerProfile(self.text_input.text.strip())
-                            self.current_profile.start_new_game()
-                            SaveSystem.save_profile(self.current_profile)
-                            self.state = GameState.MAIN_MENU
-                
+                            profile_name = self.text_input.text.strip()
+                            # Check if profile with this name already exists - only one per name
+                            if SaveSystem.profile_exists(profile_name):
+                                # Profile already exists - show error
+                                self.duplicate_profile_error = True
+                                self.duplicate_error_timer = 120  # Show error for 2 seconds
+                                # Clear the text input for retry
+                                self.text_input.text = ""
+                            else:
+                                # Profile does not exist - create new one
+                                self.current_profile = PlayerProfile(profile_name)
+                                self.current_profile.start_new_game()
+                                SaveSystem.save_profile(self.current_profile)
+                                # New profile: start from its current_level (usually 1)
+                                self.profile = self.current_profile
+                                self.current_level = self.current_profile.current_level
+                                self.state = GameState.MAIN_MENU
+
                 elif self.state == GameState.PROFILE_SELECT:
+                    profiles = SaveSystem.get_profiles()
                     if event.key == pygame.K_n:
                         self.text_input = TextInput(
                             game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
                             self.assets.fonts['medium'])
                         self.state = GameState.NAME_INPUT
                     elif event.key == pygame.K_ESCAPE:
+                        # Preserve current coins/score in the profile when returning to menu
+                        if self.current_profile and self.player:
+                            self.current_profile.coins = self.player.coins
+                            self.current_profile.score = self.player.score
+                            self.current_profile.current_level = self.current_level
+                            SaveSystem.save_profile(self.current_profile)
                         self.state = GameState.MAIN_MENU
-                    else:
-                        profiles = SaveSystem.get_profiles()
-                        try:
-                            index = int(event.unicode) - 1
-                            if 0 <= index < len(profiles):
-                                self.current_profile = profiles[index]
-                                self.current_profile.start_new_game()
-                                self.state = GameState.MAIN_MENU
-                        except:
-                            pass
-                
+                    elif event.key == pygame.K_UP or event.key == pygame.K_w:
+                        if profiles:
+                            self.profile_selected_index = (self.profile_selected_index - 1) % len(profiles)
+                    elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                        if profiles:
+                            self.profile_selected_index = (self.profile_selected_index + 1) % len(profiles)
+                    elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
+                        # Delete currently selected profile via keyboard
+                        if profiles:
+                            idx = self.profile_selected_index
+                            if 0 <= idx < len(profiles):
+                                self._delete_profile_at_index(idx)
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                        if 0 <= self.profile_selected_index < len(profiles):
+                            self._apply_profile_start_level(profiles[self.profile_selected_index])
+                            self.state = GameState.MAIN_MENU
+
                 elif self.state == GameState.MAIN_MENU:
-                    if event.key == pygame.K_RETURN:
-                        self.init_game()
-                        self.state = GameState.PLAYING
+                    # Navigation via keyboard
+                    if event.key == pygame.K_UP or event.key == pygame.K_w:
+                        if self.menu_buttons:
+                            self.menu_selected_index = (self.menu_selected_index - 1) % len(self.menu_buttons)
+                    elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
+                        if self.menu_buttons:
+                            self.menu_selected_index = (self.menu_selected_index + 1) % len(self.menu_buttons)
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                        if 0 <= self.menu_selected_index < len(self.menu_buttons):
+                            _, action = self.menu_buttons[self.menu_selected_index]
+                            self._handle_menu_action(action)
                     elif event.key == pygame.K_h:
                         self.state = GameState.HIGH_SCORES
                     elif event.key == pygame.K_p:
                         self.state = GameState.PROFILE_SELECT
+                    elif event.key == pygame.K_s:
+                        logger.info("Shop opened (via keyboard shortcut)")
+                        self.state = GameState.SHOP
                     elif event.key == pygame.K_ESCAPE:
                         self.save_and_exit()
                         self.running = False
-                
+
                 elif self.state == GameState.PLAYING:
                     if event.key == pygame.K_p:
                         self.state = GameState.PAUSED
-                    elif event.key == pygame.K_s:
-                        self.state = GameState.SHOP
-                
+                    elif event.key == pygame.K_q or event.key == pygame.K_ESCAPE:
+                        # Show quit confirmation dialog
+                        logger.info("Quit confirmation dialog opened")
+                        self.quit_confirm_selected = True  # Default to Yes
+                        self.state = GameState.QUIT_CONFIRM
+
                 elif self.state == GameState.PAUSED:
                     if event.key == pygame.K_p or event.key == pygame.K_ESCAPE:
                         self.level.start_time = time.time() - (self.level.time_limit - self.level.time_remaining)
                         self.state = GameState.PLAYING
-                
+
                 elif self.state == GameState.SHOP:
                     if self.shop.handle_input(event, self.player):
                         if self.current_profile:
-                            self.current_profile.current_coins = self.player.coins
+                            self.current_profile.coins = self.player.coins
                             SaveSystem.save_profile(self.current_profile)
                         self.state = GameState.PLAYING
-                
+
                 elif self.state == GameState.LEVEL_COMPLETE:
                     if event.key == pygame.K_RETURN:
                         self.current_level += 1
                         self.player.coins += game_config.LEVEL_COIN_BONUS
-                        
+
                         if self.current_profile:
-                            self.current_profile.current_coins = self.player.coins
-                            self.current_profile.current_score = self.player.score
+                            self.current_profile.coins = self.player.coins
+                            self.current_profile.score = self.player.score
                             self.current_profile.current_level = self.current_level
                             SaveSystem.save_profile(self.current_profile)
-                        
+
                         self.init_game()
                         self.state = GameState.PLAYING
                     elif event.key == pygame.K_ESCAPE:
                         self.state = GameState.MAIN_MENU
-                
+
                 elif self.state == GameState.GAME_OVER:
                     if event.key == pygame.K_RETURN or event.key == pygame.K_ESCAPE:
                         if self.current_profile:
@@ -347,25 +598,67 @@ class Game:
                                 self.player.score,
                                 self.current_level
                             )
-                        
+
                         self.current_level = 1
                         if self.current_profile:
                             self.current_profile.start_new_game()
+                            # Ensure game starts at profile's current level after ending a session
+                            self.current_level = self.current_profile.current_level
                         self.state = GameState.MAIN_MENU
-                
+
                 elif self.state == GameState.HIGH_SCORES:
                     if event.key == pygame.K_ESCAPE:
                         self.state = GameState.MAIN_MENU
 
+                elif self.state == GameState.QUIT_CONFIRM:
+                    if event.key == pygame.K_LEFT or event.key == pygame.K_a:
+                        self.quit_confirm_selected = False  # Select No
+                    elif event.key == pygame.K_RIGHT or event.key == pygame.K_d:
+                        self.quit_confirm_selected = True  # Select Yes
+                    elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+                        if self.quit_confirm_selected:
+                            # Yes - quit and reset coins
+                            logger.info("Quit confirmed - coins reset")
+                            if self.current_profile:
+                                SaveSystem.save_profile(self.current_profile)
+                            self.all_sprites.empty()
+                            self.enemies.empty()
+                            self.bullets.empty()
+                            self.powerups.empty()
+                            self.player = None
+                            self.state = GameState.MAIN_MENU
+                        else:
+                            # No - return to game
+                            logger.info("Quit cancelled - resume playing")
+                            self.state = GameState.PLAYING
+                    elif event.key == pygame.K_ESCAPE:
+                        # ESC cancels confirmation and returns to game
+                        self.state = GameState.PLAYING
+
             # Mouse click handling (left-click)
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if self.state == GameState.MAIN_MENU:
-                    # Click play or shop buttons
-                    if self.play_button and self.play_button.collidepoint(event.pos):
-                        self.init_game()
-                        self.state = GameState.PLAYING
-                    elif self.shop_button and self.shop_button.collidepoint(event.pos):
-                        self.state = GameState.SHOP
+                    # Click menu buttons (new unified handling)
+                    for button_rect, action in self.menu_buttons:
+                        if button_rect.collidepoint(event.pos):
+                            self._handle_menu_action(action)
+                            break
+                elif self.state == GameState.PROFILE_SELECT:
+                    # Mouse click on profile selection
+                    profiles = SaveSystem.get_profiles()
+                    for box_rect, idx in self.profile_buttons:
+                        if box_rect.collidepoint(event.pos):
+                            if 0 <= idx < len(profiles):
+                                self._apply_profile_start_level(profiles[idx])
+                                self.state = GameState.MAIN_MENU
+                                break
+                    
+                    # Check new profile button
+                    if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
+                        self.text_input = TextInput(
+                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                            self.assets.fonts['medium'])
+                        self.state = GameState.NAME_INPUT
                 elif self.state == GameState.PLAYING:
                     if self.player:
                         bullets = self.player.shoot()
@@ -376,35 +669,73 @@ class Game:
                                 bullet.rect.centerx, bullet.rect.centery, color_config.YELLOW)
                         if bullets:
                             self.assets.play_sound('shoot', 0.5)
+                elif self.state == GameState.QUIT_CONFIRM:
+                    # Mouse click on Yes/No buttons
+                    if hasattr(self, 'quit_yes_rect') and self.quit_yes_rect.collidepoint(event.pos):
+                        # Yes button clicked - quit confirmed
+                        logger.info("Quit confirmed - coins reset")
+                        if self.current_profile:
+                            SaveSystem.save_profile(self.current_profile)
+                        self.all_sprites.empty()
+                        self.enemies.empty()
+                        self.bullets.empty()
+                        self.powerups.empty()
+                        self.player = None
+                        self.state = GameState.MAIN_MENU
+                    elif hasattr(self, 'quit_no_rect') and self.quit_no_rect.collidepoint(event.pos):
+                        # No button clicked - cancel quit
+                        logger.info("Quit cancelled - resume playing")
+                        self.state = GameState.PLAYING
 
-            # Mouse motion for hover effects in main menu
-            elif event.type == pygame.MOUSEMOTION and self.state == GameState.MAIN_MENU:
+            # Mouse motion for hover effects and selection synchronization
+            elif event.type == pygame.MOUSEMOTION:
                 mouse_pos = event.pos
-                if self.play_button:
-                    self.play_button_hovered = self.play_button.collidepoint(mouse_pos)
-                if self.shop_button:
-                    self.shop_button_hovered = self.shop_button.collidepoint(mouse_pos)
+                if self.state == GameState.MAIN_MENU:
+                    # Update selection based on hover over menu buttons
+                    for i, (button_rect, action) in enumerate(self.menu_buttons):
+                        if button_rect.collidepoint(mouse_pos):
+                            self.menu_selected_index = i
+                            break
+                    if self.play_button:
+                        self.play_button_hovered = self.play_button.collidepoint(mouse_pos)
+                    if self.shop_button:
+                        self.shop_button_hovered = self.shop_button.collidepoint(mouse_pos)
+                elif self.state == GameState.PROFILE_SELECT:
+                    # Update profile selection on hover
+                    for box_rect, idx in self.profile_buttons:
+                        if box_rect.collidepoint(mouse_pos):
+                            self.profile_selected_index = idx
+                            break
     
     def save_and_exit(self):
         if self.current_profile and self.player:
-            self.current_profile.current_coins = self.player.coins
-            self.current_profile.current_score = self.player.score
+            self.current_profile.coins = self.player.coins
+            self.current_profile.score = self.player.score
             self.current_profile.current_level = self.current_level
             SaveSystem.save_profile(self.current_profile)
     
     def update(self):
         """Update game state"""
         if self.state == GameState.SPLASH_SCREEN:
-            self.splash_timer += 1
-            if self.splash_timer >= self.splash_duration:
-                if self.existing_profiles:
-                    self.state = GameState.PROFILE_SELECT
-                else:
-                    self.state = GameState.NAME_INPUT
-                    self.text_input = TextInput(
-                        game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                        self.assets.fonts['medium'])
-                self.splash_timer = 0
+            # Play background music once
+            if not self.background_music_playing:
+                self.assets.play_sound('splash', 0.2)  # Soft background music
+                self.background_music_playing = True
+            
+            # Speed up loading progress (reduced wait time)
+            # Shorter splash: ~3 seconds at 30 FPS
+            if self.splash_loading_timer < 90:  # ~3 seconds at 30 FPS
+                self.splash_loading_timer += 1
+                self.loading_progress = min(
+                    int((self.splash_loading_timer / 90) * self.loading_items_total),
+                    self.loading_items_total - 1
+                )
+            else:
+                # Loading complete
+                self.splash_ready = True
+                self.loading_progress = self.loading_items_total
+            
+            self.splash_timer += 2
             return
         
         if self.state == GameState.NAME_INPUT and self.text_input:
@@ -434,15 +765,16 @@ class Game:
             self.all_sprites.update()
             self.particle_system.update()
             
-            # Player shooting
-            keys = pygame.key.get_pressed()
-            if keys[pygame.K_SPACE]:
-                new_bullets = self.player.shoot()
-                for bullet in new_bullets:
-                    self.bullets.add(bullet)
-                    self.all_sprites.add(bullet)
-                    self.particle_system.emit_trail(
-                        bullet.rect.centerx, bullet.rect.centery, color_config.YELLOW)
+            # Player shooting (guard against null player after state change)
+            if self.player:
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_SPACE]:
+                    new_bullets = self.player.shoot()
+                    for bullet in new_bullets:
+                        self.bullets.add(bullet)
+                        self.all_sprites.add(bullet)
+                        self.particle_system.emit_trail(
+                            bullet.rect.centerx, bullet.rect.centery, color_config.YELLOW)
             
             # Spawn enemies
             if self.level.should_spawn_enemy():
@@ -577,92 +909,155 @@ class Game:
         elif self.state == GameState.HIGH_SCORES:
             self.draw_high_scores()
         
+        elif self.state == GameState.QUIT_CONFIRM:
+            if self.player:
+                self.all_sprites.draw(self.screen)
+                for enemy in self.enemies:
+                    enemy.draw_health_bar(self.screen)
+                self.particle_system.draw(self.screen)
+                self.draw_quit_confirm()
+        
         pygame.display.flip()
     
     def draw_splash_screen(self):
-        """Draw splash screen"""
-        alpha = 255
-        if self.splash_timer < self.splash_fade_in:
-            alpha = int(255 * (self.splash_timer / self.splash_fade_in))
-        elif self.splash_timer > (self.splash_duration - self.splash_fade_out):
-            remaining = self.splash_duration - self.splash_timer
-            alpha = int(255 * (remaining / self.splash_fade_out))
-        
+        """Draw elegant splash screen with background image and loading progress"""
         center_x = game_config.SCREEN_WIDTH // 2
         center_y = game_config.SCREEN_HEIGHT // 2
         
-        # Animated circles
+        # Draw background image
+        splash_image = self.assets.get_splash_image()
+        if splash_image:
+            self.screen.blit(splash_image, (0, 0))
+        
+        # Semi-transparent overlay for better text readability
+        overlay = pygame.Surface((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+        overlay.fill(color_config.BLACK)
+        overlay.set_alpha(120)
+        self.screen.blit(overlay, (0, 0))
+        
+        # Draw animated decorative elements
         for i in range(3):
-            radius = 50 + (i * 30) + int(math.sin(self.splash_timer * 0.05 + i) * 10)
-            circle_alpha = max(0, alpha - (i * 50))
+            radius = 80 + (i * 40) + int(math.sin(self.splash_timer * 0.03 + i) * 15)
+            circle_alpha = max(0, 40 - (i * 15))
             circle_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(circle_surface, (*color_config.CYAN, circle_alpha // 3), 
-                             (radius, radius), radius, 3)
-            circle_rect = circle_surface.get_rect(center=(center_x, center_y))
+            pygame.draw.circle(circle_surface, (*color_config.CYAN, circle_alpha), 
+                             (radius, radius), radius, 2)
+            circle_rect = circle_surface.get_rect(center=(center_x, center_y - 100))
             self.screen.blit(circle_surface, circle_rect)
         
+        # Draw game logo - procedural spaceship design
+        ship_points = [
+            (center_x, center_y - 180),  # Top point
+            (center_x - 25, center_y - 130),  # Left wing
+            (center_x - 18, center_y - 115),  # Left inner
+            (center_x - 12, center_y - 100),  # Left tail
+            (center_x, center_y - 85),  # Bottom
+            (center_x + 12, center_y - 100),  # Right tail
+            (center_x + 18, center_y - 115),  # Right inner
+            (center_x + 25, center_y - 130),  # Right wing
+        ]
+        
+        # Draw glowing spaceship
+        # for offset in [(3, 3), (-3, -3)]:
+        #     glow_points = [(x + offset[0], y + offset[1]) for x, y in ship_points]
+        #     pygame.draw.polygon(self.screen, (*color_config.CYAN, 60), glow_points)
+        
+        # pygame.draw.polygon(self.screen, color_config.CYAN, ship_points, 3)
+        # pygame.draw.polygon(self.screen, color_config.WHITE, ship_points)
+        
         # Title
-        title_text = "SPACE DEFENDER"
+        
+        
+        # if self.splash_timer < 10:
+        #     self.text1 = " SPACE DEFENDER *"
+        # elif self.splash_timer % 10 == 0:
+        #     self.text1 = self.text1[1:] + self.text1[0] # "SPACE DEFENDER"
+        # title_text = self.text1
+
+        title_text = "SPACE DEFENDER" 
+
+
+
         title_font = self.assets.fonts['title']
         
+        # Glow effect for title
         for offset in [(2, 2), (-2, -2), (2, -2), (-2, 2)]:
             glow_surface = title_font.render(title_text, True, color_config.CYAN)
-            glow_surface.set_alpha(alpha // 4)
-            glow_rect = glow_surface.get_rect(
-                center=(center_x + offset[0], center_y - 100 + offset[1]))
+            glow_surface.set_alpha(40)
+            glow_rect = glow_surface.get_rect(center=(center_x + offset[0], center_y + 20 + offset[1]))
             self.screen.blit(glow_surface, glow_rect)
         
         title_surface = title_font.render(title_text, True, color_config.WHITE)
-        title_surface.set_alpha(alpha)
-        title_rect = title_surface.get_rect(center=(center_x, center_y - 100))
+        title_rect = title_surface.get_rect(center=(center_x, center_y + 20))
         self.screen.blit(title_surface, title_rect)
         
-        # Line
-        line_width = 400
-        line_y = center_y - 20
-        pygame.draw.line(self.screen, (*color_config.CYAN, alpha),
-                        (center_x - line_width // 2, line_y),
-                        (center_x + line_width // 2, line_y), 3)
+        # Subtitle
+        subtitle = self.assets.fonts['medium'].render("Defend Against Invaders", True, color_config.CYAN)
+        subtitle_rect = subtitle.get_rect(center=(center_x, center_y + 70))
+        self.screen.blit(subtitle, subtitle_rect)
         
-        # Creator
-        created_by = "Created by"
-        created_surface = self.assets.fonts['medium'].render(created_by, True, color_config.UI_TEXT)
-        created_surface.set_alpha(alpha)
-        created_rect = created_surface.get_rect(center=(center_x, center_y + 40))
-        self.screen.blit(created_surface, created_rect)
+        # Loading section
+        loading_bar_width = 450
+        loading_bar_height = 25
+        loading_bar_x = center_x - loading_bar_width // 2
+        loading_bar_y = center_y + 150
         
-        # Name
-        name_text = "Ali Mortazavi"
-        name_font = self.assets.fonts['large']
+        # Loading label
+        loading_label = self.assets.fonts['medium'].render("LOADING...", True, color_config.CYAN)
+        loading_label_rect = loading_label.get_rect(center=(center_x, loading_bar_y - 50))
+        self.screen.blit(loading_label, loading_label_rect)
         
-        for offset in [(1, 1), (-1, -1), (1, -1), (-1, 1)]:
-            name_glow = name_font.render(name_text, True, color_config.CYAN)
-            name_glow.set_alpha(alpha // 3)
-            name_glow_rect = name_glow.get_rect(
-                center=(center_x + offset[0], center_y + 100 + offset[1]))
-            self.screen.blit(name_glow, name_glow_rect)
+        # Draw loading bar background with gradient border
+        pygame.draw.rect(self.screen, color_config.CYAN, 
+                        (loading_bar_x - 2, loading_bar_y - 2, loading_bar_width + 4, loading_bar_height + 4), 3)
+        pygame.draw.rect(self.screen, (30, 30, 60), 
+                        (loading_bar_x, loading_bar_y, loading_bar_width, loading_bar_height))
         
-        name_surface = name_font.render(name_text, True, color_config.CYAN)
-        name_surface.set_alpha(alpha)
-        name_rect = name_surface.get_rect(center=(center_x, center_y + 100))
-        self.screen.blit(name_surface, name_rect)
+        # Draw progress bar with animation
+        progress_width = int((self.loading_progress / max(1, self.loading_items_total)) * loading_bar_width)
+        if progress_width > 0:
+            # Draw progress fill
+            pygame.draw.rect(self.screen, color_config.GREEN, 
+                            (loading_bar_x, loading_bar_y, progress_width, loading_bar_height))
+            # Add shimmer effect
+            shimmer_x = int((self.splash_timer % 60) / 60 * loading_bar_width)
+            if 0 <= shimmer_x < loading_bar_width:
+                pygame.draw.line(self.screen, color_config.WHITE,
+                               (loading_bar_x + shimmer_x, loading_bar_y),
+                               (loading_bar_x + shimmer_x, loading_bar_y + loading_bar_height), 2)
         
-        # Year
-        year_text = "2026"
-        year_surface = self.assets.fonts['small'].render(year_text, True, color_config.UI_TEXT)
-        year_surface.set_alpha(alpha)
-        year_rect = year_surface.get_rect(center=(center_x, center_y + 150))
-        self.screen.blit(year_surface, year_rect)
+        # Loading percentage text
+        progress_percentage = int((self.loading_progress / max(1, self.loading_items_total)) * 100)
+        progress_text = self.assets.fonts['large'].render(f"{progress_percentage}%", True, color_config.YELLOW)
+        progress_rect = progress_text.get_rect(center=(loading_bar_x + loading_bar_width // 2, 
+                                                       loading_bar_y + loading_bar_height + 35))
+        self.screen.blit(progress_text, progress_rect)
         
-        # Skip hint
-        if self.splash_timer > self.splash_fade_in:
-            skip_text = "Press any key to continue"
-            skip_surface = self.assets.fonts['small'].render(skip_text, True, color_config.WHITE)
-            skip_alpha = int(alpha * (0.5 + 0.5 * math.sin(self.splash_timer * 0.1)))
-            skip_surface.set_alpha(skip_alpha)
-            skip_rect = skip_surface.get_rect(
-                center=(center_x, game_config.SCREEN_HEIGHT - 80))
-            self.screen.blit(skip_surface, skip_rect)
+        # Current loading item
+        if 0 <= self.loading_progress - 1 < len(self.loading_items):
+            current_item = self.loading_items[self.loading_progress - 1]
+        else:
+            current_item = "Finalizing..."
+        
+        loading_text = self.assets.fonts['small'].render(current_item, True, color_config.UI_TEXT)
+        loading_rect = loading_text.get_rect(center=(center_x, loading_bar_y - 25))
+        self.screen.blit(loading_text, loading_rect)
+        
+        # Press to continue hint - only show when loading is complete
+        if self.splash_ready:
+            continue_text = "Click or press any key to continue..."
+            continue_surface = self.assets.fonts['medium'].render(continue_text, True, color_config.YELLOW)
+            continue_alpha = int(200 + 55 * math.sin(self.splash_timer * 0.08))  # Pulsing effect
+            continue_surface.set_alpha(continue_alpha)
+            continue_rect = continue_surface.get_rect(center=(center_x, game_config.SCREEN_HEIGHT - 80))
+            self.screen.blit(continue_surface, continue_rect)
+        
+        # Creator info
+        created_text = self.assets.fonts['tiny'].render(
+            "Created by Ali Mortazavi • Shahid Beheshti School • 2026", True, color_config.UI_TEXT)
+        created_text.set_alpha(150)
+        created_rect = created_text.get_rect(center=(center_x, game_config.SCREEN_HEIGHT - 20))
+        self.screen.blit(created_text, created_rect)
     
     def draw_name_input(self):
         """Draw name input screen"""
@@ -672,6 +1067,13 @@ class Game:
         
         if self.text_input:
             self.text_input.draw(self.screen)
+        
+        # Display duplicate profile error message if active
+        if self.duplicate_profile_error:
+            error_text = self.assets.fonts['medium'].render(
+                "Profile already exists! Try a different name.", True, color_config.RED)
+            error_rect = error_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 350))
+            self.screen.blit(error_text, error_rect)
         
         hint = self.assets.fonts['small'].render(
             "Press ENTER when done", True, color_config.UI_TEXT)
@@ -686,34 +1088,69 @@ class Game:
         
         profiles = SaveSystem.get_profiles()
         y_offset = 200
+        mouse_pos = pygame.mouse.get_pos()
+        
+        # Clear and rebuild profile button list
+        self.profile_buttons = []
         
         for i, profile in enumerate(profiles[:5]):
             box_rect = pygame.Rect(200, y_offset, 624, 80)
-            pygame.draw.rect(self.screen, color_config.UI_BG, box_rect)
-            pygame.draw.rect(self.screen, color_config.UI_BORDER, box_rect, 2)
+            self.profile_buttons.append((box_rect, i))
+            
+            # Check if mouse is hovering over this profile and update selection
+            if box_rect.collidepoint(mouse_pos):
+                self.profile_selected_index = i
+            
+            # Only this profile is selected/highlighted (only one active at a time)
+            is_selected = (i == self.profile_selected_index)
+            
+            # Draw background with highlight if selected
+            if is_selected:
+                pygame.draw.rect(self.screen, color_config.CYAN, box_rect)
+                pygame.draw.rect(self.screen, color_config.WHITE, box_rect, 3)
+            else:
+                pygame.draw.rect(self.screen, color_config.UI_BG, box_rect)
+                pygame.draw.rect(self.screen, color_config.UI_BORDER, box_rect, 2)
+            
+            # Text color based on selection
+            text_color = color_config.BLACK if is_selected else color_config.WHITE
+            num_color = color_config.BLACK if is_selected else color_config.YELLOW
             
             num_text = f"{i + 1}."
-            num_surface = self.assets.fonts['medium'].render(num_text, True, color_config.YELLOW)
+            num_surface = self.assets.fonts['medium'].render(num_text, True, num_color)
             self.screen.blit(num_surface, (220, y_offset + 10))
             
-            name_surface = self.assets.fonts['medium'].render(profile.name, True, color_config.WHITE)
+            name_surface = self.assets.fonts['medium'].render(profile.name, True, text_color)
             self.screen.blit(name_surface, (280, y_offset + 10))
             
             stats_text = f"Lvl {profile.highest_level} | Score: {profile.total_score} | Coins: {profile.total_coins}"
-            stats_surface = self.assets.fonts['small'].render(stats_text, True, color_config.UI_TEXT)
+            stats_surface = self.assets.fonts['small'].render(stats_text, True, text_color)
             self.screen.blit(stats_surface, (280, y_offset + 45))
             
             y_offset += 100
         
-        new_profile = self.assets.fonts['medium'].render(
-            "N - New Profile", True, color_config.GREEN)
-        new_rect = new_profile.get_rect(center=(game_config.SCREEN_WIDTH // 2, y_offset + 50))
+        # New Profile button
+        new_profile_rect = pygame.Rect(250, y_offset + 30, 524, 60)
+        self.new_profile_button = new_profile_rect
+        new_hovered = new_profile_rect.collidepoint(mouse_pos)
+        
+        if new_hovered:
+            pygame.draw.rect(self.screen, color_config.GREEN, new_profile_rect)
+            pygame.draw.rect(self.screen, color_config.WHITE, new_profile_rect, 3)
+            new_profile_color = color_config.BLACK
+        else:
+            pygame.draw.rect(self.screen, color_config.UI_BG, new_profile_rect)
+            pygame.draw.rect(self.screen, color_config.GREEN, new_profile_rect, 2)
+            new_profile_color = color_config.GREEN
+        
+        new_profile = self.assets.fonts['medium'].render("N - New Profile", True, new_profile_color)
+        new_rect = new_profile.get_rect(center=new_profile_rect.center)
         self.screen.blit(new_profile, new_rect)
         
         hint = self.assets.fonts['small'].render(
-            "Press number to select profile | ESC to skip",
+            "Click profile or press 1-5 to select | N for new | ESC to skip",
             True, color_config.UI_TEXT)
-        hint_rect = hint.get_rect(center=(game_config.SCREEN_WIDTH // 2, y_offset + 100))
+        hint_rect = hint.get_rect(center=(game_config.SCREEN_WIDTH // 2, y_offset + 130))
         self.screen.blit(hint, hint_rect)
     
     def draw_main_menu(self):
@@ -735,17 +1172,37 @@ class Game:
             stats_rect = stats.get_rect(center=(game_config.SCREEN_WIDTH // 2, 290))
             self.screen.blit(stats, stats_rect)
         
+        # Get mouse position for hover detection
+        mouse_pos = pygame.mouse.get_pos()
+        
+        # Menu options with positions
         options = [
-            ("PRESS ENTER TO START", 380),
-            ("H - HIGH SCORES", 450),
-            ("P - CHANGE PROFILE", 520),
-            ("ESC - QUIT", 590)
+            ("PRESS ENTER TO START", 380, pygame.K_RETURN, "play"),
+            ("S - SHOP", 430, pygame.K_s, "shop"),
+            ("H - HIGH SCORES", 480, pygame.K_h, "scores"),
+            ("P - CHANGE PROFILE", 530, pygame.K_p, "profile"),
+            ("ESC - QUIT", 580, pygame.K_ESCAPE, "quit")
         ]
         
-        for text, y in options:
+        # Store button rects for mouse detection
+        self.menu_buttons = []
+        
+        for idx, (text, y, key, action) in enumerate(options):
             surface = self.assets.fonts['medium'].render(text, True, color_config.WHITE)
             rect = surface.get_rect(center=(game_config.SCREEN_WIDTH // 2, y))
+            button_rect = rect.inflate(300, 40)  # Add padding for clickable area
+            
+            # Check if this is the selected item (only one active at a time)
+            is_selected = (idx == self.menu_selected_index)
+            
+            # Draw button background if selected
+            if is_selected:
+                pygame.draw.rect(self.screen, color_config.CYAN, button_rect)
+                surface = self.assets.fonts['medium'].render(text, True, color_config.BLACK)
+            
+            rect = surface.get_rect(center=(game_config.SCREEN_WIDTH // 2, y))
             self.screen.blit(surface, rect)
+            self.menu_buttons.append((button_rect, action))
     
     def draw_pause_screen(self):
         """Draw pause overlay"""
@@ -762,6 +1219,64 @@ class Game:
             "Press P to Continue", True, color_config.WHITE)
         continue_rect = continue_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 400))
         self.screen.blit(continue_text, continue_rect)
+    
+    def draw_quit_confirm(self):
+        """Draw quit confirmation dialog with warning and Yes/No buttons"""
+        overlay = pygame.Surface((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+        overlay.fill(color_config.BLACK)
+        overlay.set_alpha(180)
+        self.screen.blit(overlay, (0, 0))
+        
+        # Title
+        title_text = self.assets.fonts['title'].render("QUIT GAME?", True, color_config.RED)
+        title_rect = title_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 200))
+        self.screen.blit(title_text, title_rect)
+        
+        # Warning message
+        warning = self.assets.fonts['medium'].render(
+            "Score and coins will be reset and lost!", True, color_config.YELLOW)
+        warning_rect = warning.get_rect(center=(game_config.SCREEN_WIDTH // 2, 280))
+        self.screen.blit(warning, warning_rect)
+        
+        # Button dimensions
+        button_width = 120
+        button_height = 50
+        button_y = 380
+        button_spacing = 150
+        
+        yes_x = game_config.SCREEN_WIDTH // 2 - button_spacing
+        no_x = game_config.SCREEN_WIDTH // 2 + button_spacing
+        
+        # Store button rects for mouse click handling
+        self.quit_yes_rect = pygame.Rect(yes_x - button_width // 2, button_y - button_height // 2,
+                                         button_width, button_height)
+        self.quit_no_rect = pygame.Rect(no_x - button_width // 2, button_y - button_height // 2,
+                                        button_width, button_height)
+        
+        # Draw buttons with selection highlight
+        yes_color = color_config.GREEN if self.quit_confirm_selected else (60, 60, 60)
+        no_color = color_config.RED if not self.quit_confirm_selected else (60, 60, 60)
+        
+        # Yes button
+        pygame.draw.rect(self.screen, yes_color, self.quit_yes_rect)
+        pygame.draw.rect(self.screen, color_config.WHITE, self.quit_yes_rect, 2)
+        yes_text = self.assets.fonts['medium'].render("YES", True, color_config.WHITE)
+        yes_text_rect = yes_text.get_rect(center=self.quit_yes_rect.center)
+        self.screen.blit(yes_text, yes_text_rect)
+        
+        # No button
+        pygame.draw.rect(self.screen, no_color, self.quit_no_rect)
+        pygame.draw.rect(self.screen, color_config.WHITE, self.quit_no_rect, 2)
+        no_text = self.assets.fonts['medium'].render("NO", True, color_config.WHITE)
+        no_text_rect = no_text.get_rect(center=self.quit_no_rect.center)
+        self.screen.blit(no_text, no_text_rect)
+        
+        # Instructions
+        instructions = self.assets.fonts['small'].render(
+            "LEFT/A: No  |  RIGHT/D: Yes  |  ENTER: Confirm  |  ESC: Cancel", 
+            True, color_config.CYAN)
+        instructions_rect = instructions.get_rect(center=(game_config.SCREEN_WIDTH // 2, 470))
+        self.screen.blit(instructions, instructions_rect)
     
     def draw_level_complete(self):
         """Draw level complete screen"""
@@ -880,3 +1395,28 @@ class Game:
             self.draw()
         
         pygame.quit()
+
+    def _handle_menu_action(self, action: str):
+        """Handle actions based on main menu selection."""
+        if action == "play":
+            logger.info("Game started (via menu)")
+            self.init_game()
+            self.state = GameState.PLAYING
+        elif action == "shop":
+            logger.info("Shop opened (via menu)")
+            # Ensure player exists for shop access
+            if not self.player or self.player is None:
+                self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
+            # Always sync coins from profile when opening shop
+            if self.current_profile:
+                self.player.coins = self.current_profile.coins
+            self.state = GameState.SHOP
+        elif action == "scores":
+            logger.info("High scores viewed (via menu)")
+            self.state = GameState.HIGH_SCORES
+        elif action == "profile":
+            logger.info("Profile selection (via menu)")
+            self.state = GameState.PROFILE_SELECT
+        elif action == "quit":
+            logger.info("Game quit (via menu)")
+            self.running = False

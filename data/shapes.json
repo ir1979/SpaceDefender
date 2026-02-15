@@ -1,48 +1,640 @@
 {
+  "crescent": {
+    "description": "Crescent moon shape",
+    "name": "Crescent",
+    "vertices": [
+      [
+        0.5,
+        0.1
+      ],
+      [
+        0.9,
+        0.3
+      ],
+      [
+        0.95,
+        0.5
+      ],
+      [
+        0.9,
+        0.7
+      ],
+      [
+        0.5,
+        0.9
+      ],
+      [
+        0.45,
+        0.7
+      ],
+      [
+        0.5,
+        0.5
+      ],
+      [
+        0.45,
+        0.3
+      ]
+    ]
+  },
   "rectangle": {
+    "description": "Simple rectangle",
+    "name": "Rectangle",
     "vertices": [
-      "0 0",
-      "1 0",
-      "1 1",
-      "0 1"
-    ],
-    "name": "Rectangle"
-  },
-  "diamond": {
-    "vertices": [
-      "0.5 0",
-      "1 0.5",
-      "0.5 1",
-      "0 0.5"
-    ],
-    "name": "Diamond"
-  },
-  "star": {
-    "vertices": [
-      "0.5 0",
-      "0.61 0.35",
-      "1 0.35",
-      "0.68 0.57",
-      "0.79 0.91",
-      "0.5 0.7",
-      "0.21 0.91",
-      "0.32 0.57",
-      "0 0.35",
-      "0.39 0.35"
-    ],
-    "name": "Star"
+      [
+        0,
+        0
+      ],
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        1
+      ]
+    ]
   },
   "circle": {
+    "description": "Perfect circle",
     "sides": 32,
     "name": "Circle",
     "radius": 1.0
   },
-  "triangle": {
+  "enemy_fast": {
+    "description": "Sleek fast enemy",
+    "name": "Fast Enemy",
     "vertices": [
-      "0.5 0",
-      "1 1",
-      "0 1"
-    ],
-    "name": "Triangle"
+      [
+        0.5,
+        0
+      ],
+      [
+        1,
+        0.3
+      ],
+      [
+        0.8,
+        0.7
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0.5,
+        0.8
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0.2,
+        0.7
+      ],
+      [
+        0,
+        0.3
+      ]
+    ]
+  },
+  "enemy_tank": {
+    "description": "Heavy armored tank",
+    "name": "Tank Enemy",
+    "vertices": [
+      [
+        0.1,
+        0.3
+      ],
+      [
+        0.9,
+        0.3
+      ],
+      [
+        0.95,
+        0.5
+      ],
+      [
+        0.95,
+        0.8
+      ],
+      [
+        0.5,
+        1
+      ],
+      [
+        0.05,
+        0.8
+      ],
+      [
+        0.05,
+        0.5
+      ]
+    ]
+  },
+  "enemy_weaver": {
+    "description": "Sinuous weaving enemy",
+    "name": "Weaver Enemy",
+    "vertices": [
+      [
+        0.3,
+        0.2
+      ],
+      [
+        0.7,
+        0.2
+      ],
+      [
+        0.9,
+        0.4
+      ],
+      [
+        0.8,
+        0.6
+      ],
+      [
+        1,
+        0.8
+      ],
+      [
+        0.5,
+        1
+      ],
+      [
+        0,
+        0.8
+      ],
+      [
+        0.2,
+        0.6
+      ],
+      [
+        0.1,
+        0.4
+      ]
+    ]
+  },
+  "gun_mount": {
+    "description": "Heavy gun turret",
+    "name": "Gun Mount",
+    "vertices": [
+      [
+        0.3,
+        0
+      ],
+      [
+        0.7,
+        0
+      ],
+      [
+        0.8,
+        0.4
+      ],
+      [
+        0.6,
+        0.8
+      ],
+      [
+        0.4,
+        0.8
+      ],
+      [
+        0.2,
+        0.4
+      ]
+    ]
+  },
+  "bullet_missile": {
+    "description": "Rocket missile",
+    "name": "Missile",
+    "vertices": [
+      [
+        0.4,
+        0
+      ],
+      [
+        0.6,
+        0
+      ],
+      [
+        0.7,
+        0.6
+      ],
+      [
+        0.5,
+        1
+      ],
+      [
+        0.3,
+        0.6
+      ]
+    ]
+  },
+  "cannon": {
+    "description": "Heavy cannon barrel",
+    "name": "Cannon",
+    "vertices": [
+      [
+        0.25,
+        0.2
+      ],
+      [
+        0.75,
+        0.2
+      ],
+      [
+        0.85,
+        0.5
+      ],
+      [
+        0.85,
+        0.8
+      ],
+      [
+        0.15,
+        0.8
+      ],
+      [
+        0.15,
+        0.5
+      ]
+    ]
+  },
+  "bullet_basic": {
+    "description": "Standard bullet shape",
+    "name": "Basic Bullet",
+    "vertices": [
+      [
+        0.5,
+        0
+      ],
+      [
+        1,
+        0.3
+      ],
+      [
+        0.8,
+        1
+      ],
+      [
+        0.5,
+        0.9
+      ],
+      [
+        0.2,
+        1
+      ],
+      [
+        0,
+        0.3
+      ]
+    ]
+  },
+  "spaceship": {
+    "description": "Classic spaceship pointing up",
+    "name": "Spaceship",
+    "vertices": [
+      [
+        0.5,
+        0
+      ],
+      [
+        1,
+        0.8
+      ],
+      [
+        0.75,
+        0.5
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0.5,
+        0.7
+      ],
+      [
+        0,
+        1
+      ],
+      [
+        0.25,
+        0.5
+      ],
+      [
+        0,
+        0.8
+      ]
+    ]
+  },
+  "hexagon": {
+    "description": "Regular hexagon",
+    "name": "Hexagon",
+    "vertices": [
+      [
+        0.5,
+        0.1
+      ],
+      [
+        0.9,
+        0.35
+      ],
+      [
+        0.9,
+        0.65
+      ],
+      [
+        0.5,
+        0.9
+      ],
+      [
+        0.1,
+        0.65
+      ],
+      [
+        0.1,
+        0.35
+      ]
+    ]
+  },
+  "cross": {
+    "description": "Plus/cross shape",
+    "name": "Cross",
+    "vertices": [
+      [
+        0.4,
+        0
+      ],
+      [
+        0.6,
+        0
+      ],
+      [
+        0.6,
+        0.4
+      ],
+      [
+        1,
+        0.4
+      ],
+      [
+        1,
+        0.6
+      ],
+      [
+        0.6,
+        0.6
+      ],
+      [
+        0.6,
+        1
+      ],
+      [
+        0.4,
+        1
+      ],
+      [
+        0.4,
+        0.6
+      ],
+      [
+        0,
+        0.6
+      ],
+      [
+        0,
+        0.4
+      ],
+      [
+        0.4,
+        0.4
+      ]
+    ]
+  },
+  "enemy_basic": {
+    "description": "Simple square enemy",
+    "name": "Basic Enemy",
+    "vertices": [
+      [
+        0.2,
+        0.2
+      ],
+      [
+        0.8,
+        0.2
+      ],
+      [
+        0.8,
+        0.8
+      ],
+      [
+        0.2,
+        0.8
+      ]
+    ]
+  },
+  "star": {
+    "description": "Five-pointed star",
+    "name": "Star",
+    "vertices": [
+      [
+        0.5,
+        0
+      ],
+      [
+        0.61,
+        0.35
+      ],
+      [
+        1,
+        0.35
+      ],
+      [
+        0.68,
+        0.57
+      ],
+      [
+        0.79,
+        0.91
+      ],
+      [
+        0.5,
+        0.7
+      ],
+      [
+        0.21,
+        0.91
+      ],
+      [
+        0.32,
+        0.57
+      ],
+      [
+        0,
+        0.35
+      ],
+      [
+        0.39,
+        0.35
+      ]
+    ]
+  },
+  "bullet_plasma": {
+    "description": "Energy plasma orb",
+    "sides": 12,
+    "name": "Plasma",
+    "radius": 1.0
+  },
+  "bullet_laser": {
+    "description": "Long thin laser beam",
+    "name": "Laser",
+    "vertices": [
+      [
+        0.4,
+        0
+      ],
+      [
+        0.6,
+        0
+      ],
+      [
+        0.6,
+        1
+      ],
+      [
+        0.4,
+        1
+      ]
+    ]
+  },
+  "enemy_boss": {
+    "description": "Large boss enemy",
+    "name": "Boss Enemy",
+    "vertices": [
+      [
+        0.5,
+        0
+      ],
+      [
+        0.75,
+        0.2
+      ],
+      [
+        0.95,
+        0.3
+      ],
+      [
+        1,
+        0.6
+      ],
+      [
+        0.8,
+        0.85
+      ],
+      [
+        0.5,
+        1
+      ],
+      [
+        0.2,
+        0.85
+      ],
+      [
+        0,
+        0.6
+      ],
+      [
+        0.05,
+        0.3
+      ],
+      [
+        0.25,
+        0.2
+      ]
+    ]
+  },
+  "diamond": {
+    "description": "Diamond shape",
+    "name": "Diamond",
+    "vertices": [
+      [
+        0.5,
+        0
+      ],
+      [
+        1,
+        0.5
+      ],
+      [
+        0.5,
+        1
+      ],
+      [
+        0,
+        0.5
+      ]
+    ]
+  },
+  "triangle": {
+    "description": "Equilateral triangle",
+    "name": "Triangle",
+    "vertices": [
+      [
+        0.5,
+        0
+      ],
+      [
+        1,
+        1
+      ],
+      [
+        0,
+        1
+      ]
+    ]
+  },
+  "fighter": {
+    "description": "Sleek fighter jet design",
+    "name": "Fighter",
+    "vertices": [
+      [
+        0.5,
+        0
+      ],
+      [
+        0.75,
+        0.3
+      ],
+      [
+        1,
+        0.4
+      ],
+      [
+        0.85,
+        0.7
+      ],
+      [
+        0.5,
+        0.8
+      ],
+      [
+        0.15,
+        0.7
+      ],
+      [
+        0,
+        0.4
+      ],
+      [
+        0.25,
+        0.3
+      ]
+    ]
   }
 }

@@ -1,57 +1,92 @@
 {
-  "basic": {
-    "type": "basic",
-    "shape": "rectangle",
-    "size": [40, 40],
-    "color": [255, 50, 50],
-    "health": 30,
-    "speed": 2.0,
-    "movement": "straight",
-    "coin_value": 10,
-    "score_value": 100
-  },
   "fast": {
     "type": "fast",
-    "shape": "triangle",
-    "size": [35, 35],
-    "color": [255, 150, 50],
-    "health": 20,
     "speed": 4.0,
-    "movement": "zigzag",
+    "health": 20,
     "coin_value": 15,
+    "movement": "zigzag",
+    "color": [
+      255,
+      150,
+      50
+    ],
+    "shape": "enemy_fast",
+    "size": [
+      35,
+      35
+    ],
     "score_value": 150
+  },
+  "boss": {
+    "type": "boss",
+    "speed": 1.5,
+    "health": 200,
+    "coin_value": 100,
+    "movement": "sine",
+    "color": [
+      255,
+      255,
+      50
+    ],
+    "shape": "enemy_boss",
+    "size": [
+      80,
+      80
+    ],
+    "score_value": 1000
+  },
+  "basic": {
+    "type": "basic",
+    "speed": 2.0,
+    "health": 30,
+    "coin_value": 10,
+    "movement": "straight",
+    "color": [
+      255,
+      50,
+      50
+    ],
+    "shape": "enemy_basic",
+    "size": [
+      40,
+      40
+    ],
+    "score_value": 100
   },
   "tank": {
     "type": "tank",
-    "shape": "circle",
-    "size": [60, 60],
-    "color": [200, 50, 255],
-    "health": 80,
     "speed": 1.0,
-    "movement": "straight",
+    "health": 80,
     "coin_value": 30,
+    "movement": "straight",
+    "color": [
+      200,
+      50,
+      255
+    ],
+    "shape": "enemy_tank",
+    "size": [
+      60,
+      60
+    ],
     "score_value": 300
   },
   "weaver": {
     "type": "weaver",
-    "shape": "diamond",
-    "size": [45, 45],
-    "color": [50, 255, 255],
-    "health": 40,
     "speed": 2.5,
-    "movement": "sine",
+    "health": 40,
     "coin_value": 20,
-    "score_value": 200
-  },
-  "boss": {
-    "type": "boss",
-    "shape": "star",
-    "size": [80, 80],
-    "color": [255, 255, 50],
-    "health": 200,
-    "speed": 1.5,
     "movement": "sine",
-    "coin_value": 100,
-    "score_value": 1000
+    "color": [
+      50,
+      255,
+      255
+    ],
+    "shape": "enemy_weaver",
+    "size": [
+      45,
+      45
+    ],
+    "score_value": 200
   }
 }

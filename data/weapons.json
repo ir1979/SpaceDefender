@@ -9,7 +9,7 @@
       10,
       18
     ],
-    "shape": "triangle",
+    "shape": "bullet_missile",
     "type": "missile",
     "speed": 7.0
   },
@@ -23,7 +23,7 @@
       12,
       12
     ],
-    "shape": "circle",
+    "shape": "bullet_plasma",
     "type": "plasma",
     "speed": 8.0
   },
@@ -37,7 +37,7 @@
       4,
       20
     ],
-    "shape": "rectangle",
+    "shape": "bullet_laser",
     "type": "laser",
     "speed": 15.0
   },
@@ -51,7 +51,7 @@
       6,
       15
     ],
-    "shape": "rectangle",
+    "shape": "bullet_basic",
     "type": "default",
     "speed": 10.0
   }

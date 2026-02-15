@@ -5,15 +5,20 @@ Centralized configuration for all game settings
 from dataclasses import dataclass
 from typing import Tuple
 from enum import Enum
+import logging
+
+# Logging configuration
+LOG_LEVEL = logging.DEBUG  # Can be: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_FILE = "game.log"
 
 @dataclass
 class GameConfig:
     """Main game configuration"""
     SCREEN_WIDTH: int = 1024
     SCREEN_HEIGHT: int = 768
-    FPS: int = 60
+    FPS: int = 30
     TITLE: str = "Space Defender"
-    VERSION: str = "2.0"
+    VERSION: str = "2.1"
     AUTHOR: str = "Ali Mortazavi"
     
     # Gameplay
@@ -64,6 +69,7 @@ class GameState(Enum):
     GAME_OVER = 7
     LEVEL_COMPLETE = 8
     HIGH_SCORES = 9
+    QUIT_CONFIRM = 10
 
 # Global instances
 game_config = GameConfig()

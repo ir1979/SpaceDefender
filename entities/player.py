@@ -10,7 +10,7 @@ from config.settings import color_config, player_config
 class Player(BaseEntity):
     """Player spaceship"""
     
-    def __init__(self, x: int, y: int, shape_type: str = "triangle"):
+    def __init__(self, x: int, y: int, shape_type: str = "spaceship"):
         self.shape_type = shape_type
         self.size = (50, 60)
         self.color = color_config.BLUE
@@ -48,27 +48,30 @@ class Player(BaseEntity):
         """Update player state"""
         keys = pygame.key.get_pressed()
         
-        # Movement from keyboard
+        # Movement from keyboard (arrow keys only; WASD removed)
         dx = dy = 0
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+        if keys[pygame.K_LEFT]:
             dx -= self.speed
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+        if keys[pygame.K_RIGHT]:
             dx += self.speed
-        if keys[pygame.K_UP] or keys[pygame.K_w]:
+        if keys[pygame.K_UP]:
             dy -= self.speed
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
+        if keys[pygame.K_DOWN]:
             dy += self.speed
         
         # Movement from mouse
         mouse_x, mouse_y = pygame.mouse.get_pos()
         from config.settings import game_config
         
-        # Move player towards mouse position
+        # Move player towards mouse position (with dead zone to prevent jitter)
         dist_x = mouse_x - self.rect.centerx
         dist_y = mouse_y - self.rect.centery
         distance = math.sqrt(dist_x**2 + dist_y**2)
         
-        if distance > 0:
+        # Dead zone: ignore very small distances to prevent vibration when mouse hovers over player
+        MOUSE_DEAD_ZONE = 25
+        
+        if distance > MOUSE_DEAD_ZONE:
             # Normalize and apply speed
             norm_x = dist_x / distance
             norm_y = dist_y / distance

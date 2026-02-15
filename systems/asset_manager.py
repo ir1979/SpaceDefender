@@ -11,6 +11,8 @@ class AssetManager:
     def __init__(self):
         self.fonts = {}
         self.sounds = {}
+        self.sprites = {}  # Image-based sprites for entities
+        self.splash_image = None  # Splash screen background
         self.sound_enabled = True
         
         # Initialize pygame mixer for sound playback
@@ -23,6 +25,8 @@ class AssetManager:
         
         self.load_fonts()
         self.load_sounds()
+        self.load_sprites()
+        self.load_splash_image()
     
     def load_fonts(self):
         try:
@@ -58,6 +62,7 @@ class AssetManager:
             'level_complete': 'level_complete.wav',
             'shop_purchase': 'shop_purchase.wav',
             'menu_select': 'menu_select.wav',
+            'splash': 'splash.wav',
         }
         
         print(f"\nLoading sounds from {sound_dir}/...")
@@ -106,6 +111,101 @@ class AssetManager:
         """Get font by size name"""
         return self.fonts.get(size, self.fonts['medium'])
     
+    def load_sprites(self):
+        """Load sprite images from assets directory"""
+        space_defender_dir = Path(__file__).parent.parent
+        assets_dir = space_defender_dir / 'assets' / 'sprites'
+        
+        # Create assets directory if it doesn't exist
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Supported image formats
+        image_extensions = ['.png', '.jpg', '.jpeg', '.bmp', '.gif']
+        
+        print(f"\nLoading sprites from {assets_dir}/...")
+        loaded_count = 0
+        
+        # Scan for all image files in assets/sprites directory
+        if assets_dir.exists():
+            for file in assets_dir.iterdir():
+                if file.suffix.lower() in image_extensions:
+                    try:
+                        sprite_name = file.stem  # Filename without extension
+                        self.sprites[sprite_name] = pygame.image.load(str(file))
+                        loaded_count += 1
+                        print(f"  ✓ Loaded sprite: {file.name}")
+                    except pygame.error as e:
+                        print(f"  ✗ Failed to load {file.name}: {e}")
+        
+        if loaded_count == 0:
+            print(f"  No sprite files found in {assets_dir}")
+            print(f"  Sprites will fall back to procedural shapes")
+        else:
+            print(f"Loaded {loaded_count} sprite(s)\n")
+    
+    def get_sprite(self, sprite_name: str):
+        """Get sprite image if available, None otherwise"""
+        return self.sprites.get(sprite_name)
+    
+    def has_sprite(self, sprite_name: str) -> bool:
+        """Check if a sprite exists"""
+        return sprite_name in self.sprites
+    
     def toggle_sound(self):
         """Toggle sound on/off"""
         self.sound_enabled = not self.sound_enabled
+
+    def load_splash_image(self):
+        """Load splash screen background image or generate a default one"""
+        from config.settings import game_config
+        
+        space_defender_dir = Path(__file__).parent.parent
+        assets_dir = space_defender_dir / 'assets'
+        
+        # Try to load splash.png if it exists
+        splash_path = assets_dir / 'splash.png'
+        
+        if splash_path.exists():
+            try:
+                self.splash_image = pygame.image.load(str(splash_path))
+                print(f"✓ Loaded splash screen image from {splash_path}")
+                return
+            except Exception as e:
+                print(f"✗ Failed to load splash.png: {e}")
+        
+        # Generate default splash screen image if not found
+        print("Generating default splash screen background...")
+        self.splash_image = self._generate_splash_background(
+            game_config.SCREEN_WIDTH, 
+            game_config.SCREEN_HEIGHT
+        )
+    
+    def _generate_splash_background(self, width: int, height: int) -> pygame.Surface:
+        """Generate a procedural space-themed splash screen background"""
+        from config.settings import color_config
+        import random
+        
+        surface = pygame.Surface((width, height))
+        
+        # Dark space background with gradient effect
+        for y in range(height):
+            ratio = y / height
+            r = int(10 + ratio * 40)
+            g = int(20 + ratio * 30)
+            b = int(50 + ratio * 100)
+            pygame.draw.line(surface, (r, g, b), (0, y), (width, y))
+        
+        # Add some stars for atmosphere
+        random.seed(42)  # Reproducible star pattern
+        for _ in range(150):
+            x = random.randint(0, width)
+            y = random.randint(0, height)
+            size = random.randint(1, 3)
+            brightness = random.randint(100, 255)
+            pygame.draw.circle(surface, (brightness, brightness, brightness), (x, y), size)
+        
+        return surface
+    
+    def get_splash_image(self) -> pygame.Surface:
+        """Get the splash screen background image"""
+        return self.splash_image

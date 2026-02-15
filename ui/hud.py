@@ -65,7 +65,7 @@ class HUD:
         
         # Controls hint
         hint_text = self.assets.fonts['tiny'].render(
-            "SPACE: Shoot | S: Shop | P: Pause | WASD/Arrows: Move", 
+            "SPACE: Shoot | P: Pause | ESC: Quit", 
             True, color_config.UI_TEXT)
         hint_rect = hint_text.get_rect(
             bottomleft=(20, game_config.SCREEN_HEIGHT - 10))
