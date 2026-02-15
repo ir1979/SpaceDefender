@@ -1,6 +1,7 @@
 """
 Main Game Module
 """
+import socket
 import pygame
 import random
 import math
@@ -18,8 +19,10 @@ if __name__ == "__main__" and __package__ is None:
 
 from config.settings import GameState, game_config, color_config
 from systems import ParticleSystem, SaveSystem, PlayerProfile, AssetManager
+from systems.network import send_data, receive_data
 from systems.logger import get_logger
 from entities import Player, EnemyFactory, BulletFactory, PowerUp
+from entities.base_entity import ShapeRenderer
 from ui import HUD, Shop, TextInput
 
 logger = get_logger('space_defender.game')
@@ -62,86 +65,95 @@ class Level:
 
 class Game:
     """Main game controller"""
-    def __init__(self, profile):
-        pygame.init()
-        self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
-        pygame.display.set_caption(game_config.TITLE)
-        self.clock = pygame.time.Clock()
+    def __init__(self, profile: PlayerProfile = None, is_server=False):
+        """
+        Initializes the Game. 
+        :param is_server: If True, runs without GUI, Assets, or Sound.
+        """
+        self.is_server = is_server
+        self.is_network_mode = False # Default to False, client will set to True
         self.running = True
         
-        # Always start with splash screen
-        self.state = GameState.SPLASH_SCREEN
+        # --- 1. Headless vs GUI Environment Setup ---
+        if self.is_server:
+            # Prevent Pygame from opening a window or initializing audio hardware
+            os.environ['SDL_VIDEODRIVER'] = 'dummy'
+            os.environ['SDL_AUDIODRIVER'] = 'dummy'
+            pygame.init()
+            self.screen = None
+            self.assets = None  # No images/sounds loaded on server
+        else:
+            pygame.init()
+            self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+            pygame.display.set_caption(game_config.TITLE)
+            self.assets = AssetManager()
         
-        self.profile = profile
-        self.current_profile = profile  # backward compatibility with older code
-        self.session_start_time = time.time()
-        self.existing_profiles = SaveSystem.get_profiles()
+        self.clock = pygame.time.Clock()
 
-        # Asset manager
-        self.assets = AssetManager()
-        EnemyFactory.load_configs('data/enemies.json')
-        BulletFactory.load_configs('data/weapons.json')
+        # --- 2. Universal Logic State (Required by both) ---
+        # We set default values even for things the server doesn't "use" 
+        # to prevent AttributeErrors during the update() loop.
+        self.state = GameState.PLAYING if self.is_server else GameState.SPLASH_SCREEN
+        self.current_level = 1
+        self.level = None
+        self.players: List[Player] = []
+        self.player = None  # Local player for client
         
-        # Set asset manager for shape rendering (sprite fallback support)
-        from entities.base_entity import ShapeRenderer
-        ShapeRenderer.set_asset_manager(self.assets)
-
-        # Game objects
-        self.player = None
+        # Sprite groups are used for collision logic on the server
         self.all_sprites = pygame.sprite.Group()
         self.enemies = pygame.sprite.Group()
         self.bullets = pygame.sprite.Group()
         self.powerups = pygame.sprite.Group()
 
-        # Systems
-        self.particle_system = ParticleSystem()
-        self.hud = HUD(self.assets)
-        self.shop = Shop(self.assets)
-
-        # Level
-        self.current_level = 1
-        self.level = None
+        # --- 3. GUI & Feedback Variables (Always initialized to avoid crashes) ---
+        self.duplicate_error_timer = 0
+        self.duplicate_profile_error = False
+        self.profile = profile
+        self.current_profile = profile
         
-        # UI Button rectangles for mouse detection
-        self.play_button = None
-        self.shop_button = None
-        self.play_button_hovered = False
-        self.shop_button_hovered = False
-        self.menu_buttons = []
-        self.menu_selected_index = 0  # Track selected menu item (only one active)
-        
-        # Profile selection UI
-        self.profile_buttons = []
-        self.new_profile_button = None
-        self.profile_input = None
-        self.creating_new_profile = False
-        self.profile_input_value = ""
-        self.profile_selected_index = 0  # Track selected profile (only one active)
-        self.duplicate_profile_error = False  # Track duplicate profile name error
-        self.duplicate_error_timer = 0  # Timer to show error message
-        
-        # Quit confirmation UI
-        self.quit_confirm_selected = True  # True = Yes, False = No (default Yes)
-
-        # Splash screen
+        # Client-specific UI attributes (initialized for all, but only used on client)
+        self.splash_ready = False
+        self.splash_loading_timer = 0
         self.splash_timer = 0
-        self.splash_loading_timer = 0  # Slow loading progression timer
-        self.splash_duration = 999999  # Very long - wait for user input instead
-        self.splash_fade_in = 30
-        self.splash_fade_out = 30
-        self.splash_skipped = False  # Track if splash was skipped
-        self.loading_items = []
+        self.splash_skipped = False
         self.loading_progress = 0
+        self.loading_items = []
         self.loading_items_total = 0
         self.background_music_playing = False
-        self.splash_ready = False  # Flag to show "press to continue" message
-        self.text1 = ""
+        self.existing_profiles = []
+        self.profile_buttons = []
+        self.profile_selected_index = 0
+        self.creating_new_profile = False
+        self.menu_buttons = []
+        self.menu_selected_index = 0
+        self.text_input = None
+        self.quit_confirm_selected = True
+        self.quit_yes_rect = None
+        self.quit_no_rect = None
+        self.game_state_from_server = None
+        self.server_socket = None
+        self.server_host = '127.0.0.1'  # Default server host (may be overridden by CLI args)
+        self.server_port = 35555  # Default server port (may be overridden by CLI args)
+        
+        # These systems are only fully active on the client
+        if not self.is_server:
+            self.particle_system = ParticleSystem()
+            self.stars = self.create_starfield()
+            self.hud = HUD(self.assets)
+            self.shop = Shop(self.assets)
+            self._init_loading_list()
+            # Connect the shape renderer to the asset manager so sprites can be loaded
+            ShapeRenderer.set_asset_manager(self.assets)
+        else:
+            self.particle_system = None
+            self.stars = []
+            self.hud = None
+            self.shop = None
 
-        # Background
-        self.stars = self.create_starfield()
-
-        # Initialize loading items list
-        self._init_loading_list()
+        # --- 4. System Initialization ---
+        # Load configs (needed for hitbox/behavior logic on server)
+        EnemyFactory.load_configs('data/enemies.json')
+        BulletFactory.load_configs('data/weapons.json')
 
     def _init_loading_list(self):
         """Create list of items to load during splash screen"""
@@ -157,6 +169,10 @@ class Game:
         self.loading_items_total = len(self.loading_items)
 
     def _init_game(self):
+        # In network mode, the client doesn't initialize the game, the server does.
+        if self.is_network_mode:
+            return
+
         """Legacy method for profile-based game initialization. Routes to init_game()."""
         if self.profile:
             self.current_profile = self.profile
@@ -173,13 +189,11 @@ class Game:
             if self.state == GameState.SPLASH_SCREEN:
                 if event.type in [pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN]:
                     if self.splash_ready:
-                        if self.existing_profiles:
-                            self.state = GameState.PROFILE_SELECT
-                        else:
-                            self.state = GameState.NAME_INPUT
-                            self.text_input = TextInput(
-                                game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                                self.assets.fonts['medium'])
+                        # Always go to NAME_INPUT after splash, regardless of existing profiles
+                        self.state = GameState.NAME_INPUT
+                        self.text_input = TextInput(
+                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                            self.assets.fonts['medium'])
                         self.splash_skipped = True
             
             elif self.state == GameState.NAME_INPUT:
@@ -277,17 +291,24 @@ class Game:
                         self.state = GameState.PAUSED
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.player:
-                        bullets = self.player.shoot()
-                        if bullets:
-                            self.bullets.add(*bullets)
-                            self.all_sprites.add(*bullets)
-                            self.assets.play_sound('shoot', 0.5)
+                        # In network mode, shooting is sent as an input event
+                        if not self.is_network_mode:
+                            bullets = self.player.shoot()
+                            if bullets:
+                                self.bullets.add(*bullets)
+                                self.all_sprites.add(*bullets)
+                                self.assets.play_sound('shoot', 0.5)
             
             elif self.state == GameState.PAUSED:
                 if event.type == pygame.KEYDOWN and event.key == pygame.K_p:
                     self.state = GameState.PLAYING
 
             elif self.state == GameState.SHOP:
+                # For simplicity, multiplayer shop is not implemented in this example
+                if self.is_network_mode:
+                    self.state = GameState.MAIN_MENU
+                    return
+
                 if self.shop.handle_input(event, self.player):
                     # This block is entered when the shop is closed.
                     # We must only save if a purchase was actually made.
@@ -342,31 +363,10 @@ class Game:
                     elif event.key == pygame.K_ESCAPE:
                         self.state = GameState.MAIN_MENU
 
-    def draw(self):
-        self.screen.fill(color_config.BLACK)
-        self.draw_starfield()
-        
-        if self.state == GameState.SPLASH_SCREEN:
-            self.draw_splash_screen()
-        elif self.state == GameState.NAME_INPUT:
-            self.draw_name_input()
-        elif self.state == GameState.PROFILE_SELECT:
-            self.draw_profile_select()
-        elif self.state == GameState.MAIN_MENU:
-            self.draw_main_menu()
-        elif self.state == GameState.PLAYING:
-            self.all_sprites.draw(self.screen)
-            self.particle_system.draw(self.screen)
-            time_remaining = self.level.time_remaining if self.level else 0
-            self.hud.draw(self.screen, self.player, self.current_level, time_remaining)
-        elif self.state == GameState.PAUSED:
-            self.all_sprites.draw(self.screen)
-            self.draw_pause_screen()
-        elif self.state == GameState.SHOP:
-            self.shop.draw(self.screen, self.player)
-        elif self.state == GameState.QUIT_CONFIRM:
-            self.draw_quit_confirm()
-        pygame.display.flip()
+    # draw() was consolidated later in the file to keep a single canonical
+    # rendering implementation that handles both local and networked clients.
+    # The full `draw()` implementation appears further below.
+    pass
 
     def create_starfield(self) -> List[Tuple[int, int, int]]:
         stars = []
@@ -391,32 +391,123 @@ class Game:
             color = (brightness, brightness, brightness)
             pygame.draw.circle(self.screen, color, (int(x), int(y)), size)
     def init_game(self):
-        """Initialize game state"""
-        # Only create player if it doesn't exist yet
-        if not self.player:
-            self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
-        
-        # Reset player for new game while preserving upgrades
-        self.player.health = self.player.max_health
-        self.player.x = game_config.SCREEN_WIDTH // 2
-        self.player.y = game_config.SCREEN_HEIGHT - 100
-        
-        # Reset session state and set coins from profile for the new game
-        if self.current_profile:
-            # This correctly starts a new game session, resetting score
-            # and loading the total accumulated coins for the player to use.
-            self.current_profile.start_new_game()
-            self.player.coins = self.current_profile.coins # from start_new_game()
-            self.player.score = self.current_profile.score # from start_new_game()
-        
+        """Initialize or reset the game state for a new level."""
         self.all_sprites.empty()
         self.enemies.empty()
         self.bullets.empty()
         self.powerups.empty()
-        
-        self.all_sprites.add(self.player)
+
+        if self.is_server:
+            # Server mode: Add all pre-created players to the sprite group.
+            # Player objects are managed by the server loop.
+            self.all_sprites.add(*self.players)
+        else:
+            # Client/Single-player mode: Manage a single local player.
+            if not self.player:
+                self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
+            
+            self.player.health = self.player.max_health
+            self.player.x = game_config.SCREEN_WIDTH // 2
+            self.player.y = game_config.SCREEN_HEIGHT - 100
+            
+            if self.current_profile:
+                self.current_profile.start_new_game()
+                self.player.coins = self.current_profile.coins
+                self.player.score = self.current_profile.score
+            
+            self.all_sprites.add(self.player)
+
         self.level = Level(self.current_level)
         self.session_start_time = time.time()
+
+    def apply_server_state(self, state: dict):
+        """Apply an authoritative server state to local sprite groups.
+        This method is safe to call on server or client Game instances and
+        is split out for easier testing and potential delta-updates later.
+        """
+        # Reset visible entity groups
+        self.all_sprites.empty()
+        self.players = []
+        self.enemies.empty()
+        self.bullets.empty()
+        self.powerups.empty()
+
+        # Players
+        for p_state in state.get('players', []):
+            try:
+                p = Player(int(p_state.get('x', 0)), int(p_state.get('y', 0)))
+                p.health = int(p_state.get('health', p.health))
+                p.max_health = int(p_state.get('max_health', p.max_health))
+                p.coins = int(p_state.get('coins', getattr(p, 'coins', 0)))
+                p.score = int(p_state.get('score', getattr(p, 'score', 0)))
+                self.players.append(p)
+                self.all_sprites.add(p)
+            except Exception:
+                continue
+
+        # Enemies (server may use 'enemy_type')
+        for e_state in state.get('enemies', []):
+            try:
+                etype = e_state.get('enemy_type') or e_state.get('type')
+                if not etype:
+                    continue
+                ex = int(e_state.get('x', 0))
+                ey = int(e_state.get('y', 0))
+                e = EnemyFactory.create(etype, ex, ey, 1)
+                if e:
+                    self.enemies.add(e)
+                    self.all_sprites.add(e)
+                    # Visual feedback for enemy spawn (client-side only)
+                    if not self.is_server and self.particle_system:
+                        self.particle_system.emit_explosion(ex, ey, color_config.RED, 10)
+            except Exception:
+                continue
+
+        # Bullets
+        for b_state in state.get('bullets', []):
+            try:
+                weapon = b_state.get('weapon_type', 'default')
+                bx = int(b_state.get('x', 0))
+                by = int(b_state.get('y', 0))
+                speed = float(b_state.get('speed', -10))
+                damage = int(b_state.get('damage', 1))
+                angle = float(b_state.get('angle', 0))
+                bullet = BulletFactory.create(weapon, bx, by, speed, damage, angle)
+                if bullet:
+                    self.bullets.add(bullet)
+                    self.all_sprites.add(bullet)
+                    # Visual feedback for bullet (client-side only)
+                    if not self.is_server and self.particle_system:
+                        self.particle_system.emit_trail(bx, by, color_config.YELLOW)
+            except Exception:
+                # fallback placeholder bullet
+                try:
+                    bx = int(b_state.get('x', 0))
+                    by = int(b_state.get('y', 0))
+                    bullet = BulletFactory.create('default', bx, by, -10, 1, 0)
+                    self.bullets.add(bullet)
+                    self.all_sprites.add(bullet)
+                except Exception:
+                    pass
+
+        # Power-ups
+        for p_state in state.get('powerups', []):
+            try:
+                ptype = p_state.get('power_type', 'health')
+                px = int(p_state.get('x', 0))
+                py = int(p_state.get('y', 0))
+                powerup = PowerUp(px, py, ptype)
+                self.powerups.add(powerup)
+                self.all_sprites.add(powerup)
+                # Visual feedback for powerup spawn (client-side only)
+                if not self.is_server and self.particle_system:
+                    self.particle_system.emit_explosion(px, py, color_config.GREEN, 8)
+            except Exception:
+                continue
+
+        # Keep a copy of the raw state for HUD rendering
+        self.game_state_from_server = state
+
 
     def _delete_profile_at_index(self, idx: int):
         """Delete profile at given index from saved profiles and update UI state."""
@@ -456,14 +547,14 @@ class Game:
         self.current_level = max(1, next_level)
         
         # Ensure a Player instance exists for this profile
-        if not self.player or self.player is None:
-            self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
+        if not self.players:
+            self.players.append(Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100))
 
         # Always sync player's transient state (coins/score) from the selected profile
         if self.current_profile:
             # load saved session state so user can continue where they left off
-            self.player.coins = self.current_profile.coins
-            self.player.score = self.current_profile.score    
+            self.players[0].coins = self.current_profile.coins
+            self.players[0].score = self.current_profile.score    
 
     def save_and_exit(self):
         if self.current_profile and self.player:
@@ -474,6 +565,30 @@ class Game:
         logger.info("Game saved and exiting.")
         self.running = False
     
+    def connect_to_server(self, host='127.0.0.1', port=65432):
+        """Connects to the game server and sets network mode flag.
+        Does NOT initialize game state or change the game state - caller must do that.
+        """
+        try:
+            self.server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.server_socket.connect((host, port))
+            # Set timeout so recv doesn't block indefinitely
+            # Allows send/receive to interleave on same socket
+            self.server_socket.settimeout(0.1)
+            self.is_network_mode = True
+            
+            logger.info(f"Successfully connected to server at {host}:{port}")
+            return True
+        except ConnectionRefusedError:
+            logger.error(f"Connection to server at {host}:{port} refused. Is the server running?")
+            self.is_network_mode = False
+            return False
+        except Exception as e:
+            logger.error(f"Failed to connect to server: {e}")
+            self.is_network_mode = False
+            return False
+
+
     def update(self):
         """Update game state"""
         # Update UI state timer
@@ -485,7 +600,8 @@ class Game:
         if self.state == GameState.SPLASH_SCREEN:
             # Play background music once
             if not self.background_music_playing:
-                self.assets.play_sound('splash', 0.2)  # Soft background music
+                if not self.is_server:
+                    self.assets.play_sound('splash', 0.2)  # Soft background music
                 self.background_music_playing = True
             
             # Speed up loading progress (reduced wait time)
@@ -507,6 +623,56 @@ class Game:
         if self.state == GameState.NAME_INPUT and self.text_input:
             self.text_input.update()
         
+        # --- NETWORK CLIENT LOGIC ---
+        if self.is_network_mode and self.state == GameState.PLAYING:
+            # Play splash sound as background loop on first frame
+            if not self.background_music_playing:
+                if self.assets:
+                    # Note: 'background' doesn't exist, use 'splash' as background
+                    self.assets.play_sound('splash', 0.2)
+                self.background_music_playing = True
+            
+            # 1. Send local input to server (non-blocking with timeout)
+            keys = pygame.key.get_pressed()
+            input_payload = {'keys': [], 'shoot': False}
+            if keys[pygame.K_a]: input_payload['keys'].append('a')
+            if keys[pygame.K_d]: input_payload['keys'].append('d')
+            if keys[pygame.K_w]: input_payload['keys'].append('w')
+            if keys[pygame.K_s]: input_payload['keys'].append('s')
+            if keys[pygame.K_SPACE]: input_payload['shoot'] = True
+            
+            try:
+                send_data(self.server_socket, input_payload)
+            except Exception:
+                # Send error; continue (connection may recover)
+                pass
+
+            # 2. Receive game state from server (non-blocking with timeout)
+            try:
+                received_state = receive_data(self.server_socket)
+                if received_state is not None:
+                    self.game_state_from_server = received_state
+            except Exception:
+                # Receive error; use last known state
+                pass
+
+            # 3. Apply server state (with particle effects)
+            if self.game_state_from_server:
+                self.apply_server_state(self.game_state_from_server)
+            
+            # Update sprite positions and particle effects
+            self.all_sprites.update()
+            if self.particle_system:
+                self.particle_system.update()
+            
+            # The client only renders, so we return here to skip local simulation
+            self.update_starfield()
+            return
+
+        # --- LOCAL SIMULATION LOGIC (if not in network mode) ---
+        if self.is_network_mode:
+            return # Should not run local simulation if connected to server
+
         if self.state == GameState.PLAYING:
             # Update timer
             if not self.level.update_timer():
@@ -530,7 +696,8 @@ class Game:
             
             # Update sprites
             self.all_sprites.update()
-            self.particle_system.update()
+            if not self.is_server: # Particles are a client-side effect
+                self.particle_system.update()
             
             # Player shooting (guard against null player after state change)
             if self.player:
@@ -540,8 +707,9 @@ class Game:
                     for bullet in new_bullets:
                         self.bullets.add(bullet)
                         self.all_sprites.add(bullet)
-                        self.particle_system.emit_trail(
-                            bullet.rect.centerx, bullet.rect.centery, color_config.YELLOW)
+                        if not self.is_server:
+                            self.particle_system.emit_trail(
+                                bullet.rect.centerx, bullet.rect.centery, color_config.YELLOW)
             
             # Spawn enemies
             if self.level.should_spawn_enemy():
@@ -549,7 +717,7 @@ class Game:
                 enemy = EnemyFactory.create(
                     enemy_type, 
                     random.randint(50, game_config.SCREEN_WIDTH - 50),
-                    -50,
+                    -50, # y-position
                     self.current_level
                 )
                 if enemy:
@@ -572,67 +740,85 @@ class Game:
                 hit_enemies = pygame.sprite.spritecollide(bullet, self.enemies, False)
                 if hit_enemies:
                     bullet.kill()
-                    self.assets.play_sound('enemy_hit', 0.7)
+                    if not self.is_server:
+                        self.assets.play_sound('enemy_hit', 0.7)
                     for enemy in hit_enemies:
                         enemy.health -= bullet.damage
                         if enemy.health <= 0:
-                            self.particle_system.emit_explosion(
-                                enemy.rect.centerx, enemy.rect.centery,
-                                color_config.RED, 30)
-                            self.assets.play_sound('explosion', 0.8)
+                            if not self.is_server:
+                                self.particle_system.emit_explosion(
+                                    enemy.rect.centerx, enemy.rect.centery,
+                                    color_config.RED, 30)
+                                self.assets.play_sound('explosion', 0.8)
                             coins_gained = enemy.coin_value
                             score_gained = enemy.score_value
-                            self.player.coins += coins_gained
-                            self.player.score += score_gained
-                            logger.debug(f"Enemy destroyed. Player gained {coins_gained} coins, {score_gained} score. "
-                                         f"New totals: {self.player.coins} coins, {self.player.score} score.")
+                            # On server, update players[0]; on client, update self.player
+                            if self.is_server and self.players:
+                                self.players[0].coins += coins_gained
+                                self.players[0].score += score_gained
+                            elif not self.is_server and self.player:
+                                self.player.coins += coins_gained
+                                self.player.score += score_gained
+                            logger.debug(f"Enemy destroyed. Player gained {coins_gained} coins, {score_gained} score.")
                             enemy.kill()
                         else:
-                            self.particle_system.emit_explosion(
-                                bullet.rect.centerx, bullet.rect.centery,
-                                color_config.ORANGE, 10)
+                            if not self.is_server:
+                                self.particle_system.emit_explosion(
+                                    bullet.rect.centerx, bullet.rect.centery,
+                                    color_config.ORANGE, 10)
             
-            # Check player-enemy collisions
-            hit_enemies = pygame.sprite.spritecollide(self.player, self.enemies, True)
-            for enemy in hit_enemies:
-                damage_taken = 30
-                self.player.take_damage(damage_taken)
-                logger.info(f"Player collided with enemy. Took {damage_taken} damage. Health is now {self.player.health}/{self.player.max_health}.")
-                self.particle_system.emit_explosion(
-                    enemy.rect.centerx, enemy.rect.centery, color_config.RED, 25)
-                
-                if self.player.health <= 0:
-                    self.assets.play_sound('game_over', 0.8)
-                    if self.current_profile:
-                        coins_earned = self.player.coins - self.current_profile.session_start_coins
-                        session_time = time.time() - self.session_start_time
-                        self.current_profile.end_game(
-                            self.player.score,
-                            coins_earned,
-                            self.current_level,
-                            session_time
-                        )
-                        SaveSystem.save_profile(self.current_profile)
-                        SaveSystem.save_high_score(
-                            self.current_profile,
-                            self.player.score,
-                            self.current_level
-                        )
-                    self.state = GameState.GAME_OVER
-            
-            # Check player-powerup collisions
-            hit_powerups = pygame.sprite.spritecollide(self.player, self.powerups, True)
-            for powerup in hit_powerups:
-                logger.info(f"Player collected power-up: '{powerup.power_type}'.")
-                self.player.activate_powerup(powerup.power_type)
-                self.assets.play_sound('powerup', 0.8)
-                self.particle_system.emit_explosion(
-                    powerup.rect.centerx, powerup.rect.centery, color_config.GREEN, 20)
+            # --- Player Collision Logic ---
+            # This logic needs to handle both a single local player and multiple server-side players.
+            players_to_check = self.players if self.is_server else ([self.player] if self.player else [])
+
+            for player_obj in players_to_check:
+                # Check player-enemy collisions
+                hit_enemies = pygame.sprite.spritecollide(player_obj, self.enemies, True)
+                for enemy in hit_enemies:
+                    damage_taken = 30
+                    player_obj.take_damage(damage_taken)
+                    logger.info(f"Player collided with enemy. Took {damage_taken} damage. Health is now {player_obj.health}/{player_obj.max_health}.")
+                    if not self.is_server:
+                        self.particle_system.emit_explosion(
+                            enemy.rect.centerx, enemy.rect.centery, color_config.RED, 25)
+                    
+                    if player_obj.health <= 0:
+                        # On the server, we just mark the player as 'dead'. The client handles the 'Game Over' screen.
+                        # In single-player, we transition the state.
+                        if not self.is_server:
+                            if self.assets:
+                                self.assets.play_sound('game_over', 0.8)
+                            if self.current_profile:
+                                coins_earned = player_obj.coins - self.current_profile.session_start_coins
+                                session_time = time.time() - self.session_start_time
+                                self.current_profile.end_game(
+                                    player_obj.score,
+                                    coins_earned,
+                                    self.current_level,
+                                    session_time
+                                )
+                                SaveSystem.save_profile(self.current_profile)
+                                SaveSystem.save_high_score(
+                                    self.current_profile,
+                                    player_obj.score,
+                                    self.current_level
+                                )
+                            self.state = GameState.GAME_OVER
+
+                # Check player-powerup collisions
+                hit_powerups = pygame.sprite.spritecollide(player_obj, self.powerups, True)
+                for powerup in hit_powerups:
+                    logger.info(f"Player collected power-up: '{powerup.power_type}'.")
+                    player_obj.activate_powerup(powerup.power_type)
+                    if not self.is_server:
+                        self.assets.play_sound('powerup', 0.8)
+                        self.particle_system.emit_explosion(
+                            powerup.rect.centerx, powerup.rect.centery, color_config.GREEN, 20)
             
             # Check level complete
             if (self.level.enemies_spawned >= self.level.enemies_to_spawn and
                 len(self.enemies) == 0):
-                if self.current_profile:
+                if not self.is_server and self.current_profile:
                     # This block was missing. It's crucial for saving progress.
                     coins_earned = self.player.coins - self.current_profile.session_start_coins
                     session_time = time.time() - self.session_start_time
@@ -644,13 +830,18 @@ class Game:
                     )
                     SaveSystem.save_profile(self.current_profile)
 
-                self.assets.play_sound('level_complete', 0.8)
+                if not self.is_server:
+                    if self.assets:
+                        self.assets.play_sound('level_complete', 0.8)
                 self.state = GameState.LEVEL_COMPLETE
         
         # Always update starfield
         self.update_starfield()
     def draw(self):
         """Draw everything"""
+        if self.is_server or not self.screen:
+            return
+        
         self.screen.fill(color_config.BLACK)
         self.draw_starfield()
         
@@ -667,15 +858,50 @@ class Game:
             self.draw_main_menu()
         
         elif self.state == GameState.PLAYING:
-            if self.player and self.level:
+            # Render either local-play or network-client view
+            if (self.player and self.level) or self.is_network_mode:
                 self.all_sprites.draw(self.screen)
-                
+
                 for enemy in self.enemies:
                     enemy.draw_health_bar(self.screen)
-                
-                self.particle_system.draw(self.screen)
-                self.hud.draw(self.screen, self.player, self.current_level, 
-                             self.level.time_remaining)
+
+                if self.particle_system:
+                    self.particle_system.draw(self.screen)
+
+                # Network client: HUD is driven by server-provided state
+                if self.is_network_mode:
+                    # Safe rendering: create temp player from server state (or use placeholder)
+                    if self.game_state_from_server and isinstance(self.game_state_from_server, dict):
+                        # Create minimal player object for HUD display
+                        hud_player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
+                        hud_player.score = int(self.game_state_from_server.get('score', 0))
+                        hud_player.coins = int(self.game_state_from_server.get('coins', 0))
+                        hud_player.has_shield = False
+                        hud_player.rapid_fire = False
+                        hud_player.triple_shot = False
+                        
+                        players_state = self.game_state_from_server.get('players', [])
+                        if players_state and isinstance(players_state, list) and len(players_state) > 0:
+                            p0 = players_state[0]
+                            if isinstance(p0, dict):
+                                hud_player.health = int(p0.get('health', hud_player.max_health))
+                                hud_player.max_health = int(p0.get('max_health', hud_player.max_health))
+
+                        self.hud.draw(
+                            self.screen,
+                            hud_player,
+                            int(self.game_state_from_server.get('level', self.current_level)),
+                            self.game_state_from_server.get('time_remaining', 0)
+                        )
+                    else:
+                        # Before first server state arrives: show placeholder HUD
+                        if self.player:
+                            time_remaining = self.level.time_remaining if self.level else 0
+                            self.hud.draw(self.screen, self.player, self.current_level, time_remaining)
+                else:
+                    # Local single-player HUD
+                    time_remaining = self.level.time_remaining if self.level else 0
+                    self.hud.draw(self.screen, self.player, self.current_level, time_remaining)
         
         elif self.state == GameState.PAUSED:
             if self.player:
@@ -868,27 +1094,33 @@ class Game:
         self.screen.blit(hint, hint_rect)
     
     def draw_profile_select(self):
-        """Draw profile selection screen"""
+        """Draw profile selection screen (centered & responsive)"""
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        margin = 20
+
         title = self.assets.fonts['large'].render("Select Profile", True, color_config.CYAN)
-        title_rect = title.get_rect(center=(game_config.SCREEN_WIDTH // 2, 100))
+        title_rect = title.get_rect(center=(screen_w // 2, int(screen_h * 0.12)))
         self.screen.blit(title, title_rect)
         
         profiles = SaveSystem.get_profiles()
-        y_offset = 200
+        box_width = min(700, screen_w - 400)
+        box_height = 80
+        x = (screen_w - box_width) // 2
+        y_offset = int(screen_h * 0.25)
         mouse_pos = pygame.mouse.get_pos()
         
         # Clear and rebuild profile button list
         self.profile_buttons = []
         
         for i, profile in enumerate(profiles[:5]):
-            box_rect = pygame.Rect(200, y_offset, 624, 80)
+            box_rect = pygame.Rect(x, y_offset, box_width, box_height)
             self.profile_buttons.append((box_rect, i))
             
             # Check if mouse is hovering over this profile and update selection
             if box_rect.collidepoint(mouse_pos):
                 self.profile_selected_index = i
             
-            # Only this profile is selected/highlighted (only one active at a time)
             is_selected = (i == self.profile_selected_index)
             
             # Draw background with highlight if selected
@@ -899,25 +1131,23 @@ class Game:
                 pygame.draw.rect(self.screen, color_config.UI_BG, box_rect)
                 pygame.draw.rect(self.screen, color_config.UI_BORDER, box_rect, 2)
             
-            # Text color based on selection
-            text_color = color_config.BLACK if is_selected else color_config.WHITE
-            num_color = color_config.BLACK if is_selected else color_config.YELLOW
-            
+            # Text positions inside box
+            text_pad = 20
             num_text = f"{i + 1}."
-            num_surface = self.assets.fonts['medium'].render(num_text, True, num_color)
-            self.screen.blit(num_surface, (220, y_offset + 10))
+            num_surface = self.assets.fonts['medium'].render(num_text, True, (color_config.BLACK if is_selected else color_config.YELLOW))
+            self.screen.blit(num_surface, (x + text_pad, y_offset + 10))
             
-            name_surface = self.assets.fonts['medium'].render(profile.name, True, text_color)
-            self.screen.blit(name_surface, (280, y_offset + 10))
+            name_surface = self.assets.fonts['medium'].render(profile.name, True, (color_config.BLACK if is_selected else color_config.WHITE))
+            self.screen.blit(name_surface, (x + text_pad + 60, y_offset + 10))
             
             stats_text = f"Lvl {profile.highest_level} | Score: {profile.total_score} | Coins: {profile.total_coins}"
-            stats_surface = self.assets.fonts['small'].render(stats_text, True, text_color)
-            self.screen.blit(stats_surface, (280, y_offset + 45))
+            stats_surface = self.assets.fonts['small'].render(stats_text, True, (color_config.BLACK if is_selected else color_config.UI_TEXT))
+            self.screen.blit(stats_surface, (x + text_pad + 60, y_offset + 45))
             
-            y_offset += 100
+            y_offset += box_height + 20
         
-        # New Profile button
-        new_profile_rect = pygame.Rect(250, y_offset + 30, 524, 60)
+        # New Profile button - centered under the boxes
+        new_profile_rect = pygame.Rect(x, y_offset + 10, box_width, 60)
         self.new_profile_button = new_profile_rect
         new_hovered = new_profile_rect.collidepoint(mouse_pos)
         
@@ -937,57 +1167,73 @@ class Game:
         hint = self.assets.fonts['small'].render(
             "Click profile or press 1-5 to select | N for new | ESC to skip",
             True, color_config.UI_TEXT)
-        hint_rect = hint.get_rect(center=(game_config.SCREEN_WIDTH // 2, y_offset + 130))
+        hint_rect = hint.get_rect(center=(screen_w // 2, y_offset + 110))
         self.screen.blit(hint, hint_rect)
     
     def draw_main_menu(self):
-        """Draw main menu"""
+        """Draw main menu (responsive layout)"""
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        title_y = int(screen_h * 0.14)
+
         title = self.assets.fonts['title'].render("SPACE DEFENDER", True, color_config.CYAN)
-        title_rect = title.get_rect(center=(game_config.SCREEN_WIDTH // 2, 150))
+        title_rect = title.get_rect(center=(screen_w // 2, title_y))
         self.screen.blit(title, title_rect)
-        
+
         if self.current_profile:
             welcome = self.assets.fonts['medium'].render(
                 f"Welcome, {self.current_profile.name}!", True, color_config.GREEN)
-            welcome_rect = welcome.get_rect(center=(game_config.SCREEN_WIDTH // 2, 250))
+            welcome_rect = welcome.get_rect(center=(screen_w // 2, title_y + 80))
             self.screen.blit(welcome, welcome_rect)
-            
+
             stats_text = f"Total Score: {self.current_profile.total_score} | " \
                         f"Total Coins: {self.current_profile.total_coins} | " \
                         f"Best Level: {self.current_profile.highest_level}"
             stats = self.assets.fonts['small'].render(stats_text, True, color_config.UI_TEXT)
-            stats_rect = stats.get_rect(center=(game_config.SCREEN_WIDTH // 2, 290))
+            stats_rect = stats.get_rect(center=(screen_w // 2, title_y + 120))
             self.screen.blit(stats, stats_rect)
-        
-        # Get mouse position for hover detection
+
+        # Menu layout
         mouse_pos = pygame.mouse.get_pos()
-        
-        # Menu options with positions
+        start_y = int(screen_h * 0.45)
+        spacing = int(screen_h * 0.06)
         options = [
-            ("PRESS ENTER TO START", 380, pygame.K_RETURN, "play"),
-            ("S - SHOP", 430, pygame.K_s, "shop"),
-            ("H - HIGH SCORES", 480, pygame.K_h, "scores"),
-            ("P - CHANGE PROFILE", 530, pygame.K_p, "profile"),
-            ("ESC - QUIT", 580, pygame.K_ESCAPE, "quit")
+            ("PRESS ENTER TO START", pygame.K_RETURN, "play"),
         ]
         
+        # Add "PLAY ONLINE" option if server connection details are provided
+        if self.server_host and self.server_port:
+            options.append(("O - PLAY ONLINE", pygame.K_o, "play_online"))
+        
+        options.extend([
+            ("S - SHOP", pygame.K_s, "shop"),
+            ("H - HIGH SCORES", pygame.K_h, "scores"),
+            ("P - CHANGE PROFILE", pygame.K_p, "profile"),
+            ("ESC - QUIT", pygame.K_ESCAPE, "quit")
+        ])
+
         # Store button rects for mouse detection
         self.menu_buttons = []
-        
-        for idx, (text, y, key, action) in enumerate(options):
-            surface = self.assets.fonts['medium'].render(text, True, color_config.WHITE)
-            rect = surface.get_rect(center=(game_config.SCREEN_WIDTH // 2, y))
-            button_rect = rect.inflate(300, 40)  # Add padding for clickable area
-            
-            # Check if this is the selected item (only one active at a time)
+        button_width = min(520, screen_w - 300)
+        button_height = 56
+
+        for idx, (text, key, action) in enumerate(options):
+            y = start_y + idx * spacing
+            button_rect = pygame.Rect(
+                screen_w // 2 - button_width // 2,
+                y - button_height // 2,
+                button_width,
+                button_height
+            )
+
             is_selected = (idx == self.menu_selected_index)
-            
-            # Draw button background if selected
             if is_selected:
                 pygame.draw.rect(self.screen, color_config.CYAN, button_rect)
                 surface = self.assets.fonts['medium'].render(text, True, color_config.BLACK)
-            
-            rect = surface.get_rect(center=(game_config.SCREEN_WIDTH // 2, y))
+            else:
+                surface = self.assets.fonts['medium'].render(text, True, color_config.WHITE)
+
+            rect = surface.get_rect(center=button_rect.center)
             self.screen.blit(surface, rect)
             self.menu_buttons.append((button_rect, action))
     
@@ -1175,6 +1421,11 @@ class Game:
     
     def run(self):
         """Main game loop"""
+        if self.is_server:
+            # Server doesn't have a GUI loop - it's handled separately
+            logger.error("Server instance should not call run(). Use server.py instead.")
+            return
+        
         while self.running:
             self.handle_events()
             self.update()
@@ -1185,6 +1436,16 @@ class Game:
 
     def _handle_menu_action(self, action: str):
         """Handle actions based on main menu selection."""
+        if action == "play_online":  # Multiplayer via network
+            logger.info("Attempting to connect to server...")
+            if self.connect_to_server(self.server_host, self.server_port):
+                logger.info("Connected to server. Initializing game...")
+                self.init_game()
+                self.state = GameState.PLAYING
+            else:
+                logger.error(f"Failed to connect to {self.server_host}:{self.server_port}")
+            return
+
         if action == "play":
             logger.info("Game started (via menu)")
             self.init_game()

@@ -18,15 +18,16 @@ class TextInput:
         self.cursor_timer = 0
     
     def handle_event(self, event: pygame.event.Event):
+        """Handle keyboard input. Returns the text when Enter is pressed, None otherwise."""
         if event.type == pygame.KEYDOWN and self.active:
             if event.key == pygame.K_BACKSPACE:
                 self.text = self.text[:-1]
             elif event.key == pygame.K_RETURN:
-                return True
+                return self.text
             elif len(self.text) < self.max_length:
                 if event.unicode.isprintable():
                     self.text += event.unicode
-        return False
+        return None
     
     def update(self):
         self.cursor_timer += 1

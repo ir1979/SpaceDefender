@@ -56,7 +56,8 @@ class Bullet(BaseEntity):
         data.update({
             'weapon_type': self.weapon_type,
             'damage': self.damage,
-            'angle': self.angle
+            'angle': self.angle,
+            'speed': self.speed
         })
         return data
 

@@ -1,0 +1,358 @@
+============================================================
+NETWORK INTEGRATION TEST
+============================================================
+
+[1/5] Checking port 9999 availability...
+✓ Port 9999 is available
+
+[2/5] Loading server and client modules...
+pygame 2.6.1 (SDL 2.28.4, Python 3.13.3)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+✓ Modules loaded successfully
+
+[3/5] Testing Game client initialization...
+Pygame mixer initialized successfully
+
+Loading sounds from C:\Users\Reza Mortazavi\Dropbox\Projects\Ali School\Kharazmi\Game\space_defender\data\sounds/...
+  ✓ Loaded: shoot.wav
+  ✓ Loaded: enemy_hit.wav
+  ✓ Loaded: explosion.wav
+  ✓ Loaded: powerup.wav
+  ✓ Loaded: coin.wav
+  ✓ Loaded: game_over.wav
+  ✓ Loaded: level_complete.wav
+  ✓ Loaded: shop_purchase.wav
+  ✓ Loaded: menu_select.wav
+  ✓ Loaded: splash.wav
+Loaded 10/10 sounds
+
+
+Loading sprites from C:\Users\Reza Mortazavi\Dropbox\Projects\Ali School\Kharazmi\Game\space_defender\assets\sprites/...
+  ✓ Loaded sprite: beam1.png
+  ✓ Loaded sprite: beam2.png
+  ✓ Loaded sprite: beam3.png
+  ✓ Loaded sprite: beam4.png
+  ✓ Loaded sprite: beam5.png
+  ✓ Loaded sprite: beam6.png
+  ✓ Loaded sprite: beamLong1.png
+  ✓ Loaded sprite: beamLong2.png
+  ✓ Loaded sprite: bold_silver.png
+  ✓ Loaded sprite: bolt_bronze.png
+  ✓ Loaded sprite: bolt_gold.png
+  ✓ Loaded sprite: bullet_basic.png
+  ✓ Loaded sprite: bullet_laser.png
+  ✓ Loaded sprite: bullet_missile.png
+  ✓ Loaded sprite: bullet_plasma.png
+  ✓ Loaded sprite: buttonBlue.png
+  ✓ Loaded sprite: buttonGreen.png
+  ✓ Loaded sprite: buttonRed.png
+  ✓ Loaded sprite: buttonYellow.png
+  ✓ Loaded sprite: cockpitBlue_0.png
+  ✓ Loaded sprite: cockpitBlue_1.png
+  ✓ Loaded sprite: cockpitBlue_2.png
+  ✓ Loaded sprite: cockpitBlue_3.png
+  ✓ Loaded sprite: cockpitBlue_4.png
+  ✓ Loaded sprite: cockpitBlue_5.png
+  ✓ Loaded sprite: cockpitBlue_6.png
+  ✓ Loaded sprite: cockpitBlue_7.png
+  ✓ Loaded sprite: cockpitGreen_0.png
+  ✓ Loaded sprite: cockpitGreen_1.png
+  ✓ Loaded sprite: cockpitGreen_2.png
+  ✓ Loaded sprite: cockpitGreen_3.png
+  ✓ Loaded sprite: cockpitGreen_4.png
+  ✓ Loaded sprite: cockpitGreen_5.png
+  ✓ Loaded sprite: cockpitGreen_6.png
+  ✓ Loaded sprite: cockpitGreen_7.png
+  ✓ Loaded sprite: cockpitRed_0.png
+  ✓ Loaded sprite: cockpitRed_1.png
+  ✓ Loaded sprite: cockpitRed_2.png
+  ✓ Loaded sprite: cockpitRed_3.png
+  ✓ Loaded sprite: cockpitRed_4.png
+  ✓ Loaded sprite: cockpitRed_5.png
+  ✓ Loaded sprite: cockpitRed_6.png
+  ✓ Loaded sprite: cockpitRed_7.png
+  ✓ Loaded sprite: cockpitYellow_0.png
+  ✓ Loaded sprite: cockpitYellow_1.png
+  ✓ Loaded sprite: cockpitYellow_2.png
+  ✓ Loaded sprite: cockpitYellow_3.png
+  ✓ Loaded sprite: cockpitYellow_4.png
+  ✓ Loaded sprite: cockpitYellow_5.png
+  ✓ Loaded sprite: cockpitYellow_6.png
+  ✓ Loaded sprite: cockpitYellow_7.png
+  ✓ Loaded sprite: cursor.png
+  ✓ Loaded sprite: enemyBlack1.png
+  ✓ Loaded sprite: enemyBlack2.png
+  ✓ Loaded sprite: enemyBlack3.png
+  ✓ Loaded sprite: enemyBlack4.png
+  ✓ Loaded sprite: enemyBlack5.png
+  ✓ Loaded sprite: enemyBlue3.png
+  ✓ Loaded sprite: enemyBlue4.png
+  ✓ Loaded sprite: enemyBlue5.png
+  ✓ Loaded sprite: enemyGreen2.png
+  ✓ Loaded sprite: enemyGreen3.png
+  ✓ Loaded sprite: enemyGreen4.png
+  ✓ Loaded sprite: enemyGreen5.png
+  ✓ Loaded sprite: enemyRed2.png
+  ✓ Loaded sprite: enemyRed3.png
+  ✓ Loaded sprite: enemyRed4.png
+  ✓ Loaded sprite: enemyRed5.png
+  ✓ Loaded sprite: enemy_basic.png
+  ✓ Loaded sprite: enemy_boss.png
+  ✓ Loaded sprite: enemy_fast.png
+  ✓ Loaded sprite: enemy_tank.png
+  ✓ Loaded sprite: enemy_weaver.png
+  ✓ Loaded sprite: engine1.png
+  ✓ Loaded sprite: engine2.png
+  ✓ Loaded sprite: engine3.png
+  ✓ Loaded sprite: engine4.png
+  ✓ Loaded sprite: engine5.png
+  ✓ Loaded sprite: fighter.png
+  ✓ Loaded sprite: fire00.png
+  ✓ Loaded sprite: fire01.png
+  ✓ Loaded sprite: fire02.png
+  ✓ Loaded sprite: fire03.png
+  ✓ Loaded sprite: fire04.png
+  ✓ Loaded sprite: fire05.png
+  ✓ Loaded sprite: fire06.png
+  ✓ Loaded sprite: fire07.png
+  ✓ Loaded sprite: fire08.png
+  ✓ Loaded sprite: fire09.png
+  ✓ Loaded sprite: fire10.png
+  ✓ Loaded sprite: fire11.png
+  ✓ Loaded sprite: fire12.png
+  ✓ Loaded sprite: fire13.png
+  ✓ Loaded sprite: fire14.png
+  ✓ Loaded sprite: fire15.png
+  ✓ Loaded sprite: fire16.png
+  ✓ Loaded sprite: fire17.png
+  ✓ Loaded sprite: fire18.png
+  ✓ Loaded sprite: fire19.png
+  ✓ Loaded sprite: gun00.png
+  ✓ Loaded sprite: gun01.png
+  ✓ Loaded sprite: gun02.png
+  ✓ Loaded sprite: gun03.png
+  ✓ Loaded sprite: gun04.png
+  ✓ Loaded sprite: gun05.png
+  ✓ Loaded sprite: gun06.png
+  ✓ Loaded sprite: gun07.png
+  ✓ Loaded sprite: gun08.png
+  ✓ Loaded sprite: gun09.png
+  ✓ Loaded sprite: gun10.png
+  ✓ Loaded sprite: laserBlue02.png
+  ✓ Loaded sprite: laserBlue03.png
+  ✓ Loaded sprite: laserBlue04.png
+  ✓ Loaded sprite: laserBlue05.png
+  ✓ Loaded sprite: laserBlue06.png
+  ✓ Loaded sprite: laserBlue07.png
+  ✓ Loaded sprite: laserBlue08.png
+  ✓ Loaded sprite: laserBlue09.png
+  ✓ Loaded sprite: laserBlue10.png
+  ✓ Loaded sprite: laserBlue11.png
+  ✓ Loaded sprite: laserBlue12.png
+  ✓ Loaded sprite: laserBlue13.png
+  ✓ Loaded sprite: laserBlue14.png
+  ✓ Loaded sprite: laserBlue15.png
+  ✓ Loaded sprite: laserBlue16.png
+  ✓ Loaded sprite: laserGreen01.png
+  ✓ Loaded sprite: laserGreen03.png
+  ✓ Loaded sprite: laserGreen04.png
+  ✓ Loaded sprite: laserGreen05.png
+  ✓ Loaded sprite: laserGreen06.png
+  ✓ Loaded sprite: laserGreen07.png
+  ✓ Loaded sprite: laserGreen08.png
+  ✓ Loaded sprite: laserGreen09.png
+  ✓ Loaded sprite: laserGreen10.png
+  ✓ Loaded sprite: laserGreen11.png
+  ✓ Loaded sprite: laserGreen12.png
+  ✓ Loaded sprite: laserGreen13.png
+  ✓ Loaded sprite: laserGreen14.png
+  ✓ Loaded sprite: laserGreen15.png
+  ✓ Loaded sprite: laserGreen16.png
+  ✓ Loaded sprite: laserRed02.png
+  ✓ Loaded sprite: laserRed03.png
+  ✓ Loaded sprite: laserRed04.png
+  ✓ Loaded sprite: laserRed05.png
+  ✓ Loaded sprite: laserRed06.png
+  ✓ Loaded sprite: laserRed07.png
+  ✓ Loaded sprite: laserRed08.png
+  ✓ Loaded sprite: laserRed09.png
+  ✓ Loaded sprite: laserRed10.png
+  ✓ Loaded sprite: laserRed11.png
+  ✓ Loaded sprite: laserRed12.png
+  ✓ Loaded sprite: laserRed13.png
+  ✓ Loaded sprite: laserRed14.png
+  ✓ Loaded sprite: laserRed15.png
+  ✓ Loaded sprite: laserRed16.png
+  ✓ Loaded sprite: meteorBrown_big1.png
+  ✓ Loaded sprite: meteorBrown_big2.png
+  ✓ Loaded sprite: meteorBrown_big3.png
+  ✓ Loaded sprite: meteorBrown_big4.png
+  ✓ Loaded sprite: meteorBrown_med1.png
+  ✓ Loaded sprite: meteorBrown_med3.png
+  ✓ Loaded sprite: meteorBrown_small1.png
+  ✓ Loaded sprite: meteorBrown_small2.png
+  ✓ Loaded sprite: meteorBrown_tiny1.png
+  ✓ Loaded sprite: meteorBrown_tiny2.png
+  ✓ Loaded sprite: meteorGrey_big1.png
+  ✓ Loaded sprite: meteorGrey_big2.png
+  ✓ Loaded sprite: meteorGrey_big3.png
+  ✓ Loaded sprite: meteorGrey_big4.png
+  ✓ Loaded sprite: meteorGrey_med1.png
+  ✓ Loaded sprite: meteorGrey_med2.png
+  ✓ Loaded sprite: meteorGrey_small1.png
+  ✓ Loaded sprite: meteorGrey_small2.png
+  ✓ Loaded sprite: meteorGrey_tiny1.png
+  ✓ Loaded sprite: meteorGrey_tiny2.png
+  ✓ Loaded sprite: numeral0.png
+  ✓ Loaded sprite: numeral1.png
+  ✓ Loaded sprite: numeral2.png
+  ✓ Loaded sprite: numeral3.png
+  ✓ Loaded sprite: numeral4.png
+  ✓ Loaded sprite: numeral5.png
+  ✓ Loaded sprite: numeral6.png
+  ✓ Loaded sprite: numeral7.png
+  ✓ Loaded sprite: numeral8.png
+  ✓ Loaded sprite: numeral9.png
+  ✓ Loaded sprite: numeralX.png
+  ✓ Loaded sprite: pill_blue.png
+  ✓ Loaded sprite: pill_green.png
+  ✓ Loaded sprite: pill_red.png
+  ✓ Loaded sprite: pill_yellow.png
+  ✓ Loaded sprite: playerLife1_blue.png
+  ✓ Loaded sprite: playerLife1_green.png
+  ✓ Loaded sprite: playerLife1_orange.png
+  ✓ Loaded sprite: playerLife1_red.png
+  ✓ Loaded sprite: playerLife2_blue.png
+  ✓ Loaded sprite: playerLife2_green.png
+  ✓ Loaded sprite: playerLife2_orange.png
+  ✓ Loaded sprite: playerLife2_red.png
+  ✓ Loaded sprite: playerLife3_blue.png
+  ✓ Loaded sprite: playerLife3_green.png
+  ✓ Loaded sprite: playerLife3_orange.png
+  ✓ Loaded sprite: playerLife3_red.png
+  ✓ Loaded sprite: playerShip1_damage1.png
+  ✓ Loaded sprite: playerShip1_damage2.png
+  ✓ Loaded sprite: playerShip1_damage3.png
+  ✓ Loaded sprite: playerShip1_green.png
+  ✓ Loaded sprite: playerShip1_orange.png
+  ✓ Loaded sprite: playerShip1_red.png
+  ✓ Loaded sprite: playerShip2_damage1.png
+  ✓ Loaded sprite: playerShip2_damage2.png
+  ✓ Loaded sprite: playerShip2_damage3.png
+  ✓ Loaded sprite: playerShip2_green.png
+  ✓ Loaded sprite: playerShip2_orange.png
+  ✓ Loaded sprite: playerShip2_red.png
+  ✓ Loaded sprite: playerShip3_blue.png
+  ✓ Loaded sprite: playerShip3_damage1.png
+  ✓ Loaded sprite: playerShip3_damage2.png
+  ✓ Loaded sprite: playerShip3_damage3.png
+  ✓ Loaded sprite: playerShip3_green.png
+  ✓ Loaded sprite: playerShip3_orange.png
+  ✓ Loaded sprite: playerShip3_red.png
+  ✓ Loaded sprite: powerupBlue.png
+  ✓ Loaded sprite: powerupBlue_bolt.png
+  ✓ Loaded sprite: powerupBlue_shield.png
+  ✓ Loaded sprite: powerupBlue_star.png
+  ✓ Loaded sprite: powerupGreen.png
+  ✓ Loaded sprite: powerupGreen_bolt.png
+  ✓ Loaded sprite: powerupGreen_shield.png
+  ✓ Loaded sprite: powerupGreen_star.png
+  ✓ Loaded sprite: powerupRed.png
+  ✓ Loaded sprite: powerupRed_bolt.png
+  ✓ Loaded sprite: powerupRed_shield.png
+  ✓ Loaded sprite: powerupRed_star.png
+  ✓ Loaded sprite: powerupYellow.png
+  ✓ Loaded sprite: powerupYellow_bolt.png
+  ✓ Loaded sprite: powerupYellow_shield.png
+  ✓ Loaded sprite: powerupYellow_star.png
+  ✓ Loaded sprite: scratch1.png
+  ✓ Loaded sprite: scratch2.png
+  ✓ Loaded sprite: scratch3.png
+  ✓ Loaded sprite: shield1.png
+  ✓ Loaded sprite: shield2.png
+  ✓ Loaded sprite: shield3.png
+  ✓ Loaded sprite: shield_bronze.png
+  ✓ Loaded sprite: shield_gold.png
+  ✓ Loaded sprite: shield_silver.png
+  ✓ Loaded sprite: spaceship.png
+  ✓ Loaded sprite: speed.png
+  ✓ Loaded sprite: star1.png
+  ✓ Loaded sprite: star2.png
+  ✓ Loaded sprite: star3.png
+  ✓ Loaded sprite: star_bronze.png
+  ✓ Loaded sprite: star_gold.png
+  ✓ Loaded sprite: star_silver.png
+  ✓ Loaded sprite: things_bronze.png
+  ✓ Loaded sprite: things_gold.png
+  ✓ Loaded sprite: things_silver.png
+  ✓ Loaded sprite: turretBase_big.png
+  ✓ Loaded sprite: turretBase_small.png
+  ✓ Loaded sprite: ufoGreen.png
+  ✓ Loaded sprite: ufoRed.png
+  ✓ Loaded sprite: ufoYellow.png
+  ✓ Loaded sprite: wingBlue_0.png
+  ✓ Loaded sprite: wingBlue_1.png
+  ✓ Loaded sprite: wingBlue_2.png
+  ✓ Loaded sprite: wingBlue_3.png
+  ✓ Loaded sprite: wingBlue_4.png
+  ✓ Loaded sprite: wingBlue_5.png
+  ✓ Loaded sprite: wingBlue_6.png
+  ✓ Loaded sprite: wingBlue_7.png
+  ✓ Loaded sprite: wingGreen_0.png
+  ✓ Loaded sprite: wingGreen_1.png
+  ✓ Loaded sprite: wingGreen_2.png
+  ✓ Loaded sprite: wingGreen_3.png
+  ✓ Loaded sprite: wingGreen_4.png
+  ✓ Loaded sprite: wingGreen_5.png
+  ✓ Loaded sprite: wingGreen_6.png
+  ✓ Loaded sprite: wingGreen_7.png
+  ✓ Loaded sprite: wingRed_0.png
+  ✓ Loaded sprite: wingRed_1.png
+  ✓ Loaded sprite: wingRed_2.png
+  ✓ Loaded sprite: wingRed_3.png
+  ✓ Loaded sprite: wingRed_4.png
+  ✓ Loaded sprite: wingRed_5.png
+  ✓ Loaded sprite: wingRed_6.png
+  ✓ Loaded sprite: wingRed_7.png
+  ✓ Loaded sprite: wingYellow_0.png
+  ✓ Loaded sprite: wingYellow_1.png
+  ✓ Loaded sprite: wingYellow_2.png
+  ✓ Loaded sprite: wingYellow_3.png
+  ✓ Loaded sprite: wingYellow_4.png
+  ✓ Loaded sprite: wingYellow_5.png
+  ✓ Loaded sprite: wingYellow_6.png
+  ✓ Loaded sprite: wingYellow_7.png
+Loaded 294 sprite(s)
+
+✓ Loaded splash screen image from C:\Users\Reza Mortazavi\Dropbox\Projects\Ali School\Kharazmi\Game\space_defender\assets\splash.png
+✓ Client Game created
+  - Assets loaded: True
+  - Sprites available: 294
+  - Sounds available: 10
+  - ShapeRenderer connected to AssetManager: True (checked in __init__)
+
+[4/5] Testing Game server initialization...
+✓ Server Game created (headless)
+  - Screen: None
+  - Assets: None
+  - State: GameState.PLAYING
+  - Players initialized: 0
+
+[5/5] Testing network socket operations...
+✓ send_data function available: True
+✓ receive_data function available: True
+✓ Network utilities working
+
+============================================================
+✓ ALL INTEGRATION TESTS PASSED
+============================================================
+
+Summary:
+  ✓ Port available
+  ✓ Modules load
+  ✓ Client assets load (sprites + sounds)
+  ✓ Client ShapeRenderer connected to AssetManager
+  ✓ Server runs headless
+  ✓ Network serialization works
+
+Ready for live server+client testing!

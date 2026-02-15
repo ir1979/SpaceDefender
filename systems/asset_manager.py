@@ -43,12 +43,17 @@ class AssetManager:
             self.fonts['tiny'] = pygame.font.SysFont('arial', 18)
     
     def load_sounds(self):
-        """Load sound effects from data/sounds directory"""
+        """Load sound effects from assets/sounds directory (fallback to data/sounds).
+        Files were moved to `assets/sounds` — keep backward compatibility by
+        falling back to `data/sounds` if needed."""
         # Get the space_defender directory (parent of systems folder)
         space_defender_dir = Path(__file__).parent.parent
-        sound_dir = space_defender_dir / 'data' / 'sounds'
+        # Prefer assets/sounds; fall back to data/sounds for older checkouts
+        sound_dir = space_defender_dir / 'assets' / 'sounds'
+        if not sound_dir.exists():
+            sound_dir = space_defender_dir / 'data' / 'sounds'
         
-        # Create sounds directory if it doesn't exist
+        # Ensure directory exists so subsequent code can safely operate
         sound_dir.mkdir(parents=True, exist_ok=True)
         
         # Sound file mappings
