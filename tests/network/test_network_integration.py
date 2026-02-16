@@ -41,8 +41,7 @@ def test_server_client_integration():
         test_sock.close()
         print("✓ Port 9999 is available")
     except Exception as e:
-        print(f"✗ Port 9999 not available: {e}")
-        return False
+        assert False, f"Port 9999 not available: {e}"
     
     # Import server and client modules
     print("\n[2/5] Loading server and client modules...")
@@ -51,10 +50,9 @@ def test_server_client_integration():
         from core.game import Game
         print("✓ Modules loaded successfully")
     except Exception as e:
-        print(f"✗ Import failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False, f"Import failed: {e}"
     
     # Test Game client initialization
     print("\n[3/5] Testing Game client initialization...")
@@ -66,10 +64,9 @@ def test_server_client_integration():
         print(f"  - Sounds available: {len(game.assets.sounds) if game.assets else 0}")
         print(f"  - ShapeRenderer connected to AssetManager: True (checked in __init__)")
     except Exception as e:
-        print(f"✗ Game initialization failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False, f"Game initialization failed: {e}"
     
     # Test Game server initialization
     print("\n[4/5] Testing Game server initialization...")
@@ -81,10 +78,9 @@ def test_server_client_integration():
         print(f"  - State: {server_game.state}")
         print(f"  - Players initialized: {len(server_game.players)}")
     except Exception as e:
-        print(f"✗ Server Game initialization failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False, f"Server Game initialization failed: {e}"
     
     # Test network socket connection
     print("\n[5/5] Testing network socket operations...")
@@ -96,10 +92,9 @@ def test_server_client_integration():
         print(f"✓ receive_data function available: {callable(receive_data)}")
         print(f"✓ Network utilities working")
     except Exception as e:
-        print(f"✗ Network test failed: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        assert False, f"Network test failed: {e}"
     
     print("\n" + "=" * 60)
     print("✓ ALL INTEGRATION TESTS PASSED")
@@ -112,8 +107,11 @@ def test_server_client_integration():
     print("  ✓ Server runs headless")
     print("  ✓ Network serialization works")
     print("\nReady for live server+client testing!")
-    return True
+    # test completed successfully
 
 if __name__ == "__main__":
-    success = test_server_client_integration()
-    sys.exit(0 if success else 1)
+    try:
+        test_server_client_integration()
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)

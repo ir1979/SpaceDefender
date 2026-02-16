@@ -22,6 +22,10 @@ os.environ['SDL_AUDIODRIVER'] = 'dummy'
 import pygame
 pygame.init()
 
+import threading
+import time
+from server import main as server_main, shutdown_event
+
 def test_network_mode_fixes():
     print("=" * 60)
     print("TESTING NETWORK MODE FIXES")
@@ -36,11 +40,21 @@ def test_network_mode_fixes():
         game = Game(None, is_server=False)
         print(f"✓ Game created")
         
-        print("\n[2] Connecting to server...")
-        if not game.connect_to_server('127.0.0.1', 9999):
-            print("✗ Failed to connect to server")
-            return False
-        print(f"✓ Connected (is_network_mode={game.is_network_mode})")
+        print("\n[2] Starting test server on port 9999...")
+        server_args = [sys.argv[0], '9999']
+        shutdown_event.clear()
+        server_thread = threading.Thread(target=server_main, args=(server_args,), daemon=True)
+        server_thread.start()
+        time.sleep(1)
+
+        try:
+            print("\n[3] Connecting to server...")
+            assert game.connect_to_server('127.0.0.1', 9999), "Failed to connect to server"
+            print(f"✓ Connected (is_network_mode={game.is_network_mode})")
+        finally:
+            shutdown_event.set()
+            server_thread.join(timeout=3)
+            shutdown_event.clear()
         
         print("\n[3] Initializing game for network mode...")
         game.init_game()
@@ -68,7 +82,7 @@ def test_network_mode_fixes():
             except Exception as e:
                 print(f"  ✗ CRASH in iteration {i+1}: {e}")
                 traceback.print_exc()
-                return False
+                raise
         
         print("\n[5] Verifying fixes applied...")
         # Check that we're not trying to play non-existent 'background'
@@ -85,13 +99,16 @@ def test_network_mode_fixes():
         print("  3. ✓ Network HUD rendering safe when game_state_from_server=None")
         print("  4. ✓ Safe dict access with type checks and defaults")
         print("  5. ✓ Placeholder HUD shown until first server state arrives")
-        return True
+        # test completed successfully
         
     except Exception as e:
         print(f"\n✗ ERROR: {e}")
         traceback.print_exc()
-        return False
+        raise
 
 if __name__ == "__main__":
-    success = test_network_mode_fixes()
-    sys.exit(0 if success else 1)
+    try:
+        test_network_mode_fixes()
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)

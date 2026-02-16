@@ -433,10 +433,12 @@ class Game:
         self.bullets.empty()
         self.powerups.empty()
 
-        # Players
+        # Players - FIXED: mark them as network_controlled=True
         for p_state in state.get('players', []):
             try:
-                p = Player(int(p_state.get('x', 0)), int(p_state.get('y', 0)))
+                # CHANGED: Added network_controlled=True parameter
+                p = Player(int(p_state.get('x', 0)), int(p_state.get('y', 0)), 
+                        network_controlled=True)
                 p.health = int(p_state.get('health', p.health))
                 p.max_health = int(p_state.get('max_health', p.max_health))
                 p.coins = int(p_state.get('coins', getattr(p, 'coins', 0)))
@@ -446,18 +448,13 @@ class Game:
             except Exception:
                 continue
 
-        # Sync self.player for network clients
-        if self.is_network_mode and self.player_id is not None:
-            if 0 <= self.player_id < len(self.players):
-                self.player = self.players[self.player_id]
-                logger.debug(f"Client synced self.player to player_id {self.player_id}")
-            else:
-                logger.warning(f"Player ID {self.player_id} out of range for {len(self.players)} players")
-
         # Enemies (server may use 'enemy_type')
         for e_state in state.get('enemies', []):
             try:
                 etype = e_state.get('enemy_type') or e_state.get('type')
+                # Accept either 'basic' or 'enemy_basic' naming from different sources/tests
+                if isinstance(etype, str) and etype.startswith('enemy_'):
+                    etype = etype.replace('enemy_', '')
                 if not etype:
                     continue
                 ex = int(e_state.get('x', 0))
@@ -559,6 +556,11 @@ class Game:
         if not self.players:
             self.players.append(Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100))
 
+        # If running as a client, keep `self.player` in sync with the profile-backed player
+        if not self.is_server:
+            # point local player reference to the authoritative player object created above
+            self.player = self.players[0]
+
         # Always sync player's transient state (coins/score) from the selected profile
         if self.current_profile:
             # load saved session state so user can continue where they left off
@@ -653,12 +655,22 @@ class Game:
             
             # 1. Send local input to server (non-blocking with timeout)
             keys = pygame.key.get_pressed()
+            mouse_buttons = pygame.mouse.get_pressed()
             input_payload = {'keys': [], 'shoot': False}
-            if keys[pygame.K_a]: input_payload['keys'].append('a')
-            if keys[pygame.K_d]: input_payload['keys'].append('d')
-            if keys[pygame.K_w]: input_payload['keys'].append('w')
-            if keys[pygame.K_s]: input_payload['keys'].append('s')
-            if keys[pygame.K_SPACE]: input_payload['shoot'] = True
+            
+            # FIXED: Support both arrow keys and WASD
+            if keys[pygame.K_a] or keys[pygame.K_LEFT]: 
+                input_payload['keys'].append('a')
+            if keys[pygame.K_d] or keys[pygame.K_RIGHT]: 
+                input_payload['keys'].append('d')
+            if keys[pygame.K_w] or keys[pygame.K_UP]: 
+                input_payload['keys'].append('w')
+            if keys[pygame.K_s] or keys[pygame.K_DOWN]: 
+                input_payload['keys'].append('s')
+            
+            # FIXED: Shooting via space or left mouse button
+            if keys[pygame.K_SPACE] or mouse_buttons[0]: 
+                input_payload['shoot'] = True
             
             try:
                 send_data(self.server_socket, input_payload)
@@ -687,6 +699,7 @@ class Game:
             # The client only renders, so we return here to skip local simulation
             self.update_starfield()
             return
+        
 
         # --- LOCAL SIMULATION LOGIC (if not in network mode) ---
         if self.is_network_mode:

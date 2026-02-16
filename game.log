@@ -1,107 +1,141 @@
-2026-02-16 09:36:22 - space_defender - INFO - [logger.py:41] - ================================================================================
-2026-02-16 09:36:22 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
-2026-02-16 09:36:22 - space_defender - INFO - [logger.py:43] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:51] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:52] - Starting Profile Selection -> Shop Purchase integration test...
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:53] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:59] - Cleaned up existing test profile: test_shopper_profile_123
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_shopper_profile_123' saved successfully.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:64] - Created and saved test profile 'test_shopper_profile_123' with 500 total_coins.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:75] - Simulated profile selection. Applied 'test_shopper_profile_123' to the game.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:120] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:121] - Starting Coin Earning -> Save integration test...
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:122] - ================================================================================
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_earner_profile_456' saved successfully.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:132] - Created test profile 'test_earner_profile_456' with 100 total_coins.
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'test_earner_profile_456': Starting new game. Session coins set to 100, session score to 0.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:144] - Simulated starting a new game level.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:149] - ✓ Player started level with correct coin balance: 100
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:153] - Simulated earning 50 coins. Player now has 150 coins in session.
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:99] - Profile 'test_earner_profile_456': Ending game. Adding score: 1000, coins: 50.
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:100] -   - Before: total_score=0, total_coins=100
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:106] -   - After: total_score=1000, total_coins=150
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_earner_profile_456' saved successfully.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:160] - Simulated game over. Calculated coins_earned: 50. Saved profile.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:166] - ✓ Verified persistent total_coins is correct: 150
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:170] - Cleaned up and deleted test profile: test_earner_profile_456
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:171] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:172] - ✅ Integration test PASSED!
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:173] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:179] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:180] - Starting Quit Level logic test...
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:181] - ================================================================================
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_quitter_profile_789' saved successfully.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:191] - Created test profile 'test_quitter_profile_789' with 200 coins and 1000 score.
-2026-02-16 09:36:22 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'test_quitter_profile_789': Starting new game. Session coins set to 200, session score to 0.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:202] - Simulated earning progress. Player now has 277 coins and 550 score.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:206] - Simulating player quitting the level...
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:214] - ✓ Verified that quitting discarded session progress and reverted the profile to its pre-level state.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:220] - ✓ Verified that the profile on disk remains unchanged.
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:224] - Cleaned up test profile: test_quitter_profile_789
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:225] - ================================================================================
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:226] - ✅ Integration test PASSED!
-2026-02-16 09:36:22 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:227] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:36] - Starting shop test...
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:41] - Pygame initialized
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:45] - Created test player: health=100, coins=0, damage=25
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:49] - Given coins to player: 500
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:50] - Player coins after setting: 500
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:58] - Created AssetManager
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:62] - Created Shop with 5 items
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:66] -   [0] Max Health +20: cost=75, level=0/999, effect=max_health
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:66] -   [1] Damage +10: cost=100, level=0/999, effect=damage
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:66] -   [2] Speed +1: cost=80, level=0/999, effect=speed
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:66] -   [3] Fire Rate +2: cost=90, level=0/999, effect=fire_rate
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:66] -   [4] Heal 50 HP: cost=60, level=0/999, effect=heal
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:68] - ABOUT TO TEST - Player coins: 500, Item 0 cost: 75
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:70] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:71] - TEST 1: Purchase Max Health upgrade
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:72] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Max Health +20', index=0, cost=75, level=0, max_level=999
-2026-02-16 09:36:22 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 500, can_afford: True, level_ok: True
-2026-02-16 09:36:22 - space_defender.shop - INFO - [menus.py:90] - ✓ Purchase approved: Max Health +20 for 75 coins
-2026-02-16 09:36:22 - space_defender.shop - INFO - [menus.py:97] -   -> Max Health increased to 120, Health restored to 120
-2026-02-16 09:36:22 - space_defender.shop - INFO - [menus.py:114] -   -> Item level: 1, New cost: 112
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:75] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:76] - TEST 2: Purchase Damage upgrade
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:77] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Damage +10', index=1, cost=100, level=0, max_level=999
-2026-02-16 09:36:22 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 425, can_afford: True, level_ok: True
-2026-02-16 09:36:22 - space_defender.shop - INFO - [menus.py:90] - ✓ Purchase approved: Damage +10 for 100 coins
-2026-02-16 09:36:22 - space_defender.shop - INFO - [menus.py:100] -   -> Damage increased to 35
-2026-02-16 09:36:22 - space_defender.shop - INFO - [menus.py:114] -   -> Item level: 1, New cost: 150
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:80] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:81] - TEST 3: Check player status after purchases
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:82] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:83] - Player status: coins=325, health=120, max_health=120, damage=35
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:85] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:86] - TEST 4: Try to purchase with insufficient coins
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:87] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:89] - Set player coins to: 10
-2026-02-16 09:36:22 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Max Health +20', index=0, cost=112, level=1, max_level=999
-2026-02-16 09:36:22 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 10, can_afford: False, level_ok: True
-2026-02-16 09:36:22 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Max Health +20 - insufficient coins
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:92] - ================================================================================
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:93] - Shop test completed!
-2026-02-16 09:36:22 - space_defender.shop_test - INFO - [test_shop.py:94] - ================================================================================
-2026-02-16 09:36:25 - space_defender.game - ERROR - [game.py:602] - Connection to server at 127.0.0.1:9999 refused. Is the server running?
-2026-02-16 09:36:27 - space_defender.game - ERROR - [game.py:602] - Connection to server at 127.0.0.1:9999 refused. Is the server running?
-2026-02-16 09:36:27 - space_defender - INFO - [test_server.py:41] - ================================================================================
-2026-02-16 09:36:27 - space_defender - INFO - [test_server.py:42] - Setting up server test environment...
-2026-02-16 09:36:27 - space_defender - INFO - [test_server.py:54] - Server thread started. Waiting for it to initialize...
-2026-02-16 09:36:27 - space_defender.server - INFO - [server.py:218] - [SERVER] Listening on 127.0.0.1:35555 (GUI Disabled)
-2026-02-16 09:36:27 - space_defender.server - INFO - [server.py:230] - [SERVER] Game loop thread started
-2026-02-16 09:36:27 - space_defender.server - INFO - [server.py:90] - Game instance created (server mode)
-2026-02-16 09:36:27 - space_defender.server - INFO - [server.py:102] - [SERVER] Created 2 player slots (headless mode)
-2026-02-16 09:36:27 - space_defender.server - INFO - [server.py:107] - [SERVER] Game initialized and ready
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:71] - --- Running test: test_client_connection_and_communication ---
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:75] - ✓ Mock client connected to server at 127.0.0.1:35555
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 1
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 2
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 3
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 4
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 5
-2026-02-16 09:36:29 - space_defender - INFO - [test_server.py:60] - Tearing down server test environment...
-2026-02-16 09:36:30 - space_defender.server - INFO - [server.py:263] - [SERVER] Server shutdown complete
-2026-02-16 09:36:30 - space_defender - INFO - [test_server.py:66] - Server thread shut down successfully.
-2026-02-16 09:36:30 - space_defender - INFO - [test_server.py:67] - ================================================================================
+2026-02-16 09:53:24 - space_defender - INFO - [logger.py:41] - ================================================================================
+2026-02-16 09:53:24 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
+2026-02-16 09:53:24 - space_defender - INFO - [logger.py:43] - ================================================================================
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:51] - ================================================================================
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:52] - Starting Profile Selection -> Shop Purchase integration test...
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:53] - ================================================================================
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_shopper_profile_123' saved successfully.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:64] - Created and saved test profile 'test_shopper_profile_123' with 500 total_coins.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:75] - Simulated profile selection. Applied 'test_shopper_profile_123' to the game.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:81] - ✓ Player coins correctly loaded from profile: 500
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:86] - Attempting to purchase 'Max Health +20' for 75 coins.
+2026-02-16 09:53:24 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Max Health +20', index=0, cost=75, level=0, max_level=999
+2026-02-16 09:53:24 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 500, can_afford: True, level_ok: True
+2026-02-16 09:53:24 - space_defender.shop - INFO - [menus.py:90] - ✓ Purchase approved: Max Health +20 for 75 coins
+2026-02-16 09:53:24 - space_defender.shop - INFO - [menus.py:97] -   -> Max Health increased to 120, Health restored to 120
+2026-02-16 09:53:24 - space_defender.shop - INFO - [menus.py:114] -   -> Item level: 1, New cost: 112
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:92] - ✓ Purchase successful. Player coins are now: 425
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:95] - Simulating shop exit and profile save...
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:113] - Profile 'test_shopper_profile_123': Syncing after shop. New total_coins: 425
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_shopper_profile_123' saved successfully.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:98] - Saved profile with updated coin total.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:103] - ✓ Verified persistent coin total is correct: 425
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:107] - Cleaned up and deleted test profile: test_shopper_profile_123
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:108] - ================================================================================
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:109] - ✅ Integration test PASSED!
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:110] - ================================================================================
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:120] - ================================================================================
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:121] - Starting Coin Earning -> Save integration test...
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:122] - ================================================================================
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_earner_profile_456' saved successfully.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:132] - Created test profile 'test_earner_profile_456' with 100 total_coins.
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'test_earner_profile_456': Starting new game. Session coins set to 100, session score to 0.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:144] - Simulated starting a new game level.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:149] - ✓ Player started level with correct coin balance: 100
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:153] - Simulated earning 50 coins. Player now has 150 coins in session.
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:99] - Profile 'test_earner_profile_456': Ending game. Adding score: 1000, coins: 50.
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:100] -   - Before: total_score=0, total_coins=100
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:106] -   - After: total_score=1000, total_coins=150
+2026-02-16 09:53:24 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_earner_profile_456' saved successfully.
+2026-02-16 09:53:24 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:160] - Simulated game over. Calculated coins_earned: 50. Saved profile.
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:166] - ✓ Verified persistent total_coins is correct: 150
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:170] - Cleaned up and deleted test profile: test_earner_profile_456
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:171] - ================================================================================
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:172] - ✅ Integration test PASSED!
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:173] - ================================================================================
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:179] - ================================================================================
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:180] - Starting Quit Level logic test...
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:181] - ================================================================================
+2026-02-16 09:53:25 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'test_quitter_profile_789' saved successfully.
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:191] - Created test profile 'test_quitter_profile_789' with 200 coins and 1000 score.
+2026-02-16 09:53:25 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'test_quitter_profile_789': Starting new game. Session coins set to 200, session score to 0.
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:202] - Simulated earning progress. Player now has 277 coins and 550 score.
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:206] - Simulating player quitting the level...
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:214] - ✓ Verified that quitting discarded session progress and reverted the profile to its pre-level state.
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:220] - ✓ Verified that the profile on disk remains unchanged.
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:224] - Cleaned up test profile: test_quitter_profile_789
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:225] - ================================================================================
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:226] - ✅ Integration test PASSED!
+2026-02-16 09:53:25 - space_defender.profile_shop_test - INFO - [test_profile_and_shop.py:227] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:36] - Starting shop test...
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:41] - Pygame initialized
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:45] - Created test player: health=100, coins=0, damage=25
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:49] - Given coins to player: 500
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:50] - Player coins after setting: 500
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:58] - Created AssetManager
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:62] - Created Shop with 5 items
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:66] -   [0] Max Health +20: cost=75, level=0/999, effect=max_health
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:66] -   [1] Damage +10: cost=100, level=0/999, effect=damage
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:66] -   [2] Speed +1: cost=80, level=0/999, effect=speed
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:66] -   [3] Fire Rate +2: cost=90, level=0/999, effect=fire_rate
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:66] -   [4] Heal 50 HP: cost=60, level=0/999, effect=heal
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:68] - ABOUT TO TEST - Player coins: 500, Item 0 cost: 75
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:70] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:71] - TEST 1: Purchase Max Health upgrade
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:72] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Max Health +20', index=0, cost=75, level=0, max_level=999
+2026-02-16 09:53:25 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 500, can_afford: True, level_ok: True
+2026-02-16 09:53:25 - space_defender.shop - INFO - [menus.py:90] - ✓ Purchase approved: Max Health +20 for 75 coins
+2026-02-16 09:53:25 - space_defender.shop - INFO - [menus.py:97] -   -> Max Health increased to 120, Health restored to 120
+2026-02-16 09:53:25 - space_defender.shop - INFO - [menus.py:114] -   -> Item level: 1, New cost: 112
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:75] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:76] - TEST 2: Purchase Damage upgrade
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:77] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Damage +10', index=1, cost=100, level=0, max_level=999
+2026-02-16 09:53:25 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 425, can_afford: True, level_ok: True
+2026-02-16 09:53:25 - space_defender.shop - INFO - [menus.py:90] - ✓ Purchase approved: Damage +10 for 100 coins
+2026-02-16 09:53:25 - space_defender.shop - INFO - [menus.py:100] -   -> Damage increased to 35
+2026-02-16 09:53:25 - space_defender.shop - INFO - [menus.py:114] -   -> Item level: 1, New cost: 150
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:80] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:81] - TEST 3: Check player status after purchases
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:82] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:83] - Player status: coins=325, health=120, max_health=120, damage=35
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:85] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:86] - TEST 4: Try to purchase with insufficient coins
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:87] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:89] - Set player coins to: 10
+2026-02-16 09:53:25 - space_defender.shop - DEBUG - [menus.py:80] - Purchase attempt: item='Max Health +20', index=0, cost=112, level=1, max_level=999
+2026-02-16 09:53:25 - space_defender.shop - DEBUG - [menus.py:81] - Player coins: 10, can_afford: False, level_ok: True
+2026-02-16 09:53:25 - space_defender.shop - WARNING - [menus.py:120] - ✗ Purchase denied: Max Health +20 - insufficient coins
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:92] - ================================================================================
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:93] - Shop test completed!
+2026-02-16 09:53:25 - space_defender.shop_test - INFO - [test_shop.py:94] - ================================================================================
+2026-02-16 09:53:25 - space_defender.server - INFO - [server.py:218] - [SERVER] Listening on 127.0.0.1:9999 (GUI Disabled)
+2026-02-16 09:53:25 - space_defender.server - INFO - [server.py:230] - [SERVER] Game loop thread started
+2026-02-16 09:53:25 - space_defender.server - INFO - [server.py:90] - Game instance created (server mode)
+2026-02-16 09:53:25 - space_defender.server - INFO - [server.py:102] - [SERVER] Created 2 player slots (headless mode)
+2026-02-16 09:53:25 - space_defender.server - INFO - [server.py:107] - [SERVER] Game initialized and ready
+2026-02-16 09:53:26 - space_defender.server - INFO - [server.py:242] - [SERVER] Player 1 connected from ('127.0.0.1', 54227)
+2026-02-16 09:53:26 - space_defender.game - INFO - [game.py:595] - Received handshake from server: player_id=None
+2026-02-16 09:53:26 - space_defender.game - INFO - [game.py:601] - Successfully connected to server at 127.0.0.1:9999 as player None
+2026-02-16 09:53:27 - space_defender.server - INFO - [server.py:263] - [SERVER] Server shutdown complete
+2026-02-16 09:53:27 - space_defender.server - INFO - [server.py:81] - Player 0 disconnected
+2026-02-16 09:53:28 - space_defender.server - INFO - [server.py:218] - [SERVER] Listening on 127.0.0.1:9999 (GUI Disabled)
+2026-02-16 09:53:28 - space_defender.server - INFO - [server.py:230] - [SERVER] Game loop thread started
+2026-02-16 09:53:28 - space_defender.server - INFO - [server.py:90] - Game instance created (server mode)
+2026-02-16 09:53:28 - space_defender.server - INFO - [server.py:102] - [SERVER] Created 2 player slots (headless mode)
+2026-02-16 09:53:28 - space_defender.server - INFO - [server.py:107] - [SERVER] Game initialized and ready
+2026-02-16 09:53:29 - space_defender.server - INFO - [server.py:242] - [SERVER] Player 1 connected from ('127.0.0.1', 54238)
+2026-02-16 09:53:29 - space_defender.game - INFO - [game.py:595] - Received handshake from server: player_id=None
+2026-02-16 09:53:29 - space_defender.game - INFO - [game.py:601] - Successfully connected to server at 127.0.0.1:9999 as player None
+2026-02-16 09:53:30 - space_defender.server - INFO - [server.py:263] - [SERVER] Server shutdown complete
+2026-02-16 09:53:30 - space_defender.server - INFO - [server.py:81] - Player 0 disconnected
+2026-02-16 09:53:30 - space_defender - INFO - [test_server.py:41] - ================================================================================
+2026-02-16 09:53:30 - space_defender - INFO - [test_server.py:42] - Setting up server test environment...
+2026-02-16 09:53:30 - space_defender - INFO - [test_server.py:54] - Server thread started. Waiting for it to initialize...
+2026-02-16 09:53:30 - space_defender.server - INFO - [server.py:218] - [SERVER] Listening on 127.0.0.1:35555 (GUI Disabled)
+2026-02-16 09:53:30 - space_defender.server - INFO - [server.py:230] - [SERVER] Game loop thread started
+2026-02-16 09:53:30 - space_defender.server - INFO - [server.py:90] - Game instance created (server mode)
+2026-02-16 09:53:30 - space_defender.server - INFO - [server.py:102] - [SERVER] Created 2 player slots (headless mode)
+2026-02-16 09:53:30 - space_defender.server - INFO - [server.py:107] - [SERVER] Game initialized and ready
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:71] - --- Running test: test_client_connection_and_communication ---
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:75] - ✓ Mock client connected to server at 127.0.0.1:35555
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 1
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 2
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 3
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 4
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:90] - ✓ Received and validated game state for frame 5
+2026-02-16 09:53:32 - space_defender - INFO - [test_server.py:60] - Tearing down server test environment...
+2026-02-16 09:53:33 - space_defender.server - INFO - [server.py:263] - [SERVER] Server shutdown complete
+2026-02-16 09:53:33 - space_defender - INFO - [test_server.py:66] - Server thread shut down successfully.
+2026-02-16 09:53:33 - space_defender - INFO - [test_server.py:67] - ================================================================================

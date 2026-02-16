@@ -18,6 +18,10 @@ os.environ['SDL_AUDIODRIVER'] = 'dummy'
 import pygame
 pygame.init()
 
+import threading
+import time
+from server import main as server_main, shutdown_event
+
 def test_play_online():
     print("=" * 60)
     print("TESTING PLAY ONLINE CONNECTION")
@@ -32,15 +36,26 @@ def test_play_online():
         print(f"  - is_server: {game.is_server}")
         print(f"  - Assets: {game.assets is not None}")
         
-        print("\n[2] Calling connect_to_server()...")
-        result = game.connect_to_server('127.0.0.1', 9999)
-        print(f"✓ connect_to_server returned: {result}")
-        print(f"  - is_network_mode: {game.is_network_mode}")
-        print(f"  - server_socket: {game.server_socket}")
-        
-        if not result:
-            print("✗ Connection failed")
-            return False
+        print("\n[2] Starting test server on port 9999...")
+        server_args = [sys.argv[0], '9999']
+        shutdown_event.clear()
+        server_thread = threading.Thread(target=server_main, args=(server_args,), daemon=True)
+        server_thread.start()
+        # Give server a moment to bind
+        time.sleep(1)
+
+        try:
+            print("\n[3] Calling connect_to_server()...")
+            result = game.connect_to_server('127.0.0.1', 9999)
+            print(f"✓ connect_to_server returned: {result}")
+            print(f"  - is_network_mode: {game.is_network_mode}")
+            print(f"  - server_socket: {game.server_socket}")
+
+            assert result, "Connection failed"
+        finally:
+            shutdown_event.set()
+            server_thread.join(timeout=3)
+            shutdown_event.clear()
         
         print("\n[3] Calling init_game()...")
         game.init_game()
@@ -60,14 +75,17 @@ def test_play_online():
         print("\n" + "=" * 60)
         print("✓ ALL PLAY_ONLINE TESTS PASSED")
         print("=" * 60)
-        return True
+        # test completed successfully
         
     except Exception as e:
         print(f"\n✗ ERROR during PLAY ONLINE: {e}")
         print("\nFull traceback:")
         traceback.print_exc()
-        return False
+        raise
 
 if __name__ == "__main__":
-    success = test_play_online()
-    sys.exit(0 if success else 1)
+    try:
+        test_play_online()
+        sys.exit(0)
+    except Exception:
+        sys.exit(1)
