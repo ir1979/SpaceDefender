@@ -1,15 +1,25 @@
-2026-02-16 23:37:43 - space_defender - INFO - [logger.py:41] - ================================================================================
-2026-02-16 23:37:43 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
-2026-02-16 23:37:43 - space_defender - INFO - [logger.py:43] - ================================================================================
-2026-02-16 23:37:43 - space_defender - INFO - [main.py:38] - Starting Space Defender in client mode...
-2026-02-16 23:38:23 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'Said Mohammadi' saved successfully.2026-02-16 23:38:30 - space_defender.game - INFO - [game.py:1599] - Attempting to connect to server...
-2026-02-16 23:38:31 - space_defender.game - WARNING - [game.py:620] - Did not receive handshake from server
-2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:624] - Successfully connected to server at 127.0.0.1:35555 as player None
-2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:1601] - Connected to server. Initializing game...
-2026-02-16 23:38:31 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'Ali Mortazavi': Starting new game. Session coins set to 0, session score to 0.
-2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:676] - Entered waiting state, timeout tracking started
-2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:747] - Server state=PLAYING — switching client to PLAYING
-2026-02-16 23:39:02 - space_defender.game - INFO - [game.py:676] - Entered waiting state, timeout tracking started
-2026-02-16 23:39:38 - space_defender.game - ERROR - [game.py:770] - No server updates for 6 seconds - connection lost
-2026-02-16 23:39:51 - space_defender.game - INFO - [game.py:1633] - Game quit (via menu)
-
+2026-02-17 00:14:14 - space_defender - INFO - [logger.py:41] - ================================================================================
+2026-02-17 00:14:14 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
+2026-02-17 00:14:14 - space_defender - INFO - [logger.py:43] - ================================================================================
+2026-02-17 00:14:14 - space_defender - INFO - [main.py:38] - Starting Space Defender in game mode...
+2026-02-17 00:14:24 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'Ali' saved successfully.
+2026-02-17 00:14:25 - space_defender.game - INFO - [game.py:1614] - Game started (via menu)
+2026-02-17 00:14:25 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'Ali': Starting new game. Session coins set to 0, session score to 0.
+2026-02-17 00:14:33 - space_defender.game - DEBUG - [game.py:883] - Enemy destroyed. Player gained 11 coins, 110 score.
+2026-02-17 00:14:36 - space_defender.game - DEBUG - [game.py:883] - Enemy destroyed. Player gained 11 coins, 110 score.
+2026-02-17 00:14:40 - space_defender.game - DEBUG - [game.py:883] - Enemy destroyed. Player gained 11 coins, 110 score.
+2026-02-17 00:14:44 - space_defender.game - DEBUG - [game.py:883] - Enemy destroyed. Player gained 11 coins, 110 score.
+2026-02-17 00:14:53 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 70/100.
+2026-02-17 00:14:53 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 70/100.
+2026-02-17 00:14:54 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 70/100.
+2026-02-17 00:14:55 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 70/100.
+2026-02-17 00:14:56 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 40/100.
+2026-02-17 00:14:57 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 40/100.
+2026-02-17 00:14:57 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 40/100.
+2026-02-17 00:14:58 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 10/100.
+2026-02-17 00:15:00 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now 10/100.
+2026-02-17 00:15:04 - space_defender.game - INFO - [game.py:901] - Player collided with enemy. Took 30 damage. Health is now -20/100.
+2026-02-17 00:15:04 - space_defender.save_system - INFO - [save_system.py:99] - Profile 'Ali': Ending game. Adding score: 440, coins: 44.
+2026-02-17 00:15:04 - space_defender.save_system - INFO - [save_system.py:100] -   - Before: total_score=0, total_coins=0
+2026-02-17 00:15:04 - space_defender.save_system - INFO - [save_system.py:106] -   - After: total_score=440, total_coins=44
+2026-02-17 00:15:04 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'Ali' saved successfully.
