@@ -134,7 +134,12 @@ class Game:
         self.game_state_from_server = None
         self.server_socket = None
         self.server_host = '127.0.0.1'  # Default server host (may be overridden by CLI args)
-        self.server_port = 35555  # Default server port (may be overridden by CLI args)
+        self.server_port = 35555
+        
+        # Network performance tracking
+        self.waiting_start_time = None
+        self.last_state_time = time.time()
+        self.missed_updates = 0  # Default server port (may be overridden by CLI args)
         
         # These systems are only fully active on the client
         if not self.is_server:
@@ -603,7 +608,7 @@ class Game:
             self.server_socket.connect((host, port))
             # Set timeout so recv doesn't block indefinitely
             # Allows send/receive to interleave on same socket
-            self.server_socket.settimeout(0.1)
+            self.server_socket.settimeout(0.05)  # 50ms for faster updates
             
             # Receive handshake from server with player assignment
             handshake = receive_data(self.server_socket)
@@ -662,19 +667,34 @@ class Game:
         if self.state == GameState.NAME_INPUT and self.text_input:
             self.text_input.update()
         
-        # --- NETWORK CLIENT LOGIC ---
-        # Run networking while the client is either PLAYING or WAITING_FOR_PLAYERS so
-        # the client can receive the server's WAITING -> PLAYING transition.
+        # --- NETWORK CLIENT LOGIC (IMPROVED) ---
         if self.is_network_mode and self.state in (GameState.PLAYING, GameState.WAITING_FOR_PLAYERS):
-            # Play splash sound as background loop on first frame (only when playing)
+            # Track waiting timeout protection
+            if self.state == GameState.WAITING_FOR_PLAYERS:
+                if self.waiting_start_time is None:
+                    self.waiting_start_time = time.time()
+                    logger.info("Entered waiting state, timeout tracking started")
+                elif time.time() - self.waiting_start_time > 60:  # 60 second timeout
+                    logger.warning("Waiting timeout exceeded - returning to main menu")
+                    self.is_network_mode = False
+                    self.state = GameState.MAIN_MENU
+                    if self.server_socket:
+                        try:
+                            self.server_socket.close()
+                        except:
+                            pass
+                        self.server_socket = None
+                    return
+            else:
+                self.waiting_start_time = None  # Reset when not waiting
+
+            # Play background music on first frame
             if self.state == GameState.PLAYING and not self.background_music_playing:
                 if self.assets:
-                    # Note: 'background' doesn't exist, use 'splash' as background
                     self.assets.play_sound('splash', 0.2)
                 self.background_music_playing = True
 
-            # 1. Send local input to server (non-blocking with timeout)
-            # It's harmless to send inputs while waiting; server will ignore until game starts.
+            # 1. Send local input to server
             keys = pygame.key.get_pressed()
             mouse_buttons = pygame.mouse.get_pressed()
             input_payload = {'keys': [], 'shoot': False}
@@ -692,50 +712,83 @@ class Game:
 
             try:
                 send_data(self.server_socket, input_payload)
-            except Exception:
-                # Send error; continue (connection may recover)
-                pass
+            except ConnectionResetError:
+                logger.error("Connection lost to server")
+                self.is_network_mode = False
+                self.state = GameState.MAIN_MENU
+                if self.server_socket:
+                    try:
+                        self.server_socket.close()
+                    except:
+                        pass
+                    self.server_socket = None
+                return
+            except Exception as e:
+                logger.debug(f"Failed to send input (non-fatal): {e}")
 
-            # 2. Receive game state from server (non-blocking with timeout)
-            try:
-                received_state = receive_data(self.server_socket)
-                if received_state is not None:
-                    # If the server included an explicit enum, follow it
-                    enum_val = received_state.get('game_state_enum')
-                    if isinstance(enum_val, int):
+            # 2. Receive game state from server (catch-up mechanism)
+            states_received = 0
+            max_states_per_frame = 3  # Process up to 3 states to catch up
+            
+            while states_received < max_states_per_frame:
+                try:
+                    received_state = receive_data(self.server_socket)
+                    if received_state is not None:
+                        states_received += 1
+                        self.last_state_time = time.time()
+                        self.missed_updates = 0
+                        
+                        # Process server state enum
+                        enum_val = received_state.get('game_state_enum')
+                        if isinstance(enum_val, int):
+                            try:
+                                server_state = GameState(enum_val)
+                                if server_state == GameState.PLAYING and self.state == GameState.WAITING_FOR_PLAYERS:
+                                    logger.info("Server state=PLAYING — switching client to PLAYING")
+                                    self.state = GameState.PLAYING
+                                elif server_state == GameState.WAITING_FOR_PLAYERS:
+                                    self.state = GameState.WAITING_FOR_PLAYERS
+                                elif server_state == GameState.GAME_OVER and self.state == GameState.PLAYING:
+                                    logger.info("Server state=GAME_OVER — switching client to GAME_OVER")
+                                    self.state = GameState.GAME_OVER
+                            except Exception:
+                                pass
+
+                        self.game_state_from_server = received_state
+                    else:
+                        break
+                except socket.timeout:
+                    break
+                except Exception as e:
+                    logger.debug(f"Receive error (non-fatal): {e}")
+                    break
+
+            # Track connection health
+            if states_received == 0:
+                self.missed_updates += 1
+                if self.missed_updates > 180:  # 6 seconds at 30 FPS
+                    logger.error("No server updates for 6 seconds - connection lost")
+                    self.is_network_mode = False
+                    self.state = GameState.MAIN_MENU
+                    if self.server_socket:
                         try:
-                            server_state = GameState(enum_val)
-                            if server_state == GameState.PLAYING and self.state == GameState.WAITING_FOR_PLAYERS:
-                                # Server started the game — transition client
-                                logger.info("Server state=PLAYING — switching client to PLAYING")
-                                self.state = GameState.PLAYING
-                            elif server_state == GameState.WAITING_FOR_PLAYERS:
-                                self.state = GameState.WAITING_FOR_PLAYERS
-                            elif server_state == GameState.GAME_OVER and self.state == GameState.PLAYING:
-                                # Server ended game — sync client
-                                logger.info("Server state=GAME_OVER — switching client to GAME_OVER")
-                                self.state = GameState.GAME_OVER
-                        except Exception:
+                            self.server_socket.close()
+                        except:
                             pass
+                        self.server_socket = None
+                    return
 
-                    self.game_state_from_server = received_state
-            except Exception:
-                # Receive error; use last known state
-                pass
-
-            # 3. Apply server state (with particle effects)
+            # 3. Apply server state
             if self.game_state_from_server:
                 self.apply_server_state(self.game_state_from_server)
 
-            # Update sprite positions and particle effects
+            # Update sprites and particles
             self.all_sprites.update()
             if self.particle_system:
                 self.particle_system.update()
 
-            # The client only renders, so we return here to skip local simulation
             self.update_starfield()
             return
-        
 
         # --- LOCAL SIMULATION LOGIC (if not in network mode) ---
         if self.is_network_mode:

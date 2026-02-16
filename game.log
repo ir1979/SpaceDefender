@@ -1,17 +1,15 @@
-2026-02-16 22:58:56 - space_defender - INFO - [logger.py:41] - ================================================================================
-2026-02-16 22:58:56 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
-2026-02-16 22:58:56 - space_defender - INFO - [logger.py:43] - ================================================================================
-2026-02-16 22:58:56 - space_defender - INFO - [main.py:38] - Starting Space Defender in client mode...
-2026-02-16 22:59:05 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'Reza31' saved successfully.
-2026-02-16 22:59:08 - space_defender.game - INFO - [game.py:1546] - Attempting to connect to server...
-2026-02-16 22:59:08 - space_defender.game - INFO - [game.py:613] - Received handshake from server: player_id=1
-2026-02-16 22:59:08 - space_defender.game - INFO - [game.py:619] - Successfully connected to server at 127.0.0.1:35555 as player 1
-2026-02-16 22:59:08 - space_defender.game - INFO - [game.py:1548] - Connected to server. Initializing game...
-2026-02-16 22:59:08 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'Reza31': Starting new game. Session coins set to 0, session score to 0.
-2026-02-16 22:59:08 - space_defender.game - INFO - [game.py:710] - Server state=PLAYING — switching client to PLAYING
-2026-02-16 22:59:57 - space_defender.game - INFO - [game.py:716] - Server state=GAME_OVER — switching client to GAME_OVER
-2026-02-16 23:00:11 - space_defender.game - INFO - [game.py:1546] - Attempting to connect to server...
-2026-02-16 23:00:11 - space_defender.game - INFO - [game.py:613] - Received handshake from server: player_id=0
-2026-02-16 23:00:11 - space_defender.game - INFO - [game.py:619] - Successfully connected to server at 127.0.0.1:35555 as player 0
-2026-02-16 23:00:11 - space_defender.game - INFO - [game.py:1548] - Connected to server. Initializing game...
-2026-02-16 23:00:11 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'Reza31': Starting new game. Session coins set to 0, session score to 0.
+2026-02-16 23:37:43 - space_defender - INFO - [logger.py:41] - ================================================================================
+2026-02-16 23:37:43 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
+2026-02-16 23:37:43 - space_defender - INFO - [logger.py:43] - ================================================================================
+2026-02-16 23:37:43 - space_defender - INFO - [main.py:38] - Starting Space Defender in client mode...
+2026-02-16 23:38:23 - space_defender.save_system - INFO - [save_system.py:151] - Profile 'Said Mohammadi' saved successfully.2026-02-16 23:38:30 - space_defender.game - INFO - [game.py:1599] - Attempting to connect to server...
+2026-02-16 23:38:31 - space_defender.game - WARNING - [game.py:620] - Did not receive handshake from server
+2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:624] - Successfully connected to server at 127.0.0.1:35555 as player None
+2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:1601] - Connected to server. Initializing game...
+2026-02-16 23:38:31 - space_defender.save_system - INFO - [save_system.py:95] - Profile 'Ali Mortazavi': Starting new game. Session coins set to 0, session score to 0.
+2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:676] - Entered waiting state, timeout tracking started
+2026-02-16 23:38:31 - space_defender.game - INFO - [game.py:747] - Server state=PLAYING — switching client to PLAYING
+2026-02-16 23:39:02 - space_defender.game - INFO - [game.py:676] - Entered waiting state, timeout tracking started
+2026-02-16 23:39:38 - space_defender.game - ERROR - [game.py:770] - No server updates for 6 seconds - connection lost
+2026-02-16 23:39:51 - space_defender.game - INFO - [game.py:1633] - Game quit (via menu)
+
