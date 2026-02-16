@@ -70,6 +70,7 @@ class GameState(Enum):
     LEVEL_COMPLETE = 8
     HIGH_SCORES = 9
     QUIT_CONFIRM = 10
+    WAITING_FOR_PLAYERS = 11
 
 # Global instances
 game_config = GameConfig()

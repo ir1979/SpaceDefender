@@ -106,9 +106,50 @@ def test_network_mode_fixes():
         traceback.print_exc()
         raise
 
+
+def test_waiting_to_play_transition():
+    """Clients in WAITING_FOR_PLAYERS must follow server -> PLAYING transition."""
+    from core.game import Game, GameState
+
+    server_args = [sys.argv[0], '9999']
+    shutdown_event.clear()
+    server_thread = threading.Thread(target=server_main, args=(server_args,), daemon=True)
+    server_thread.start()
+    time.sleep(0.5)
+
+    try:
+        # Client A connects and waits
+        a = Game(None, is_server=False)
+        assert a.connect_to_server('127.0.0.1', 9999)
+        a.state = GameState.WAITING_FOR_PLAYERS
+
+        # Client B connects and waits — server should start once both connected
+        b = Game(None, is_server=False)
+        assert b.connect_to_server('127.0.0.1', 9999)
+        b.state = GameState.WAITING_FOR_PLAYERS
+
+        # Poll updates until both clients observe PLAYING (or timeout)
+        started = False
+        for _ in range(80):
+            a.update()
+            b.update()
+            if a.state == GameState.PLAYING and b.state == GameState.PLAYING:
+                started = True
+                break
+            time.sleep(0.025)
+
+        assert started, "Clients did not transition from WAITING to PLAYING after server start"
+
+    finally:
+        shutdown_event.set()
+        server_thread.join(timeout=3)
+        shutdown_event.clear()
+
+
 if __name__ == "__main__":
     try:
         test_network_mode_fixes()
+        test_waiting_to_play_transition()
         sys.exit(0)
     except Exception:
         sys.exit(1)

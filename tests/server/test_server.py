@@ -80,6 +80,11 @@ class TestServerIntegration(unittest.TestCase):
                     send_data(client_socket, input_payload)
 
                     state = receive_data(client_socket)
+                    # Some server implementations send a handshake first; accept that
+                    if isinstance(state, dict) and 'player_id' in state and len(state) == 1:
+                        # handshake — consume the next message which should be the state
+                        state = receive_data(client_socket)
+
                     self.assertIsNotNone(state, "Server did not send a state update.")
                     self.assertIsInstance(state, dict, "State from server is not a dictionary.")
                     

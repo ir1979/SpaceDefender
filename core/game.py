@@ -32,10 +32,10 @@ class Level:
     
     def __init__(self, level_num: int):
         self.level_num = level_num
-        self.enemies_to_spawn = 10 + (level_num * 5)
+        self.enemies_to_spawn = 30 + (level_num * 15)
         self.enemies_spawned = 0
         self.spawn_timer = 0
-        self.spawn_delay = max(40, 80 - (level_num * 3))
+        self.spawn_delay = max(20, 60 - (level_num * 3))
         self.powerup_timer = 0
         self.powerup_delay = 300
         self.time_limit = game_config.LEVEL_TIME_LIMIT + (level_num * 10)
@@ -214,6 +214,10 @@ class Game:
             
             if self.state == GameState.PROFILE_SELECT:
                 if event.type == pygame.KEYDOWN:
+                    if self.server_socket:
+                        try:
+                            self.server_socket.close()
+                        except Exception: pass
                     if event.key == pygame.K_ESCAPE:
                         if not self.profile:
                             self.profile = SaveSystem.get_profiles()[0] if SaveSystem.get_profiles() else PlayerProfile("Player")
@@ -448,6 +452,19 @@ class Game:
             except Exception:
                 continue
 
+        # Ensure the client's local player reference points to the authoritative
+        # player object sent by the server (if we have a player_id).
+        if not self.is_server:
+            try:
+                if self.player_id is not None and 0 <= int(self.player_id) < len(self.players):
+                    self.player = self.players[int(self.player_id)]
+                elif self.players and self.player is None:
+                    self.player = self.players[0]
+            except Exception:
+                # defensive fallback
+                if self.players and self.player is None:
+                    self.player = self.players[0]
+
         # Enemies (server may use 'enemy_type')
         for e_state in state.get('enemies', []):
             try:
@@ -591,6 +608,7 @@ class Game:
             # Receive handshake from server with player assignment
             handshake = receive_data(self.server_socket)
             if handshake:
+                print(f"received handshake {handshake}")
                 self.player_id = handshake.get('player_id')
                 logger.info(f"Received handshake from server: player_id={self.player_id}")
             else:
@@ -645,33 +663,33 @@ class Game:
             self.text_input.update()
         
         # --- NETWORK CLIENT LOGIC ---
-        if self.is_network_mode and self.state == GameState.PLAYING:
-            # Play splash sound as background loop on first frame
-            if not self.background_music_playing:
+        # Run networking while the client is either PLAYING or WAITING_FOR_PLAYERS so
+        # the client can receive the server's WAITING -> PLAYING transition.
+        if self.is_network_mode and self.state in (GameState.PLAYING, GameState.WAITING_FOR_PLAYERS):
+            # Play splash sound as background loop on first frame (only when playing)
+            if self.state == GameState.PLAYING and not self.background_music_playing:
                 if self.assets:
                     # Note: 'background' doesn't exist, use 'splash' as background
                     self.assets.play_sound('splash', 0.2)
                 self.background_music_playing = True
-            
+
             # 1. Send local input to server (non-blocking with timeout)
+            # It's harmless to send inputs while waiting; server will ignore until game starts.
             keys = pygame.key.get_pressed()
             mouse_buttons = pygame.mouse.get_pressed()
             input_payload = {'keys': [], 'shoot': False}
             
-            # FIXED: Support both arrow keys and WASD
-            if keys[pygame.K_a] or keys[pygame.K_LEFT]: 
+            if keys[pygame.K_a] or keys[pygame.K_LEFT]:
                 input_payload['keys'].append('a')
-            if keys[pygame.K_d] or keys[pygame.K_RIGHT]: 
+            if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
                 input_payload['keys'].append('d')
-            if keys[pygame.K_w] or keys[pygame.K_UP]: 
+            if keys[pygame.K_w] or keys[pygame.K_UP]:
                 input_payload['keys'].append('w')
-            if keys[pygame.K_s] or keys[pygame.K_DOWN]: 
+            if keys[pygame.K_s] or keys[pygame.K_DOWN]:
                 input_payload['keys'].append('s')
-            
-            # FIXED: Shooting via space or left mouse button
-            if keys[pygame.K_SPACE] or mouse_buttons[0]: 
+            if keys[pygame.K_SPACE] or mouse_buttons[0]:
                 input_payload['shoot'] = True
-            
+
             try:
                 send_data(self.server_socket, input_payload)
             except Exception:
@@ -682,6 +700,24 @@ class Game:
             try:
                 received_state = receive_data(self.server_socket)
                 if received_state is not None:
+                    # If the server included an explicit enum, follow it
+                    enum_val = received_state.get('game_state_enum')
+                    if isinstance(enum_val, int):
+                        try:
+                            server_state = GameState(enum_val)
+                            if server_state == GameState.PLAYING and self.state == GameState.WAITING_FOR_PLAYERS:
+                                # Server started the game — transition client
+                                logger.info("Server state=PLAYING — switching client to PLAYING")
+                                self.state = GameState.PLAYING
+                            elif server_state == GameState.WAITING_FOR_PLAYERS:
+                                self.state = GameState.WAITING_FOR_PLAYERS
+                            elif server_state == GameState.GAME_OVER and self.state == GameState.PLAYING:
+                                # Server ended game — sync client
+                                logger.info("Server state=GAME_OVER — switching client to GAME_OVER")
+                                self.state = GameState.GAME_OVER
+                        except Exception:
+                            pass
+
                     self.game_state_from_server = received_state
             except Exception:
                 # Receive error; use last known state
@@ -690,12 +726,12 @@ class Game:
             # 3. Apply server state (with particle effects)
             if self.game_state_from_server:
                 self.apply_server_state(self.game_state_from_server)
-            
+
             # Update sprite positions and particle effects
             self.all_sprites.update()
             if self.particle_system:
                 self.particle_system.update()
-            
+
             # The client only renders, so we return here to skip local simulation
             self.update_starfield()
             return
@@ -835,6 +871,12 @@ class Game:
                                     player_obj.score,
                                     self.current_level
                                 )
+                            # In multiplayer, notify server that this client's game is over
+                            if self.is_network_mode:
+                                try:
+                                    send_data(self.server_socket, {'message': 'game_over', 'player_id': self.player_id})
+                                except Exception as e:
+                                    logger.warning(f"Failed to notify server of game over: {e}")
                             self.state = GameState.GAME_OVER
 
                 # Check player-powerup collisions
@@ -962,7 +1004,18 @@ class Game:
                 self.particle_system.draw(self.screen)
                 self.draw_quit_confirm()
         
-        pygame.display.flip()
+        # Handle the new waiting state
+        elif self.state == GameState.WAITING_FOR_PLAYERS:
+            self.draw_waiting_for_players()
+
+        pygame.display.flip()        
+        if self.state == GameState.WAITING_FOR_PLAYERS:
+            for event in pygame.event.get():
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        self.is_network_mode = False
+                        self.state = GameState.MAIN_MENU
+
     
     def draw_splash_screen(self):
         """Draw elegant splash screen with background image and loading progress"""
@@ -1450,6 +1503,27 @@ class Game:
         back_rect = back_text.get_rect(
             center=(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 50))
         self.screen.blit(back_text, back_rect)
+
+    def draw_waiting_for_players(self):
+        """Draw a screen indicating the client is waiting for another player."""
+        self.screen.fill(color_config.BLACK)
+        self.draw_starfield()
+
+        title_font = self.assets.fonts['large']
+        text = "Waiting for Player 2 to join..."
+        text_surface = title_font.render(text, True, color_config.WHITE)
+        text_rect = text_surface.get_rect(center=(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT // 2))
+        self.screen.blit(text_surface, text_rect)
+
+        # Display "Return to Main Menu" option
+        menu_font = self.assets.fonts['medium']
+        menu_text = "Press ESC to Return to Main Menu"
+        menu_surface = menu_font.render(menu_text, True, color_config.YELLOW)
+        menu_rect = menu_surface.get_rect(center=(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT // 2 + 100))
+
+        self.screen.blit(text_surface, text_rect)
+
+
     
     def run(self):
         """Main game loop"""
@@ -1474,6 +1548,11 @@ class Game:
                 logger.info("Connected to server. Initializing game...")
                 self.init_game()
                 self.state = GameState.PLAYING
+                # The server will immediately send a WAITING state, which will override this.
+                # We set it to PLAYING so the network update loop runs.
+                # A better approach would be a dedicated WAITING state on the client too.
+                # For now, we'll check the server's state enum.
+                self.state = GameState.WAITING_FOR_PLAYERS
             else:
                 logger.error(f"Failed to connect to {self.server_host}:{self.server_port}")
             return
