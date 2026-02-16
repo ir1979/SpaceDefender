@@ -12,8 +12,20 @@ This test simulates the entire user flow:
 """
 
 import os
-import pygame
+import sys
 import time
+
+# Add project root to path (go up 3 directories from test file)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Set up pygame for headless mode
+os.environ['SDL_VIDEODRIVER'] = 'dummy'
+os.environ['SDL_AUDIODRIVER'] = 'dummy'
+
+import pygame
+pygame.init()
 
 # Initialize logging before other imports
 from systems.logger import setup_logging

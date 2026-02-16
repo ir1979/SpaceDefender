@@ -1,17 +1,16 @@
 import socket
 import threading
 import time
+import sys
+import os
 
-# Import the networking module directly (avoid importing the entire `systems` package
-# which may initialize pygame in this test environment).
-import importlib.util
-from pathlib import Path
-network_path = Path(__file__).resolve().parent / 'systems' / 'network.py'
-spec = importlib.util.spec_from_file_location('systems_network', network_path)
-network = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(network)
-send_data = network.send_data
-receive_data = network.receive_data
+# Add project root to path
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Import the networking module
+from systems.network import send_data, receive_data
 
 
 def _server_worker(listener, result_container):

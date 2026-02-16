@@ -4,6 +4,19 @@ Test script to simulate "PLAY ONLINE" action and capture crash details
 """
 import traceback
 import sys
+import os
+
+# Add project root to path (go up 3 directories from test file)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# Set up pygame for headless mode
+os.environ['SDL_VIDEODRIVER'] = 'dummy'
+os.environ['SDL_AUDIODRIVER'] = 'dummy'
+
+import pygame
+pygame.init()
 
 def test_play_online():
     print("=" * 60)

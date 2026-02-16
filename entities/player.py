@@ -1,6 +1,5 @@
 """
 Player Entity Module
-FIXED VERSION - Adds network_controlled flag to prevent client-side movement in multiplayer
 """
 import pygame
 import math
@@ -11,11 +10,13 @@ from config.settings import color_config, player_config
 class Player(BaseEntity):
     """Player spaceship"""
     
-    def __init__(self, x: int, y: int, shape_type: str = "spaceship", network_controlled: bool = False):
+    def __init__(self, x: int, y: int, shape_type: str = "spaceship", 
+                 network_controlled: bool = False, headless: bool = False):
         self.shape_type = shape_type
         self.size = (50, 60)
         self.color = color_config.BLUE
-        self.network_controlled = network_controlled  # NEW: Flag for server-controlled players
+        self.network_controlled = network_controlled  # Client receives position from server
+        self.headless = headless  # Server mode - update cooldowns only, no input processing
         
         # Stats
         self.speed = player_config.SPEED
@@ -48,28 +49,37 @@ class Player(BaseEntity):
     
     def update(self):
         """Update player state"""
-        # FIXED: Skip local input if network controlled (server manages position)
-        if self.network_controlled:
-            self._update_powerup_timers()
-            self._update_invincibility()
+        # HEADLESS MODE (Server): Only update timers and cooldowns
+        if self.headless:
             if self.fire_cooldown > 0:
                 self.fire_cooldown -= 1
+            self._update_powerup_timers()
+            self._update_invincibility()
             return
         
+        # NETWORK CONTROLLED (Client in multiplayer): Server manages position
+        if self.network_controlled:
+            if self.fire_cooldown > 0:
+                self.fire_cooldown -= 1
+            self._update_powerup_timers()
+            self._update_invincibility()
+            return
+        
+        # LOCAL CONTROL (Single player or local client)
         keys = pygame.key.get_pressed()
         
-        # Movement from keyboard (arrow keys AND WASD for multiplayer)
+        # Movement from keyboard (arrow keys AND WASD)
         dx = dy = 0
-        if keys[pygame.K_LEFT] or keys[pygame.K_a]:  # FIXED: Added WASD
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:
             dx -= self.speed
-        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:  # FIXED: Added WASD
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
             dx += self.speed
-        if keys[pygame.K_UP] or keys[pygame.K_w]:  # FIXED: Added WASD
+        if keys[pygame.K_UP] or keys[pygame.K_w]:
             dy -= self.speed
-        if keys[pygame.K_DOWN] or keys[pygame.K_s]:  # FIXED: Added WASD
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:
             dy += self.speed
         
-        # Movement from mouse
+        # Movement from mouse (only in single player)
         mouse_x, mouse_y = pygame.mouse.get_pos()
         from config.settings import game_config
         
@@ -78,7 +88,7 @@ class Player(BaseEntity):
         dist_y = mouse_y - self.rect.centery
         distance = math.sqrt(dist_x**2 + dist_y**2)
         
-        # Dead zone: ignore very small distances to prevent vibration when mouse hovers over player
+        # Dead zone: ignore very small distances
         MOUSE_DEAD_ZONE = 25
         
         if distance > MOUSE_DEAD_ZONE:
@@ -201,6 +211,7 @@ class Player(BaseEntity):
         data = super().get_data()
         data.update({
             'health': self.health,
+            'max_health': self.max_health,
             'coins': self.coins,
             'score': self.score,
             'shape_type': self.shape_type

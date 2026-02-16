@@ -1,6 +1,5 @@
 """
 Space Defender - Pure Logic Authoritative Server
-FIXED VERSION - Corrects port mismatch and player movement
 """
 import os
 import socket
@@ -20,17 +19,24 @@ logger = get_logger('space_defender.server')
 
 # Server configuration
 HOST = '127.0.0.1'
-DEFAULT_PORT = 35555  # FIXED: Changed from 9999 to match client default
+DEFAULT_PORT = 35555
 
 clients: Dict[int, socket.socket] = {}
 client_inputs: Dict[int, Dict] = {0: {'keys': [], 'shoot': False}, 1: {'keys': [], 'shoot': False}}
 shutdown_event = threading.Event()
 
 def get_game_state(game: Game) -> dict:
-    """Serializes the game state for clients. Includes detailed
-    bullet/powerup payloads so the client can faithfully recreate visuals."""
+    """Serializes the game state for clients."""
     if not game.players:
-        return {'players': [], 'enemies': [], 'bullets': [], 'powerups': [], 'score': 0, 'level': game.current_level}
+        return {
+            'players': [], 
+            'enemies': [], 
+            'bullets': [], 
+            'powerups': [], 
+            'score': 0, 
+            'level': game.current_level,
+            'time_remaining': 0
+        }
 
     return {
         'players': [
@@ -44,7 +50,7 @@ def get_game_state(game: Game) -> dict:
             } for p in game.players
         ],
         'enemies': [
-            {'x': e.rect.centerx, 'y': e.rect.centery, 'enemy_type': getattr(e, 'enemy_type', None)}
+            {'x': e.rect.centerx, 'y': e.rect.centery, 'enemy_type': getattr(e, 'enemy_type', 'basic')}
             for e in game.enemies
         ],
         'bullets': [b.get_data() for b in game.bullets],
@@ -73,6 +79,7 @@ def client_handler(client_socket: socket.socket, player_id: int):
         if player_id in clients: 
             del clients[player_id]
         logger.info(f"Player {player_id} disconnected")
+        print(f"[SERVER] Player {player_id + 1} disconnected")
 
 def game_loop():
     """Main simulation loop (Tick rate controlled)."""
@@ -82,35 +89,40 @@ def game_loop():
         game = Game(None, is_server=True)
         logger.info(f"Game instance created (server mode)")
         
-        # The server runs the simulation, but it is not a "network client".
-        # is_network_mode=False ensures it runs the local simulation logic.
+        # The server runs the simulation
         game.is_network_mode = False
 
-        # Create players for the server session. This must be done before init_game().
-        game.players.append(Player(game_config.SCREEN_WIDTH // 3, game_config.SCREEN_HEIGHT - 100))
-        game.players.append(Player(2 * game_config.SCREEN_WIDTH // 3, game_config.SCREEN_HEIGHT - 100))
-        logger.info(f"[SERVER] Created {len(game.players)} player slots.")
-        print(f"[SERVER] Created {len(game.players)} player slots.")
+        # Create players with headless=True for server
+        game.players.append(Player(game_config.SCREEN_WIDTH // 3, 
+                                   game_config.SCREEN_HEIGHT - 100, 
+                                   headless=True))
+        game.players.append(Player(2 * game_config.SCREEN_WIDTH // 3, 
+                                   game_config.SCREEN_HEIGHT - 100, 
+                                   headless=True))
+        logger.info(f"[SERVER] Created {len(game.players)} player slots (headless mode)")
+        print(f"[SERVER] Created {len(game.players)} player slots (headless mode)")
 
         game.init_game() 
         game.state = GameState.PLAYING 
         logger.info("[SERVER] Game initialized and ready")
         print("[SERVER] Game initialized and ready")
+        print("[SERVER] Players can now connect and play")
 
         target_dt = 1.0 / game_config.FPS
         loop_count = 0
+        last_bullet_count = 0
         
         while not shutdown_event.is_set():
             try:
                 start_time = time.perf_counter()
 
-                # FIXED: Update players using received inputs (no move() method)
+                # Process player inputs
                 for p_id, inputs in client_inputs.items():
                     if p_id < len(game.players):
                         p = game.players[p_id]
                         k = inputs.get('keys', [])
                         
-                        # Apply movement directly to rect position
+                        # Apply movement directly
                         dx, dy = 0, 0
                         if 'a' in k: 
                             dx -= p.speed
@@ -130,14 +142,27 @@ def game_loop():
                         p.rect.clamp_ip(pygame.Rect(
                             0, 0, game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
                         
-                        # Handle shooting
+                        # Handle shooting with debug output
                         if inputs.get('shoot'):
                             bullets = p.shoot()
-                            for b in bullets:
-                                game.bullets.add(b)
-                                game.all_sprites.add(b)
+                            if bullets:
+                                for b in bullets:
+                                    game.bullets.add(b)
+                                    game.all_sprites.add(b)
+                                print(f"[SERVER] Player {p_id + 1} fired {len(bullets)} bullet(s) at ({p.rect.centerx}, {p.rect.top})")
+                                logger.debug(f"Player {p_id} shot {len(bullets)} bullets, cooldown reset to {p.fire_cooldown}")
 
+                # Update game state
                 game.update()
+                
+                # DEBUG: Log bullet count changes
+                current_bullet_count = len(game.bullets)
+                if current_bullet_count != last_bullet_count:
+                    if current_bullet_count > last_bullet_count:
+                        print(f"[SERVER] Bullets increased: {last_bullet_count} → {current_bullet_count}")
+                    else:
+                        print(f"[SERVER] Bullets decreased: {last_bullet_count} → {current_bullet_count} (off-screen or collision)")
+                    last_bullet_count = current_bullet_count
                 
                 # Broadcast state to all connected clients
                 state = get_game_state(game)
@@ -154,13 +179,12 @@ def game_loop():
                     time.sleep(sleep_time)
                 
                 loop_count += 1
-                if loop_count % 300 == 0:  # Log every 5 seconds at 60 FPS
-                    logger.debug(f"Game loop running: {loop_count} iterations, {len(clients)} clients")
+                if loop_count % 600 == 0:  # Log every 10 seconds at 60 FPS
+                    logger.info(f"Game loop: {loop_count} ticks, {len(clients)} clients, {len(game.bullets)} bullets, {len(game.enemies)} enemies")
                     
             except Exception as e:
                 logger.error(f"Error in game loop: {e}")
                 traceback.print_exc()
-                # Continue running despite errors
                 time.sleep(0.05)
     
     except Exception as e:
@@ -176,7 +200,6 @@ def main(argv=None):
     # Get port from terminal argument
     port = int(argv[1]) if len(argv) > 1 else DEFAULT_PORT
     
-    # ENHANCED: Better startup message
     print(f"\n{'='*60}")
     print(f"  SPACE DEFENDER - MULTIPLAYER SERVER")
     print(f"{'='*60}")
@@ -193,11 +216,13 @@ def main(argv=None):
         server_socket.bind((HOST, port))
         server_socket.listen(2)
         logger.info(f"[SERVER] Listening on {HOST}:{port} (GUI Disabled)")
-        print(f"[SERVER] Listening on {HOST}:{port} (GUI Disabled)")
+        print(f"[SERVER] Listening on {HOST}:{port}")
         print(f"[SERVER] Waiting for clients to connect...")
+        print(f"[SERVER] Press Ctrl+C to stop server\n")
     except Exception as e:
         logger.critical(f"[CRITICAL] Bind failed: {e}")
-        print(f"[CRITICAL] Bind failed: {e}")
+        print(f"[CRITICAL] Failed to start server: {e}")
+        print(f"[CRITICAL] Make sure port {port} is not already in use")
         return
 
     game_thread = threading.Thread(target=game_loop, daemon=True)
@@ -215,18 +240,20 @@ def main(argv=None):
                     handler_thread = threading.Thread(target=client_handler, args=(conn, p_id), daemon=True)
                     handler_thread.start()
                     logger.info(f"[SERVER] Player {p_id + 1} connected from {addr}")
-                    print(f"[SERVER] Player {p_id + 1} connected from {addr}")
+                    print(f"[SERVER] ✓ Player {p_id + 1} connected from {addr}")
+                    print(f"[SERVER] {len(clients)}/2 players connected")
                 else:
                     conn.close()
-                    logger.warning(f"[SERVER] Connection rejected - server full")
+                    logger.warning(f"[SERVER] Connection rejected from {addr} - server full")
+                    print(f"[SERVER] ✗ Connection rejected from {addr} - server full (2/2 players)")
             except socket.timeout:
                 continue
             except Exception as e:
                 logger.error(f"Error accepting connection: {e}")
                 continue
     except KeyboardInterrupt:
-        logger.info("\n[SERVER] Closing on user interrupt...")
-        print("\n[SERVER] Closing...")
+        logger.info("\n[SERVER] Shutting down on user interrupt...")
+        print("\n[SERVER] Shutting down...")
     except Exception as e:
         logger.error(f"Server error: {e}")
         traceback.print_exc()

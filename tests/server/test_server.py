@@ -16,9 +16,12 @@ import threading
 import time
 import unittest
 import sys
+import os
 
-# Add project root to path to allow imports
-sys.path.insert(0, '.')
+# Add project root to path (go up 3 directories from test file)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 from server import main as server_main, shutdown_event, DEFAULT_PORT
 from systems.network import send_data, receive_data

@@ -1,4 +1,11 @@
 import pytest
+import sys
+import os
+
+# Add project root to path (go up 3 directories from test file)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
 
 # Skip this test if pygame isn't available in the test environment
 pygame = pytest.importorskip('pygame')

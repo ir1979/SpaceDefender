@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Test client connection"""
 import sys
+import os
+
+# Add project root to path (go up 3 directories from test file)
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
 print("Testing client mode detection and connection...")
 
 # Simulate the command line
