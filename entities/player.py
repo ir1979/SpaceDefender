@@ -1,5 +1,6 @@
 """
 Player Entity Module
+FIXED VERSION - Adds network_controlled flag to prevent client-side movement in multiplayer
 """
 import pygame
 import math
@@ -10,10 +11,11 @@ from config.settings import color_config, player_config
 class Player(BaseEntity):
     """Player spaceship"""
     
-    def __init__(self, x: int, y: int, shape_type: str = "spaceship"):
+    def __init__(self, x: int, y: int, shape_type: str = "spaceship", network_controlled: bool = False):
         self.shape_type = shape_type
         self.size = (50, 60)
         self.color = color_config.BLUE
+        self.network_controlled = network_controlled  # NEW: Flag for server-controlled players
         
         # Stats
         self.speed = player_config.SPEED
@@ -46,17 +48,25 @@ class Player(BaseEntity):
     
     def update(self):
         """Update player state"""
+        # FIXED: Skip local input if network controlled (server manages position)
+        if self.network_controlled:
+            self._update_powerup_timers()
+            self._update_invincibility()
+            if self.fire_cooldown > 0:
+                self.fire_cooldown -= 1
+            return
+        
         keys = pygame.key.get_pressed()
         
-        # Movement from keyboard (arrow keys only; WASD removed)
+        # Movement from keyboard (arrow keys AND WASD for multiplayer)
         dx = dy = 0
-        if keys[pygame.K_LEFT]:
+        if keys[pygame.K_LEFT] or keys[pygame.K_a]:  # FIXED: Added WASD
             dx -= self.speed
-        if keys[pygame.K_RIGHT]:
+        if keys[pygame.K_RIGHT] or keys[pygame.K_d]:  # FIXED: Added WASD
             dx += self.speed
-        if keys[pygame.K_UP]:
+        if keys[pygame.K_UP] or keys[pygame.K_w]:  # FIXED: Added WASD
             dy -= self.speed
-        if keys[pygame.K_DOWN]:
+        if keys[pygame.K_DOWN] or keys[pygame.K_s]:  # FIXED: Added WASD
             dy += self.speed
         
         # Movement from mouse

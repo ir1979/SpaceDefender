@@ -1,5 +1,6 @@
 """
 Space Defender - Pure Logic Authoritative Server
+FIXED VERSION - Corrects port mismatch and player movement
 """
 import os
 import socket
@@ -19,7 +20,7 @@ logger = get_logger('space_defender.server')
 
 # Server configuration
 HOST = '127.0.0.1'
-DEFAULT_PORT = 9999
+DEFAULT_PORT = 35555  # FIXED: Changed from 9999 to match client default
 
 clients: Dict[int, socket.socket] = {}
 client_inputs: Dict[int, Dict] = {0: {'keys': [], 'shoot': False}, 1: {'keys': [], 'shoot': False}}
@@ -51,6 +52,7 @@ def get_game_state(game: Game) -> dict:
         'score': game.players[0].score if game.players else 0,
         'coins': game.players[0].coins if game.players else 0,
         'level': game.current_level,
+        'time_remaining': game.level.time_remaining if game.level else 0,
     }
 
 def client_handler(client_socket: socket.socket, player_id: int):
@@ -102,15 +104,33 @@ def game_loop():
             try:
                 start_time = time.perf_counter()
 
-                # Update players using received inputs
+                # FIXED: Update players using received inputs (no move() method)
                 for p_id, inputs in client_inputs.items():
                     if p_id < len(game.players):
                         p = game.players[p_id]
                         k = inputs.get('keys', [])
-                        if 'a' in k: p.move(-1, 0)
-                        if 'd' in k: p.move(1, 0)
-                        if 'w' in k: p.move(0, -1)
-                        if 's' in k: p.move(0, 1)
+                        
+                        # Apply movement directly to rect position
+                        dx, dy = 0, 0
+                        if 'a' in k: 
+                            dx -= p.speed
+                        if 'd' in k: 
+                            dx += p.speed
+                        if 'w' in k: 
+                            dy -= p.speed
+                        if 's' in k: 
+                            dy += p.speed
+                        
+                        # Update position
+                        p.rect.x += dx
+                        p.rect.y += dy
+                        
+                        # Clamp to screen bounds
+                        import pygame
+                        p.rect.clamp_ip(pygame.Rect(
+                            0, 0, game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+                        
+                        # Handle shooting
                         if inputs.get('shoot'):
                             bullets = p.shoot()
                             for b in bullets:
@@ -156,6 +176,16 @@ def main(argv=None):
     # Get port from terminal argument
     port = int(argv[1]) if len(argv) > 1 else DEFAULT_PORT
     
+    # ENHANCED: Better startup message
+    print(f"\n{'='*60}")
+    print(f"  SPACE DEFENDER - MULTIPLAYER SERVER")
+    print(f"{'='*60}")
+    print(f"  Host: {HOST}")
+    print(f"  Port: {port}")
+    print(f"  Max Players: 2")
+    print(f"  Mode: Co-op")
+    print(f"{'='*60}\n")
+    
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     
@@ -164,6 +194,7 @@ def main(argv=None):
         server_socket.listen(2)
         logger.info(f"[SERVER] Listening on {HOST}:{port} (GUI Disabled)")
         print(f"[SERVER] Listening on {HOST}:{port} (GUI Disabled)")
+        print(f"[SERVER] Waiting for clients to connect...")
     except Exception as e:
         logger.critical(f"[CRITICAL] Bind failed: {e}")
         print(f"[CRITICAL] Bind failed: {e}")

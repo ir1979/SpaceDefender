@@ -72,6 +72,7 @@ class Game:
         """
         self.is_server = is_server
         self.is_network_mode = False # Default to False, client will set to True
+        self.player_id = None # Will be assigned by server during handshake
         self.running = True
         
         # --- 1. Headless vs GUI Environment Setup ---
@@ -445,6 +446,14 @@ class Game:
             except Exception:
                 continue
 
+        # Sync self.player for network clients
+        if self.is_network_mode and self.player_id is not None:
+            if 0 <= self.player_id < len(self.players):
+                self.player = self.players[self.player_id]
+                logger.debug(f"Client synced self.player to player_id {self.player_id}")
+            else:
+                logger.warning(f"Player ID {self.player_id} out of range for {len(self.players)} players")
+
         # Enemies (server may use 'enemy_type')
         for e_state in state.get('enemies', []):
             try:
@@ -567,6 +576,7 @@ class Game:
     
     def connect_to_server(self, host='127.0.0.1', port=65432):
         """Connects to the game server and sets network mode flag.
+        Receives handshake with player_id assignment.
         Does NOT initialize game state or change the game state - caller must do that.
         """
         try:
@@ -575,9 +585,18 @@ class Game:
             # Set timeout so recv doesn't block indefinitely
             # Allows send/receive to interleave on same socket
             self.server_socket.settimeout(0.1)
+            
+            # Receive handshake from server with player assignment
+            handshake = receive_data(self.server_socket)
+            if handshake:
+                self.player_id = handshake.get('player_id')
+                logger.info(f"Received handshake from server: player_id={self.player_id}")
+            else:
+                logger.warning("Did not receive handshake from server")
+            
             self.is_network_mode = True
             
-            logger.info(f"Successfully connected to server at {host}:{port}")
+            logger.info(f"Successfully connected to server at {host}:{port} as player {self.player_id}")
             return True
         except ConnectionRefusedError:
             logger.error(f"Connection to server at {host}:{port} refused. Is the server running?")
