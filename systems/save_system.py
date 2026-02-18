@@ -18,8 +18,9 @@ class PlayerProfile:
     `coins` properties for the rest of the codebase.
     """
     
-    def __init__(self, name: str):
+    def __init__(self, name: str, password: str = ""):
         self.name = name
+        self.password = password
         self.total_score = 0
         self.total_coins = 0
         self.highest_level = 1
@@ -54,6 +55,7 @@ class PlayerProfile:
         # write both legacy (`current_...`) and new (`score`/`coins`) keys
         return {
             'name': self.name,
+            'password': self.password,
             'total_score': self.total_score,
             'total_coins': self.total_coins,
             'highest_level': self.highest_level,
@@ -69,7 +71,7 @@ class PlayerProfile:
     
     @staticmethod
     def from_dict(data: dict) -> 'PlayerProfile':
-        profile = PlayerProfile(data['name'])
+        profile = PlayerProfile(data['name'], data.get('password', ''))
         profile.total_score = data.get('total_score', 0)
         profile.total_coins = data.get('total_coins', 0)
         profile.highest_level = data.get('highest_level', 1)
@@ -190,6 +192,16 @@ class SaveSystem:
             return PlayerProfile.from_dict(profile_data)
         logger.warning(f"Attempted to load profile '{name}', but it was not found.")
         return None
+
+    @staticmethod
+    def verify_password(name: str, password: str) -> bool:
+        """Verify if the password matches the profile's stored password."""
+        data = SaveSystem.load_all_profiles()
+        profile_data = data.get('profiles', {}).get(name)
+        if profile_data:
+            stored_password = profile_data.get('password', '')
+            return password == stored_password
+        return False
 
     @staticmethod
     def profile_exists(name: str) -> bool:

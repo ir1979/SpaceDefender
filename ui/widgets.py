@@ -8,11 +8,12 @@ class TextInput:
     """Text input field"""
     
     def __init__(self, x: int, y: int, width: int, height: int, 
-                 font: pygame.font.Font, max_length: int = 15):
+                 font: pygame.font.Font, max_length: int = 15, is_password: bool = False):
         self.rect = pygame.Rect(x, y, width, height)
         self.font = font
         self.max_length = max_length
         self.text = ""
+        self.is_password = is_password
         self.active = True
         self.cursor_visible = True
         self.cursor_timer = 0
@@ -40,7 +41,9 @@ class TextInput:
         pygame.draw.rect(surface, color_config.CYAN if self.active else color_config.UI_BORDER, 
                         self.rect, 3)
         
-        text_surface = self.font.render(self.text, True, color_config.WHITE)
+        # Display masked text if password field
+        display_text = "*" * len(self.text) if self.is_password else self.text
+        text_surface = self.font.render(display_text, True, color_config.WHITE)
         text_rect = text_surface.get_rect(midleft=(self.rect.x + 10, self.rect.centery))
         surface.blit(text_surface, text_rect)
         

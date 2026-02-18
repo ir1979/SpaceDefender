@@ -23,9 +23,12 @@ class Shop:
         self.items = self.create_shop_items()
         self.selected_index = 0
         self.item_rects = []  # Store rectangles for mouse click detection
+        self.scroll_offset = 0  # For scrolling in long item lists
+        self.max_visible_items = 5  # Show 5 items at a time
     
     def create_shop_items(self):
         return [
+            # Core Upgrades
             {'name': 'Max Health +20', 'cost': 75, 'description': 'Increase maximum health', 
              'effect': 'max_health', 'level': 0, 'max_level': 999, 'base_cost': 75},
             {'name': 'Damage +10', 'cost': 100, 'description': 'Increase bullet damage',
@@ -35,7 +38,27 @@ class Shop:
             {'name': 'Fire Rate +2', 'cost': 90, 'description': 'Shoot faster',
              'effect': 'fire_rate', 'level': 0, 'max_level': 999, 'base_cost': 90},
             {'name': 'Heal 50 HP', 'cost': 60, 'description': 'Restore health',
-             'effect': 'heal', 'level': 0, 'max_level': 999, 'base_cost': 60}
+             'effect': 'heal', 'level': 0, 'max_level': 999, 'base_cost': 60},
+            
+            # Weapon Power-ups
+            {'name': '⚡ Triple Shot', 'cost': 120, 'description': 'Fire 3 bullets at once',
+             'effect': 'triple_shot', 'level': 0, 'max_level': 3, 'base_cost': 120},
+            {'name': '🔫 Rapid Fire Upgrade', 'cost': 110, 'description': 'Extreme fire rate boost',
+             'effect': 'rapid_fire', 'level': 0, 'max_level': 5, 'base_cost': 110},
+            {'name': '🎯 Piercing Shots', 'cost': 130, 'description': 'Bullets penetrate enemies',
+             'effect': 'piercing', 'level': 0, 'max_level': 1, 'base_cost': 130},
+            
+            # Defense Power-ups
+            {'name': '🛡️ Shield', 'cost': 150, 'description': 'Temporary protection from damage',
+             'effect': 'shield', 'level': 0, 'max_level': 10, 'base_cost': 150},
+            {'name': '❤️ Extra Life', 'cost': 200, 'description': 'Get an extra life/respawn',
+             'effect': 'extra_life', 'level': 0, 'max_level': 3, 'base_cost': 200},
+            
+            # Special Abilities
+            {'name': '💣 ATOMIC BOMB', 'cost': 250, 'description': 'DESTROY ALL ENEMIES ON SCREEN!',
+             'effect': 'atomic_bomb', 'level': 0, 'max_level': 999, 'base_cost': 250},
+            {'name': '🌪️ Enemy Freeze', 'cost': 140, 'description': 'Slow down all enemies temporarily',
+             'effect': 'enemy_freeze', 'level': 0, 'max_level': 3, 'base_cost': 140},
         ]
     
     def handle_input(self, event: pygame.event.Event, player: 'Player') -> bool:
@@ -47,26 +70,34 @@ class Shop:
                 return True # Signal to close the shop
             elif event.key == pygame.K_UP or event.key == pygame.K_w:
                 self.selected_index = (self.selected_index - 1) % len(self.items)
+                self._update_scroll_for_selection()
             elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
                 self.selected_index = (self.selected_index + 1) % len(self.items)
+                self._update_scroll_for_selection()
             elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
                 self.purchase(self.selected_index, player)
         elif event.type == pygame.MOUSEMOTION:
             # Update selection based on mouse hover (only one active at a time)
-            for i, rect in enumerate(self.item_rects):
+            for item_index, rect in self.item_rects:
                 if rect.collidepoint(event.pos):
-                    self.selected_index = i
+                    self.selected_index = item_index
                     break
         elif event.type == pygame.MOUSEBUTTONDOWN:
+            # Handle scroll wheel
+            if event.button == 4:  # Scroll up
+                self.scroll_offset = max(0, self.scroll_offset - 1)
+            elif event.button == 5:  # Scroll down
+                max_scroll = max(0, len(self.items) - self.max_visible_items)
+                self.scroll_offset = min(max_scroll, self.scroll_offset + 1)
             # Check if mouse clicked on a shop item
-            if event.button == 1:  # Left click
-                for i, rect in enumerate(self.item_rects):
+            elif event.button == 1:  # Left click
+                for item_index, rect in self.item_rects:
                     if rect.collidepoint(event.pos):
                         # Single click selects, second click purchases
-                        if self.selected_index == i:
-                            self.purchase(i, player)
+                        if self.selected_index == item_index:
+                            self.purchase(item_index, player)
                         else:
-                            self.selected_index = i
+                            self.selected_index = item_index
                             # play a selection sound for feedback if available
                             try:
                                 self.assets.play_sound('menu_select', 0.6)
@@ -75,15 +106,27 @@ class Shop:
                         break
         return False
     
+    def _update_scroll_for_selection(self):
+        """Ensure the selected item is visible in the viewport"""
+        if self.selected_index < self.scroll_offset:
+            self.scroll_offset = self.selected_index
+        elif self.selected_index >= self.scroll_offset + self.max_visible_items:
+            self.scroll_offset = self.selected_index - self.max_visible_items + 1
+    
     def purchase(self, index: int, player: 'Player'):
         item = self.items[index]
         logger.debug(f"Purchase attempt: item='{item['name']}', index={index}, cost={item['cost']}, level={item['level']}, max_level={item['max_level']}")
         logger.debug(f"Player coins: {player.coins}, can_afford: {player.coins >= item['cost']}, level_ok: {item['level'] < item['max_level']}")
         
         if player.coins >= item['cost'] and item['level'] < item['max_level']:
-            # Special condition for 'heal' item: only allow if not at max health
+            # Special conditions for certain items
             if item['effect'] == 'heal' and player.health >= player.max_health:
                 logger.warning(f"✗ Purchase denied: {item['name']} - already at max health")
+                self.assets.play_sound('error', 0.7)
+                return
+            
+            if item['effect'] == 'shield' and hasattr(player, 'has_shield') and player.has_shield:
+                logger.warning(f"✗ Purchase denied: {item['name']} - already have shield")
                 self.assets.play_sound('error', 0.7)
                 return
 
@@ -91,6 +134,7 @@ class Shop:
             player.coins -= item['cost']
             self.assets.play_sound('shop_purchase', 0.7)
             
+            # Core Upgrades
             if item['effect'] == 'max_health':
                 player.max_health += 20
                 player.health = player.max_health
@@ -108,6 +152,56 @@ class Shop:
                 old_health = player.health
                 player.health = min(player.health + 50, player.max_health)
                 logger.info(f"  -> Health restored: {old_health} -> {player.health}")
+            
+            # Weapon Power-ups
+            elif item['effect'] == 'triple_shot':
+                if not hasattr(player, 'triple_shot'):
+                    player.triple_shot = False
+                player.triple_shot = True
+                # Increase duration based on level
+                if not hasattr(player, 'triple_shot_duration'):
+                    player.triple_shot_duration = 0
+                player.triple_shot_duration = 300 + (item['level'] * 100)  # Frames
+                logger.info(f"  -> Triple Shot activated! Duration: {player.triple_shot_duration} frames")
+            
+            elif item['effect'] == 'rapid_fire':
+                # Extreme fire rate boost - reduce fire rate significantly
+                player.fire_rate = max(player.fire_rate - 5, 1)
+                logger.info(f"  -> RAPID FIRE! Fire Rate improved to {player.fire_rate}")
+            
+            elif item['effect'] == 'piercing':
+                if not hasattr(player, 'piercing_shots'):
+                    player.piercing_shots = False
+                player.piercing_shots = True
+                logger.info(f"  -> Piercing Shots enabled! Bullets penetrate enemies")
+            
+            # Defense Power-ups
+            elif item['effect'] == 'shield':
+                player.has_shield = True
+                logger.info(f"  -> Shield activated!")
+            
+            elif item['effect'] == 'extra_life':
+                if not hasattr(player, 'lives'):
+                    player.lives = 1
+                player.lives += 1
+                logger.info(f"  -> Extra life granted! Total lives: {player.lives}")
+            
+            # Special Abilities
+            elif item['effect'] == 'atomic_bomb':
+                # Add atomic bomb to player's weapons inventory
+                if player.add_weapon('atomic_bomb'):
+                    logger.info(f"  -> 💣 ATOMIC BOMB added to weapons! Total weapons: {len(player.weapons)}")
+                else:
+                    logger.info(f"  -> ATOMIC BOMB already in inventory")
+            
+            elif item['effect'] == 'enemy_freeze':
+                # Add enemy freeze to player's weapons inventory
+                if player.add_weapon('enemy_freeze'):
+                    logger.info(f"  -> 🌪️ ENEMY FREEZE added to weapons! Total weapons: {len(player.weapons)}")
+                else:
+                    logger.info(f"  -> ENEMY FREEZE already in inventory")
+                player.enemy_freeze_duration = 180 + (item['level'] * 60)  # Frames
+                logger.info(f"  -> Enemy Freeze activated! Duration: {player.enemy_freeze_duration} frames")
             
             item['level'] += 1
             item['cost'] = int(item['base_cost'] * (1.5 ** item['level']))
@@ -148,20 +242,45 @@ class Shop:
         mouse_pos = pygame.mouse.get_pos()
         self.item_rects = []  # Reset item rectangles
         
+        # Calculate visible items based on scroll offset
+        items_content_area_height = 360  # Space for items (panel_height - title - coins - instructions)
+        item_height = 70
+        
         y_offset = panel_y + 140
-        for i, item in enumerate(self.items):
+        visible_start = self.scroll_offset
+        visible_end = min(visible_start + self.max_visible_items, len(self.items))
+        
+        # Draw scrollbar if needed
+        if len(self.items) > self.max_visible_items:
+            scrollbar_x = panel_x + panel_width - 20
+            scrollbar_y = panel_y + 140
+            scrollbar_height = items_content_area_height
+            
+            # Background
+            pygame.draw.rect(surface, color_config.UI_BORDER,
+                           (scrollbar_x, scrollbar_y, 10, scrollbar_height), 1)
+            
+            # Scrollbar thumb
+            thumb_height = max(20, int(scrollbar_height * self.max_visible_items / len(self.items)))
+            thumb_y = scrollbar_y + int((scrollbar_height - thumb_height) * self.scroll_offset / max(1, len(self.items) - self.max_visible_items))
+            pygame.draw.rect(surface, color_config.CYAN,
+                           (scrollbar_x, thumb_y, 10, thumb_height))
+        
+        # Draw only visible items
+        for i in range(visible_start, visible_end):
+            item = self.items[i]
             selected = (i == self.selected_index)
-            item_rect = pygame.Rect(panel_x + 30, y_offset, panel_width - 60, 70)
-            self.item_rects.append(item_rect)
+            item_rect = pygame.Rect(panel_x + 30, y_offset, panel_width - 70, 70)
+            self.item_rects.append((i, item_rect))  # Store actual index with rect
             
             # Highlight on hover or selection
             is_hovered = item_rect.collidepoint(mouse_pos)
             self.draw_shop_item(surface, item, panel_x + 30, y_offset,
-                              panel_width - 60, selected or is_hovered, player.coins)
+                              panel_width - 70, selected or is_hovered, player.coins)
             y_offset += 80
         
         instructions = self.assets.fonts['small'].render(
-            "Click once: Select | Click again/ENTER: Purchase | ↑↓: Navigate | ESC: Exit",
+            "↑↓/Scroll: Navigate | Click: Select/Purchase | ESC: Exit",
             True, color_config.UI_TEXT)
         instructions_rect = instructions.get_rect(
             center=(game_config.SCREEN_WIDTH // 2, panel_y + panel_height - 30))

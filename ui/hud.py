@@ -79,9 +79,35 @@ class HUD:
             triple_rect = triple_text.get_rect(topright=(pu_x_right, pu_y))
             surface.blit(triple_text, triple_rect)
 
+        # Weapon display (center-bottom, if weapons available)
+        if player.weapons:
+            weapons_y = screen_h - font_small.get_height() - margin - 30
+            current_weapon = player.get_selected_weapon()
+            
+            # Convert weapon name to display text
+            weapon_names = {
+                'atomic_bomb': '💣 ATOMIC BOMB',
+                'enemy_freeze': '🌪️ ENEMY FREEZE'
+            }
+            weapon_display = weapon_names.get(current_weapon, current_weapon.upper())
+            
+            # Display current weapon
+            weapon_text = font_small.render(
+                f"Weapon: {weapon_display} ({player.selected_weapon_index + 1}/{len(player.weapons)})",
+                True, color_config.CYAN)
+            weapon_rect = weapon_text.get_rect(center=(screen_w // 2, weapons_y))
+            surface.blit(weapon_text, weapon_rect)
+            
+            # Display all weapons available
+            all_weapons_text = " | ".join([weapon_names.get(w, w.upper()) for w in player.weapons])
+            weapons_list = font_small.render(all_weapons_text, True, color_config.WHITE)
+            weapons_list_rect = weapons_list.get_rect(
+                center=(screen_w // 2, weapons_y + font_small.get_height() + 5))
+            surface.blit(weapons_list, weapons_list_rect)
+
         # Controls hint (bottom-left, with margin)
         hint_text = self.assets.fonts['tiny'].render(
-            "SPACE: Shoot | P: Pause | ESC: Quit", 
+            "SPACE: Shoot | E: Switch Weapon | B: Use | P: Pause | ESC: Quit", 
             True, color_config.UI_TEXT)
         hint_rect = hint_text.get_rect(
             bottomleft=(margin, screen_h - margin))

@@ -1,0 +1,142 @@
+#!/usr/bin/env python3
+"""
+Quick gameplay verification test
+Walks through purchasing and using weapons
+"""
+
+print("""
+================================================================================
+WEAPON SELECTION SYSTEM - QUICK START GUIDE
+================================================================================
+
+🎮 HOW TO TEST THE WEAPON SYSTEM:
+
+1. START GAME
+   - Run: python main.py
+   - Select or create a profile
+
+2. EARN COINS
+   - Play the game and destroy enemies
+   - Each enemy grants 5-15 coins
+   - Goal: Get 250+ coins for Atomic Bomb
+
+3. OPEN SHOP
+   - Press 'S' in main menu
+   - Navigate with ↑/↓ or mouse wheel
+   - See 12 shop items including special weapons
+
+4. PURCHASE ATOMIC BOMB
+   - Select: 💣 ATOMIC BOMB (250 coins)
+   - Press ENTER/SPACE or double-click to purchase
+   - Weapon added to inventory (press ESC to close shop)
+
+5. BACK IN GAME
+   - HUD shows: "Weapon: 💣 ATOMIC BOMB (1/1)"
+   - Press 'E' or TAB to cycle weapons
+   - Press 'B' to activate atomic bomb
+   - All enemies on screen are destroyed!
+
+6. (OPTIONAL) FREEZE ENEMIES
+   - Save more coins and buy Enemy Freeze (140 coins)
+   - Then you'll have 2 weapons in inventory
+   - Cycle between them with 'E'
+   - Press 'B' to freeze all enemies for 5 seconds
+
+================================================================================
+KEYBOARD CONTROLS:
+================================================================================
+
+MAIN GAME:
+  ARROW KEYS or WASD    - Move player
+  LEFT CLICK            - Shoot bullets
+  E or TAB              - Cycle to next weapon
+  B                     - Activate selected weapon
+  P                     - Pause game
+  Q or ESC              - Open quit confirmation
+
+SHOP:
+  ARROW ↑↓ or W/S       - Navigate items
+  MOUSE WHEEL           - Scroll through items
+  CLICK                 - Select item (click again to purchase)
+  ENTER or SPACE        - Purchase selected item
+  ESC                   - Close shop
+
+MENUS:
+  ARROW KEYS / WASD     - Navigate
+  ENTER or SPACE        - Select
+  ESC / Q               - Back / Quit
+
+================================================================================
+EXPECTED BEHAVIOR:
+================================================================================
+
+✓ Weapons purchased in shop appear in HUD during gameplay
+✓ E/Tab key cycles through available weapons
+✓ B key activates the selected weapon
+✓ Atomic Bomb destroys all enemies instantly
+✓ Enemy Freeze freezes enemies with cyan indicator bar
+✓ HUD shows weapon count (e.g., "1/2" means weapon 1 of 2)
+✓ Coins and score awarded from destroyed enemies
+
+================================================================================
+TROUBLESHOOTING:
+================================================================================
+
+Problem: Don't see weapon in HUD
+  Solution: Make sure you purchased it from shop
+            Check shop has enough coins
+
+Problem: B key doesn't work
+  Solution: Make sure you're in PLAYING state (not paused/menu)
+            Press E first to select a weapon
+            Only activate weapons you actually purchased
+
+Problem: Enemies don't freeze when pressing B
+  Solution: Make sure you purchased Enemy Freeze
+            Frozen enemies show cyan bar instead of red health
+
+================================================================================
+SHOP ITEMS WITH SPECIAL WEAPONS:
+================================================================================
+
+Core Upgrades (5 items) - Traditional stat boosts
+  • Max Health +20 (75 coins)
+  • Damage +10 (100 coins)
+  • Speed +1 (80 coins)
+  • Fire Rate +2 (90 coins)
+  • Heal 50 HP (60 coins)
+
+Weapon Power-ups (3 items) - Enhanced shooting
+  • ⚡ Triple Shot (120 coins) - Fire 3 bullets
+  • 🔫 Rapid Fire Upgrade (110 coins) - Much faster shooting
+  • 🎯 Piercing Shots (130 coins) - Bullets penetrate
+
+Defense Power-ups (2 items) - Protection
+  • 🛡️ Shield (150 coins) - Block one hit
+  • ❤️ Extra Life (200 coins) - Extra respawn
+
+SPECIAL ABILITIES (2 items) - Ultimate weapons! ⭐
+  • 💣 ATOMIC BOMB (250 coins) - DESTROY ALL ENEMIES!
+  • 🌪️ Enemy Freeze (140 coins) - Freeze all enemies
+
+================================================================================
+""")
+
+# Verify system is ready
+try:
+    from entities.player import Player
+    from ui.menus import Shop
+    
+    print("✅ Player system ... OK")
+    print("✅ Shop system ... OK")
+    print("✅ Game system ... Ready to test!")
+    print()
+    print("To verify the weapon system is working:")
+    print("  1. Run: python main.py")
+    print("  2. Follow the steps above")
+    print("  3. Test weapon selection and activation")
+    print()
+    
+except Exception as e:
+    print(f"❌ Error: {e}")
+    print("Please check that all files are properly saved.")

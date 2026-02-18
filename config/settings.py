@@ -62,15 +62,16 @@ class GameState(Enum):
     SPLASH_SCREEN = 0
     NAME_INPUT = 1
     PROFILE_SELECT = 2
-    MAIN_MENU = 3
-    PLAYING = 4
-    PAUSED = 5
-    SHOP = 6
-    GAME_OVER = 7
-    LEVEL_COMPLETE = 8
-    HIGH_SCORES = 9
-    QUIT_CONFIRM = 10
-    WAITING_FOR_PLAYERS = 11
+    PASSWORD_INPUT = 3
+    MAIN_MENU = 4
+    PLAYING = 5
+    PAUSED = 6
+    SHOP = 7
+    GAME_OVER = 8
+    LEVEL_COMPLETE = 9
+    HIGH_SCORES = 10
+    QUIT_CONFIRM = 11
+    WAITING_FOR_PLAYERS = 12
 
 # Global instances
 game_config = GameConfig()

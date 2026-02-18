@@ -31,6 +31,9 @@ class Enemy(BaseEntity):
         self.movement_counter = 0
         self.direction = random.choice([-1, 1])
         
+        # Freeze effect (freeze_timer > 0 means enemy is frozen)
+        self.frozen_timer = 0
+        
         super().__init__(x, y)
     
     def _create_image(self):
@@ -40,6 +43,15 @@ class Enemy(BaseEntity):
     
     def update(self):
         """Update enemy"""
+        # Handle freeze timer
+        if self.frozen_timer > 0:
+            self.frozen_timer -= 1
+            # Don't move or do anything while frozen
+            from config.settings import game_config
+            if self.rect.top > game_config.SCREEN_HEIGHT:
+                self.kill()
+            return
+        
         self.movement_counter += 1
         self._move()
         
@@ -74,21 +86,31 @@ class Enemy(BaseEntity):
             self.rect.y += self.speed
     
     def draw_health_bar(self, surface: pygame.Surface):
-        """Draw health bar"""
-        if self.health >= self.max_health:
-            return
-        
+        """Draw health bar and freeze effect if applicable"""
         bar_width = self.rect.width
         bar_height = 5
         bar_x = self.rect.x
         bar_y = self.rect.y - 10
         
-        pygame.draw.rect(surface, color_config.RED,
-                        (bar_x, bar_y, bar_width, bar_height))
-        
-        health_width = int(bar_width * (self.health / self.max_health))
-        pygame.draw.rect(surface, color_config.GREEN,
-                        (bar_x, bar_y, health_width, bar_height))
+        # Draw health bar (or frozen indicator)
+        if self.frozen_timer > 0:
+            # Draw blue/cyan bar to indicate frozen state
+            pygame.draw.rect(surface, color_config.CYAN,
+                            (bar_x, bar_y, bar_width, bar_height))
+            # Add a border
+            pygame.draw.rect(surface, color_config.WHITE,
+                            (bar_x, bar_y, bar_width, bar_height), 1)
+        else:
+            # Normal health bar
+            if self.health >= self.max_health:
+                return
+            
+            pygame.draw.rect(surface, color_config.RED,
+                            (bar_x, bar_y, bar_width, bar_height))
+            
+            health_width = int(bar_width * (self.health / self.max_health))
+            pygame.draw.rect(surface, color_config.GREEN,
+                            (bar_x, bar_y, health_width, bar_height))
     
     def get_data(self) -> Dict[str, Any]:
         """Get enemy data"""

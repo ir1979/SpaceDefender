@@ -36,6 +36,10 @@ class Player(BaseEntity):
         self.triple_shot = False
         self.triple_shot_timer = 0
         
+        # Weapon/Special ability inventory
+        self.weapons = []  # List of available weapons/abilities: 'atomic_bomb', 'enemy_freeze', etc.
+        self.selected_weapon_index = 0  # Currently selected weapon
+        
         # State
         self.invincible = False
         self.invincible_timer = 0
@@ -206,6 +210,38 @@ class Player(BaseEntity):
             pygame.draw.circle(surface, color_config.CYAN, 
                              self.rect.center, 40, 2)
     
+    def add_weapon(self, weapon_name: str):
+        """Add a weapon/ability to player's inventory"""
+        if weapon_name not in self.weapons:
+            self.weapons.append(weapon_name)
+            return True
+        return False
+    
+    def has_weapon(self, weapon_name: str) -> bool:
+        """Check if player has a specific weapon"""
+        return weapon_name in self.weapons
+    
+    def get_selected_weapon(self) -> str:
+        """Get the currently selected weapon, or empty string if none"""
+        if self.weapons and 0 <= self.selected_weapon_index < len(self.weapons):
+            return self.weapons[self.selected_weapon_index]
+        return ""
+    
+    def select_weapon(self, index: int):
+        """Select a weapon by index"""
+        if 0 <= index < len(self.weapons):
+            self.selected_weapon_index = index
+    
+    def cycle_weapon_next(self):
+        """Cycle to the next weapon in inventory"""
+        if self.weapons:
+            self.selected_weapon_index = (self.selected_weapon_index + 1) % len(self.weapons)
+    
+    def cycle_weapon_prev(self):
+        """Cycle to the previous weapon in inventory"""
+        if self.weapons:
+            self.selected_weapon_index = (self.selected_weapon_index - 1) % len(self.weapons)
+    
     def get_data(self) -> Dict[str, Any]:
         """Get player data"""
         data = super().get_data()
@@ -217,3 +253,4 @@ class Player(BaseEntity):
             'shape_type': self.shape_type
         })
         return data
+

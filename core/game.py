@@ -124,6 +124,7 @@ class Game:
         self.existing_profiles = []
         self.profile_buttons = []
         self.profile_selected_index = 0
+        self.new_profile_button = None  # Button for creating new profile
         self.creating_new_profile = False
         self.menu_buttons = []
         self.menu_selected_index = 0
@@ -135,6 +136,18 @@ class Game:
         self.server_socket = None
         self.server_host = '127.0.0.1'  # Default server host (may be overridden by CLI args)
         self.server_port = 35555
+        
+        # Password authentication variables
+        self.authenticating_profile = None  # Profile name being authenticated
+        self.password_input = None
+        self.password_error = False
+        self.password_error_timer = 0
+        self.new_profile_name = None  # Store username for new profile creation
+        
+        # Visual effects for weapons
+        self.camera_shake_intensity = 0  # Intensity of screen shake (0 = none)
+        self.camera_shake_duration = 0   # Frames remaining for shake effect
+        self.atomic_bomb_flash = 0       # Alpha value for white flash (0-255)
         
         # Network performance tracking
         self.waiting_start_time = None
@@ -195,11 +208,8 @@ class Game:
             if self.state == GameState.SPLASH_SCREEN:
                 if event.type in [pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN]:
                     if self.splash_ready:
-                        # Always go to NAME_INPUT after splash, regardless of existing profiles
-                        self.state = GameState.NAME_INPUT
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
+                        # Go to PROFILE_SELECT to choose existing profile or create new
+                        self.state = GameState.PROFILE_SELECT
                         self.splash_skipped = True
             
             elif self.state == GameState.NAME_INPUT:
@@ -212,10 +222,20 @@ class Game:
                                 self.duplicate_profile_error = True
                                 self.duplicate_error_timer = 180 # 3 seconds at 60 FPS
                             else:
-                                self.profile = PlayerProfile(profile_name)
-                                SaveSystem.save_profile(self.profile)
-                                self._apply_profile_start_level(self.profile)
-                                self.state = GameState.MAIN_MENU
+                                # Store the new profile name and transition to password input
+                                self.new_profile_name = profile_name
+                                self.state = GameState.PASSWORD_INPUT
+                                self.authenticating_profile = profile_name  # Reuse field for display
+                                self.password_input = TextInput(
+                                    game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
+                                    self.assets.fonts['medium'], is_password=True)
+                        else:
+                            self.duplicate_profile_error = True
+                            self.duplicate_error_timer = 180
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        # Cancel profile creation, go back to profile select
+                        self.state = GameState.PROFILE_SELECT
+                        self.creating_new_profile = False
             
             if self.state == GameState.PROFILE_SELECT:
                 if event.type == pygame.KEYDOWN:
@@ -224,12 +244,12 @@ class Game:
                             self.server_socket.close()
                         except Exception: pass
                     if event.key == pygame.K_ESCAPE:
-                        if not self.profile:
-                            self.profile = SaveSystem.get_profiles()[0] if SaveSystem.get_profiles() else PlayerProfile("Player")
-                            if not SaveSystem.get_profiles():
-                                SaveSystem.save_profile(self.profile)
-                            self._apply_profile_start_level(self.profile)
-                        self.state = GameState.MAIN_MENU
+                        # ESC allows users to create a new profile instead of selecting existing
+                        self.creating_new_profile = True
+                        self.state = GameState.NAME_INPUT
+                        self.text_input = TextInput(
+                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                            self.assets.fonts['medium'])
                     elif event.key == pygame.K_n:
                         self.creating_new_profile = True
                         self.state = GameState.NAME_INPUT
@@ -240,8 +260,13 @@ class Game:
                         idx = int(event.unicode) - 1
                         profiles = SaveSystem.get_profiles()
                         if 0 <= idx < len(profiles):
-                            self._apply_profile_start_level(profiles[idx])
-                            self.state = GameState.MAIN_MENU
+                            # Transition to PASSWORD_INPUT state for authentication
+                            self.authenticating_profile = profiles[idx].name
+                            self.state = GameState.PASSWORD_INPUT
+                            self.password_input = TextInput(
+                                game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
+                                self.assets.fonts['medium'], is_password=True)
+                            self.password_error = False
                     elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
                         profiles = SaveSystem.get_profiles()
                         if profiles:
@@ -253,8 +278,13 @@ class Game:
                         if box_rect.collidepoint(event.pos):
                             profiles = SaveSystem.get_profiles()
                             if 0 <= idx < len(profiles):
-                                self._apply_profile_start_level(profiles[idx])
-                                self.state = GameState.MAIN_MENU
+                                # Transition to PASSWORD_INPUT state for authentication
+                                self.authenticating_profile = profiles[idx].name
+                                self.state = GameState.PASSWORD_INPUT
+                                self.password_input = TextInput(
+                                    game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
+                                    self.assets.fonts['medium'], is_password=True)
+                                self.password_error = False
                                 break
                     if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
                         self.creating_new_profile = True
@@ -268,6 +298,49 @@ class Game:
                         if box_rect.collidepoint(event.pos):
                             self.profile_selected_index = idx
                             break
+            
+            elif self.state == GameState.PASSWORD_INPUT:
+                if self.password_input:
+                    result = self.password_input.handle_event(event)
+                    if result:
+                        password = result.strip()
+                        # Check if this is creating a new profile or authenticating
+                        if self.new_profile_name:
+                            # Creating new profile
+                            self.profile = PlayerProfile(self.new_profile_name, password)
+                            SaveSystem.save_profile(self.profile)
+                            self._apply_profile_start_level(self.profile)
+                            self.new_profile_name = None
+                            self.state = GameState.MAIN_MENU
+                        else:
+                            # Authenticating existing profile
+                            if SaveSystem.verify_password(self.authenticating_profile, password):
+                                profile = SaveSystem.load_profile(self.authenticating_profile)
+                                self.profile = profile
+                                self._apply_profile_start_level(profile)
+                                self.state = GameState.MAIN_MENU
+                            else:
+                                # Password incorrect
+                                self.password_error = True
+                                self.password_error_timer = 180  # 3 seconds at 60 FPS
+                                self.password_input = TextInput(
+                                    game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
+                                    self.assets.fonts['medium'], is_password=True)
+                    elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
+                        # Cancel password input
+                        if self.new_profile_name:
+                            # Cancel new profile creation, go back to name input
+                            self.new_profile_name = None
+                            self.state = GameState.NAME_INPUT
+                            self.text_input = TextInput(
+                                game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                                self.assets.fonts['medium'])
+                        else:
+                            # Cancel authentication, go back to profile select
+                            self.state = GameState.PROFILE_SELECT
+                            self.authenticating_profile = None
+                        self.password_input = None
+                        self.password_error = False
             
             elif self.state == GameState.MAIN_MENU:
                 if event.type == pygame.KEYDOWN:
@@ -299,6 +372,43 @@ class Game:
                         self.quit_confirm_selected = True # Default to YES
                     elif event.key == pygame.K_p:
                         self.state = GameState.PAUSED
+                    elif event.key in [pygame.K_e, pygame.K_TAB]:
+                        # Cycle to next weapon
+                        if self.player and self.player.weapons:
+                            self.player.cycle_weapon_next()
+                            logger.info(f"Weapon changed to: {self.player.get_selected_weapon()}")
+                    elif event.key == pygame.K_b:
+                        # Activate selected weapon (atomic bomb, enemy freeze, etc.)
+                        if self.player:
+                            weapon = self.player.get_selected_weapon()
+                            if weapon == 'atomic_bomb':
+                                # Clear all enemies from the level
+                                logger.info("⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!")
+                                self.assets.play_sound('explosion', 0.9)
+                                
+                                # Trigger visual effects
+                                self.camera_shake_intensity = 15  # Strong shake
+                                self.camera_shake_duration = 30   # 0.5 seconds at 60 FPS
+                                self.atomic_bomb_flash = 200      # Bright white flash
+                                
+                                for enemy in self.enemies:
+                                    coins_reward = random.randint(5, 15)
+                                    self.player.coins += coins_reward
+                                    score = int(enemy.max_health * 10)
+                                    self.player.score += score
+                                    # Create explosion particles at enemy location
+                                    self.particle_system.emit_explosion(
+                                        enemy.rect.centerx, enemy.rect.centery,
+                                        color_config.YELLOW, count=15
+                                    )
+                                self.enemies.empty()
+                            elif weapon == 'enemy_freeze':
+                                logger.info("❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!")
+                                self.assets.play_sound('powerup', 0.7)
+                                for enemy in self.enemies:
+                                    if not hasattr(enemy, 'frozen_timer'):
+                                        enemy.frozen_timer = 0
+                                    enemy.frozen_timer = 300  # 5 seconds at 60 FPS
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.player:
                         # In network mode, shooting is sent as an input event
@@ -795,6 +905,15 @@ class Game:
             return # Should not run local simulation if connected to server
 
         if self.state == GameState.PLAYING:
+            # Update visual effects
+            if self.camera_shake_duration > 0:
+                self.camera_shake_duration -= 1
+            else:
+                self.camera_shake_intensity = 0
+            
+            if self.atomic_bomb_flash > 0:
+                self.atomic_bomb_flash -= 8  # Fade out the flash
+            
             # Update timer
             if not self.level.update_timer():
                 if self.current_profile:
@@ -981,19 +1100,55 @@ class Game:
         elif self.state == GameState.PROFILE_SELECT:
             self.draw_profile_select()
         
+        elif self.state == GameState.PASSWORD_INPUT:
+            self.draw_password_input()
+        
         elif self.state == GameState.MAIN_MENU:
             self.draw_main_menu()
         
         elif self.state == GameState.PLAYING:
+            # Apply camera shake offset
+            shake_offset_x = 0
+            shake_offset_y = 0
+            if self.camera_shake_intensity > 0:
+                shake_offset_x = random.randint(-self.camera_shake_intensity, self.camera_shake_intensity)
+                shake_offset_y = random.randint(-self.camera_shake_intensity, self.camera_shake_intensity)
+            
             # Render either local-play or network-client view
             if (self.player and self.level) or self.is_network_mode:
-                self.all_sprites.draw(self.screen)
+                # Draw sprites with shake offset
+                for sprite in self.all_sprites:
+                    self.screen.blit(sprite.image, (sprite.rect.x + shake_offset_x, sprite.rect.y + shake_offset_y))
 
                 for enemy in self.enemies:
-                    enemy.draw_health_bar(self.screen)
+                    # Draw health bar with shake offset
+                    if enemy.health < enemy.max_health or enemy.frozen_timer > 0:
+                        bar_width = enemy.rect.width
+                        bar_height = 5
+                        bar_x = enemy.rect.x + shake_offset_x
+                        bar_y = enemy.rect.y + shake_offset_y - 10
+                        
+                        if enemy.frozen_timer > 0:
+                            pygame.draw.rect(self.screen, color_config.CYAN,
+                                           (bar_x, bar_y, bar_width, bar_height))
+                            pygame.draw.rect(self.screen, color_config.WHITE,
+                                           (bar_x, bar_y, bar_width, bar_height), 1)
+                        else:
+                            pygame.draw.rect(self.screen, color_config.RED,
+                                           (bar_x, bar_y, bar_width, bar_height))
+                            health_width = int(bar_width * (enemy.health / enemy.max_health))
+                            pygame.draw.rect(self.screen, color_config.GREEN,
+                                           (bar_x, bar_y, health_width, bar_height))
 
                 if self.particle_system:
                     self.particle_system.draw(self.screen)
+
+                # Draw atomic bomb flash effect
+                if self.atomic_bomb_flash > 0:
+                    flash_surface = pygame.Surface((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+                    flash_surface.fill(color_config.WHITE)
+                    flash_surface.set_alpha(self.atomic_bomb_flash)
+                    self.screen.blit(flash_surface, (0, 0))
 
                 # Network client: HUD is driven by server-provided state
                 if self.is_network_mode:
@@ -1211,25 +1366,55 @@ class Game:
         self.screen.blit(created_text, created_rect)
     
     def draw_name_input(self):
-        """Draw name input screen"""
-        title = self.assets.fonts['large'].render("Enter Your Name", True, color_config.CYAN)
-        title_rect = title.get_rect(center=(game_config.SCREEN_WIDTH // 2, 250))
+        """Draw name input screen for creating a new profile"""
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        
+        # Draw title
+        title = self.assets.fonts['large'].render("CREATE NEW PROFILE", True, color_config.GREEN)
+        title_rect = title.get_rect(center=(screen_w // 2, 150))
         self.screen.blit(title, title_rect)
         
+        # Explanation
+        explanation = self.assets.fonts['medium'].render(
+            "Enter a unique username for your new profile",
+            True, color_config.WHITE)
+        explanation_rect = explanation.get_rect(center=(screen_w // 2, 220))
+        self.screen.blit(explanation, explanation_rect)
+        
+        # Username label
+        username_label = self.assets.fonts['medium'].render("Username:", True, color_config.UI_TEXT)
+        username_label_rect = username_label.get_rect(topleft=(screen_w // 2 - 200, 280))
+        self.screen.blit(username_label, username_label_rect)
+        
+        # Password input field
         if self.text_input:
             self.text_input.draw(self.screen)
         
         # Display duplicate profile error message if active
         if self.duplicate_profile_error:
-            error_text = self.assets.fonts['medium'].render(
-                "Profile already exists! Try a different name.", True, color_config.RED)
-            error_rect = error_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 350))
-            self.screen.blit(error_text, error_rect)
+            self.duplicate_error_timer -= 1
+            if self.duplicate_error_timer <= 0:
+                self.duplicate_profile_error = False
+            else:
+                error_text = self.assets.fonts['medium'].render(
+                    "❌ Username already exists! Please choose a different one.",
+                    True, color_config.RED)
+                error_rect = error_text.get_rect(center=(screen_w // 2, 380))
+                self.screen.blit(error_text, error_rect)
         
-        hint = self.assets.fonts['small'].render(
-            "Press ENTER when done", True, color_config.UI_TEXT)
-        hint_rect = hint.get_rect(center=(game_config.SCREEN_WIDTH // 2, 450))
-        self.screen.blit(hint, hint_rect)
+        # Detailed instructions
+        hint1 = self.assets.fonts['small'].render(
+            "After entering username, you'll be asked to set a password",
+            True, color_config.UI_TEXT)
+        hint1_rect = hint1.get_rect(center=(screen_w // 2, 440))
+        self.screen.blit(hint1, hint1_rect)
+        
+        hint2 = self.assets.fonts['small'].render(
+            "Press ENTER to continue • ESC to cancel",
+            True, color_config.UI_TEXT)
+        hint2_rect = hint2.get_rect(center=(screen_w // 2, 470))
+        self.screen.blit(hint2, hint2_rect)
     
     def draw_profile_select(self):
         """Draw profile selection screen (centered & responsive)"""
@@ -1237,15 +1422,22 @@ class Game:
         screen_h = game_config.SCREEN_HEIGHT
         margin = 20
 
-        title = self.assets.fonts['large'].render("Select Profile", True, color_config.CYAN)
-        title_rect = title.get_rect(center=(screen_w // 2, int(screen_h * 0.12)))
+        title = self.assets.fonts['large'].render("SELECT PROFILE", True, color_config.CYAN)
+        title_rect = title.get_rect(center=(screen_w // 2, int(screen_h * 0.08)))
         self.screen.blit(title, title_rect)
+        
+        # Subtitle explaining the options
+        subtitle = self.assets.fonts['small'].render(
+            "Click a profile to authenticate with password • N or ESC to create new profile",
+            True, color_config.UI_TEXT)
+        subtitle_rect = subtitle.get_rect(center=(screen_w // 2, int(screen_h * 0.14)))
+        self.screen.blit(subtitle, subtitle_rect)
         
         profiles = SaveSystem.get_profiles()
         box_width = min(700, screen_w - 400)
         box_height = 80
         x = (screen_w - box_width) // 2
-        y_offset = int(screen_h * 0.25)
+        y_offset = int(screen_h * 0.22)
         mouse_pos = pygame.mouse.get_pos()
         
         # Clear and rebuild profile button list
@@ -1298,15 +1490,138 @@ class Game:
             pygame.draw.rect(self.screen, color_config.GREEN, new_profile_rect, 2)
             new_profile_color = color_config.GREEN
         
-        new_profile = self.assets.fonts['medium'].render("N - New Profile", True, new_profile_color)
+        new_profile = self.assets.fonts['medium'].render("N or ESC - Create New Profile", True, new_profile_color)
         new_rect = new_profile.get_rect(center=new_profile_rect.center)
         self.screen.blit(new_profile, new_rect)
         
         hint = self.assets.fonts['small'].render(
-            "Click profile or press 1-5 to select | N for new | ESC to skip",
+            "Select with mouse or keyboard (1-5) • Existing profiles require password authentication",
             True, color_config.UI_TEXT)
         hint_rect = hint.get_rect(center=(screen_w // 2, y_offset + 110))
         self.screen.blit(hint, hint_rect)
+    
+    def draw_password_input(self):
+        """Draw password input screen with clear distinction between authentication and creation"""
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        
+        # Determine if creating new profile or authenticating existing
+        is_creating = bool(self.new_profile_name)
+        
+        # Draw overlay
+        overlay = pygame.Surface((screen_w, screen_h))
+        overlay.fill(color_config.BLACK)
+        overlay.set_alpha(220)
+        self.screen.blit(overlay, (0, 0))
+        
+        # Draw dialog box - larger for new profile, normal for authentication
+        box_width = 600 if is_creating else 550
+        box_height = 400 if is_creating else 360
+        box_x = (screen_w - box_width) // 2
+        box_y = (screen_h - box_height) // 2
+        
+        # Color coding based on state
+        border_color = color_config.GREEN if is_creating else color_config.CYAN
+        
+        pygame.draw.rect(self.screen, color_config.UI_BG, (box_x, box_y, box_width, box_height))
+        pygame.draw.rect(self.screen, border_color, (box_x, box_y, box_width, box_height), 4)
+        
+        # ===== CREATING NEW PROFILE =====
+        if is_creating:
+            # Title with color emphasis
+            title = self.assets.fonts['large'].render("CREATE NEW PROFILE", True, color_config.GREEN)
+            title_rect = title.get_rect(center=(screen_w // 2, box_y + 30))
+            self.screen.blit(title, title_rect)
+            
+            # Large explanatory text
+            explanation = self.assets.fonts['medium'].render(
+                "This username is new. Set a password to protect your profile.",
+                True, color_config.WHITE)
+            explanation_rect = explanation.get_rect(center=(screen_w // 2, box_y + 85))
+            self.screen.blit(explanation, explanation_rect)
+            
+            # Username display
+            username_label = self.assets.fonts['small'].render("Username:", True, color_config.UI_TEXT)
+            username_label_rect = username_label.get_rect(topleft=(box_x + 40, box_y + 140))
+            self.screen.blit(username_label, username_label_rect)
+            
+            username_value = self.assets.fonts['medium'].render(
+                self.new_profile_name, True, color_config.GREEN)
+            username_value_rect = username_value.get_rect(topleft=(box_x + 40, box_y + 165))
+            self.screen.blit(username_value, username_value_rect)
+            
+            # Password field label
+            pwd_label = self.assets.fonts['medium'].render("Set Password:", True, color_config.WHITE)
+            pwd_label_rect = pwd_label.get_rect(topleft=(box_x + 40, box_y + 220))
+            self.screen.blit(pwd_label, pwd_label_rect)
+            
+            # Instructions
+            instructions = self.assets.fonts['small'].render(
+                "Choose a password to secure your profile • Press ENTER to confirm • ESC to cancel",
+                True, color_config.UI_TEXT)
+            instructions_rect = instructions.get_rect(center=(screen_w // 2, box_y + 360))
+            self.screen.blit(instructions, instructions_rect)
+        
+        # ===== AUTHENTICATING EXISTING PROFILE =====
+        else:
+            # Title with color emphasis
+            title = self.assets.fonts['large'].render("AUTHENTICATE PROFILE", True, color_config.CYAN)
+            title_rect = title.get_rect(center=(screen_w // 2, box_y + 30))
+            self.screen.blit(title, title_rect)
+            
+            # Large explanatory text
+            explanation = self.assets.fonts['medium'].render(
+                "This profile already exists. Enter your password to access it.",
+                True, color_config.WHITE)
+            explanation_rect = explanation.get_rect(center=(screen_w // 2, box_y + 85))
+            self.screen.blit(explanation, explanation_rect)
+            
+            # Username display
+            username_label = self.assets.fonts['small'].render("Profile:", True, color_config.UI_TEXT)
+            username_label_rect = username_label.get_rect(topleft=(box_x + 40, box_y + 140))
+            self.screen.blit(username_label, username_label_rect)
+            
+            username_value = self.assets.fonts['medium'].render(
+                self.authenticating_profile, True, color_config.CYAN)
+            username_value_rect = username_value.get_rect(topleft=(box_x + 40, box_y + 165))
+            self.screen.blit(username_value, username_value_rect)
+            
+            # Password field label
+            pwd_label = self.assets.fonts['medium'].render("Password:", True, color_config.WHITE)
+            pwd_label_rect = pwd_label.get_rect(topleft=(box_x + 40, box_y + 220))
+            self.screen.blit(pwd_label, pwd_label_rect)
+            
+            # Instructions
+            instructions = self.assets.fonts['small'].render(
+                "Enter your password • Press ENTER to submit • ESC to cancel",
+                True, color_config.UI_TEXT)
+            instructions_rect = instructions.get_rect(center=(screen_w // 2, box_y + 320))
+            self.screen.blit(instructions, instructions_rect)
+        
+        # Password input field (common for both states)
+        if self.password_input:
+            self.password_input.update()
+            # Adjust position based on state
+            pwd_input_y = box_y + 250 if is_creating else box_y + 245
+            original_y = self.password_input.rect.y
+            self.password_input.rect.y = pwd_input_y
+            self.password_input.draw(self.screen)
+            self.password_input.rect.y = original_y
+        
+        # Error message with timeout
+        if self.password_error:
+            self.password_error_timer -= 1
+            if self.password_error_timer <= 0:
+                self.password_error = False
+            else:
+                # Blinking effect for error message
+                if self.password_error_timer % 30 > 15:
+                    error_msg = self.assets.fonts['medium'].render(
+                        "❌ INCORRECT PASSWORD - Try again or press ESC to go back",
+                        True, color_config.RED)
+                    error_y = box_y + 310 if is_creating else box_y + 280
+                    error_rect = error_msg.get_rect(center=(screen_w // 2, error_y))
+                    self.screen.blit(error_msg, error_rect)
     
     def draw_main_menu(self):
         """Draw main menu (responsive layout)"""
