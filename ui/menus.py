@@ -122,12 +122,12 @@ class Shop:
             # Special conditions for certain items
             if item['effect'] == 'heal' and player.health >= player.max_health:
                 logger.warning(f"✗ Purchase denied: {item['name']} - already at max health")
-                self.assets.play_sound('error', 0.7)
+                self.assets.play_sound('menu_select', 0.7)  # Use existing sound instead of missing 'error'
                 return
             
             if item['effect'] == 'shield' and hasattr(player, 'has_shield') and player.has_shield:
                 logger.warning(f"✗ Purchase denied: {item['name']} - already have shield")
-                self.assets.play_sound('error', 0.7)
+                self.assets.play_sound('menu_select', 0.7)  # Use existing sound instead of missing 'error'
                 return
 
             logger.info(f"✓ Purchase approved: {item['name']} for {item['cost']} coins")
@@ -189,26 +189,35 @@ class Shop:
             # Special Abilities
             elif item['effect'] == 'atomic_bomb':
                 # Add atomic bomb to player's weapons inventory
-                if player.add_weapon('atomic_bomb'):
-                    logger.info(f"  -> 💣 ATOMIC BOMB added to weapons! Total weapons: {len(player.weapons)}")
-                else:
-                    logger.info(f"  -> ATOMIC BOMB already in inventory")
+                player.add_weapon('atomic_bomb')
+                # Also add to the current profile for persistence
+                if hasattr(player, 'current_profile') and player.current_profile:
+                    player.current_profile.add_weapon('atomic_bomb')
+                    logger.info(f"  -> 💣 ATOMIC BOMB added to profile! Total: {player.current_profile.get_weapon_count('atomic_bomb')}")
+                elif hasattr(player, 'profile') and player.profile:
+                    player.profile.add_weapon('atomic_bomb')
+                    logger.info(f"  -> 💣 ATOMIC BOMB added to profile! Total: {player.profile.get_weapon_count('atomic_bomb')}")
+                logger.info(f"  -> 💣 ATOMIC BOMB added to player! Total in inventory: {player.get_weapon_count('atomic_bomb')}")
             
             elif item['effect'] == 'enemy_freeze':
                 # Add enemy freeze to player's weapons inventory
-                if player.add_weapon('enemy_freeze'):
-                    logger.info(f"  -> 🌪️ ENEMY FREEZE added to weapons! Total weapons: {len(player.weapons)}")
-                else:
-                    logger.info(f"  -> ENEMY FREEZE already in inventory")
+                player.add_weapon('enemy_freeze')
+                # Also add to the current profile for persistence
+                if hasattr(player, 'current_profile') and player.current_profile:
+                    player.current_profile.add_weapon('enemy_freeze')
+                    logger.info(f"  -> 🌪️ ENEMY FREEZE added to profile! Total: {player.current_profile.get_weapon_count('enemy_freeze')}")
+                elif hasattr(player, 'profile') and player.profile:
+                    player.profile.add_weapon('enemy_freeze')
+                    logger.info(f"  -> 🌪️ ENEMY FREEZE added to profile! Total: {player.profile.get_weapon_count('enemy_freeze')}")
                 player.enemy_freeze_duration = 180 + (item['level'] * 60)  # Frames
-                logger.info(f"  -> Enemy Freeze activated! Duration: {player.enemy_freeze_duration} frames")
+                logger.info(f"  -> Enemy Freeze available! Duration: {player.enemy_freeze_duration} frames")
             
             item['level'] += 1
             item['cost'] = int(item['base_cost'] * (1.5 ** item['level']))
             logger.info(f"  -> Item level: {item['level']}, New cost: {item['cost']}")
         else:
             # Play an error sound for denied purchases
-            self.assets.play_sound('error', 0.7)
+            self.assets.play_sound('menu_select', 0.7)  # Use existing sound
             reason = "insufficient coins" if player.coins < item['cost'] \
                      else ("max level reached" if item['effect'] != 'heal' else "already at max health")
             logger.warning(f"✗ Purchase denied: {item['name']} - {reason}")

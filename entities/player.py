@@ -38,6 +38,7 @@ class Player(BaseEntity):
         
         # Weapon/Special ability inventory
         self.weapons = []  # List of available weapons/abilities: 'atomic_bomb', 'enemy_freeze', etc.
+        self.weapon_inventory = {}  # Dict mapping weapon names to counts: {'atomic_bomb': 2, 'enemy_freeze': 1}
         self.selected_weapon_index = 0  # Currently selected weapon
         
         # State
@@ -214,12 +215,31 @@ class Player(BaseEntity):
         """Add a weapon/ability to player's inventory"""
         if weapon_name not in self.weapons:
             self.weapons.append(weapon_name)
+        # Add to inventory count
+        if weapon_name not in self.weapon_inventory:
+            self.weapon_inventory[weapon_name] = 0
+        self.weapon_inventory[weapon_name] += 1
+        return True
+    
+    def has_weapon(self, weapon_name: str) -> bool:
+        """Check if player has a specific weapon with available count"""
+        return weapon_name in self.weapons and self.weapon_inventory.get(weapon_name, 0) > 0
+    
+    def use_weapon(self, weapon_name: str) -> bool:
+        """Use a weapon from inventory. Returns True if successful."""
+        if self.has_weapon(weapon_name):
+            self.weapon_inventory[weapon_name] -= 1
+            # If run out, remove from active weapons list
+            if self.weapon_inventory[weapon_name] <= 0:
+                self.weapon_inventory[weapon_name] = 0
+                # Optionally remove from weapons list if count is 0
+                # But keep it so player knows they had it
             return True
         return False
     
-    def has_weapon(self, weapon_name: str) -> bool:
-        """Check if player has a specific weapon"""
-        return weapon_name in self.weapons
+    def get_weapon_count(self, weapon_name: str) -> int:
+        """Get the count of a specific weapon available"""
+        return self.weapon_inventory.get(weapon_name, 0)
     
     def get_selected_weapon(self) -> str:
         """Get the currently selected weapon, or empty string if none"""

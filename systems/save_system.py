@@ -28,6 +28,10 @@ class PlayerProfile:
         self.total_time_played = 0
         self.last_played = time.time()
         
+        # Weapon inventory: dict mapping weapon names to counts
+        # Example: {'atomic_bomb': 2, 'enemy_freeze': 3}
+        self.weapon_inventory = {}
+        
         # transient / session state
         self.current_score = 0
         self.current_coins = 0
@@ -66,7 +70,8 @@ class PlayerProfile:
             'coins': self.current_coins,
             'current_score': self.current_score,
             'current_coins': self.current_coins,
-            'current_level': self.current_level
+            'current_level': self.current_level,
+            'weapon_inventory': self.weapon_inventory
         }
     
     @staticmethod
@@ -78,6 +83,8 @@ class PlayerProfile:
         profile.games_played = data.get('games_played', 0)
         profile.total_time_played = data.get('total_time_played', 0)
         profile.last_played = data.get('last_played', time.time())
+        # Load weapon inventory
+        profile.weapon_inventory = data.get('weapon_inventory', {})
         # Load transient/session state (prefer new keys, fallback to legacy)
         # When loading a profile from scratch, the session coins should reflect the total
         # available coins. The 'coins' field in the save file represents a saved
@@ -87,6 +94,26 @@ class PlayerProfile:
         profile.current_coins = profile.total_coins
         profile.current_level = data.get('current_level', 1)
         return profile
+    
+    def add_weapon(self, weapon_name: str):
+        """Add a weapon to the inventory (for purchased weapons)"""
+        if weapon_name not in self.weapon_inventory:
+            self.weapon_inventory[weapon_name] = 0
+        self.weapon_inventory[weapon_name] += 1
+        logger.info(f"Profile '{self.name}': Added weapon '{weapon_name}'. Total: {self.weapon_inventory[weapon_name]}")
+    
+    def use_weapon(self, weapon_name: str) -> bool:
+        """Use a weapon from inventory. Returns True if successful, False if not available."""
+        if weapon_name in self.weapon_inventory and self.weapon_inventory[weapon_name] > 0:
+            self.weapon_inventory[weapon_name] -= 1
+            logger.info(f"Profile '{self.name}': Used weapon '{weapon_name}'. Remaining: {self.weapon_inventory[weapon_name]}")
+            return True
+        logger.warning(f"Profile '{self.name}': No '{weapon_name}' available to use!")
+        return False
+    
+    def get_weapon_count(self, weapon_name: str) -> int:
+        """Get the count of a specific weapon in inventory"""
+        return self.weapon_inventory.get(weapon_name, 0)
     
     def start_new_game(self):
         self.current_score = 0

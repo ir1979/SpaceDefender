@@ -3,17 +3,18 @@
     "Reza": {
       "name": "Reza",
       "password": "reza123",
-      "total_score": 201867,
-      "total_coins": 11111000000000000000000,
-      "highest_level": 13,
-      "games_played": 22,
-      "total_time_played": 1592.0411982059477,
-      "last_played": 1771439043.7361584,
+      "total_score": 542100,
+      "total_coins": 11110999999999999981184,
+      "highest_level": 14,
+      "games_played": 27,
+      "total_time_played": 1997.468202781677,
+      "last_played": 1771876567.6569698,
       "score": 0,
-      "coins": 1235,
+      "coins": 11110999999999999976734,
       "current_score": 0,
-      "current_coins": 1235,
-      "current_level": 1
+      "current_coins": 11110999999999999976734,
+      "current_level": 1,
+      "weapon_inventory": {}
     },
     "Said": {
       "name": "Said",
@@ -134,9 +135,31 @@
       "current_score": 0,
       "current_coins": 0,
       "current_level": 1
+    },
+    "test_earner_profile_456": {
+      "name": "test_earner_profile_456",
+      "password": "",
+      "total_score": 0,
+      "total_coins": 100,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1771874716.7512333,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {}
     }
   },
   "high_scores": [
+    {
+      "name": "Reza",
+      "score": 84900,
+      "level": 14,
+      "timestamp": 1771876567.6584787
+    },
     {
       "name": "Reza",
       "score": 33670,
@@ -148,6 +171,18 @@
       "score": 33670,
       "level": 7,
       "timestamp": 1770207005.756052
+    },
+    {
+      "name": "Reza",
+      "score": 27949,
+      "level": 13,
+      "timestamp": 1771873625.1904223
+    },
+    {
+      "name": "Reza",
+      "score": 21360,
+      "level": 14,
+      "timestamp": 1771874428.881623
     },
     {
       "name": "Reza",
@@ -178,24 +213,6 @@
       "score": 4690,
       "level": 11,
       "timestamp": 1770909125.571517
-    },
-    {
-      "name": "Reza",
-      "score": 4367,
-      "level": 13,
-      "timestamp": 1771143531.7272105
-    },
-    {
-      "name": "Reza",
-      "score": 4252,
-      "level": 13,
-      "timestamp": 1771439043.814572
-    },
-    {
-      "name": "Reza",
-      "score": 4230,
-      "level": 8,
-      "timestamp": 1770901484.5129693
     }
   ]
 }

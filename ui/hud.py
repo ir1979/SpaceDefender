@@ -91,15 +91,23 @@ class HUD:
             }
             weapon_display = weapon_names.get(current_weapon, current_weapon.upper())
             
-            # Display current weapon
+            # Get weapon count from player's inventory
+            weapon_count = player.get_weapon_count(current_weapon)
+            
+            # Display current weapon with count
             weapon_text = font_small.render(
-                f"Weapon: {weapon_display} ({player.selected_weapon_index + 1}/{len(player.weapons)})",
+                f"Weapon: {weapon_display} x{weapon_count} ({player.selected_weapon_index + 1}/{len(player.weapons)})",
                 True, color_config.CYAN)
             weapon_rect = weapon_text.get_rect(center=(screen_w // 2, weapons_y))
             surface.blit(weapon_text, weapon_rect)
             
-            # Display all weapons available
-            all_weapons_text = " | ".join([weapon_names.get(w, w.upper()) for w in player.weapons])
+            # Display all weapons available with counts
+            weapon_parts = []
+            for w in player.weapons:
+                count = player.get_weapon_count(w)
+                display_name = weapon_names.get(w, w.upper())
+                weapon_parts.append(f"{display_name}:{count}")
+            all_weapons_text = " | ".join(weapon_parts)
             weapons_list = font_small.render(all_weapons_text, True, color_config.WHITE)
             weapons_list_rect = weapons_list.get_rect(
                 center=(screen_w // 2, weapons_y + font_small.get_height() + 5))

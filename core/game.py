@@ -382,6 +382,14 @@ class Game:
                         if self.player:
                             weapon = self.player.get_selected_weapon()
                             if weapon == 'atomic_bomb':
+                                # Check if player has atomic bombs available
+                                if not self.player.has_weapon('atomic_bomb'):
+                                    logger.warning("No atomic bombs available!")
+                                    self.assets.play_sound('menu_select', 0.5)  # Error feedback
+                                    break
+                                # Use the atomic bomb (decrement count)
+                                self.player.use_weapon('atomic_bomb')
+                                
                                 # Clear all enemies from the level
                                 logger.info("⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!")
                                 self.assets.play_sound('explosion', 0.9)
@@ -391,7 +399,9 @@ class Game:
                                 self.camera_shake_duration = 30   # 0.5 seconds at 60 FPS
                                 self.atomic_bomb_flash = 200      # Bright white flash
                                 
-                                for enemy in self.enemies:
+                                # Collect enemies list first to avoid modifying during iteration
+                                enemies_to_destroy = list(self.enemies)
+                                for enemy in enemies_to_destroy:
                                     coins_reward = random.randint(5, 15)
                                     self.player.coins += coins_reward
                                     score = int(enemy.max_health * 10)
@@ -401,8 +411,18 @@ class Game:
                                         enemy.rect.centerx, enemy.rect.centery,
                                         color_config.YELLOW, count=15
                                     )
+                                    # Remove from all_sprites so they disappear immediately
+                                    enemy.kill()
                                 self.enemies.empty()
                             elif weapon == 'enemy_freeze':
+                                # Check if player has enemy freeze available
+                                if not self.player.has_weapon('enemy_freeze'):
+                                    logger.warning("No enemy freeze available!")
+                                    self.assets.play_sound('menu_select', 0.5)  # Error feedback
+                                    break
+                                # Use the enemy freeze (decrement count)
+                                self.player.use_weapon('enemy_freeze')
+                                
                                 logger.info("❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!")
                                 self.assets.play_sound('powerup', 0.7)
                                 for enemy in self.enemies:
@@ -1393,15 +1413,12 @@ class Game:
         
         # Display duplicate profile error message if active
         if self.duplicate_profile_error:
-            self.duplicate_error_timer -= 1
-            if self.duplicate_error_timer <= 0:
-                self.duplicate_profile_error = False
-            else:
-                error_text = self.assets.fonts['medium'].render(
-                    "❌ Username already exists! Please choose a different one.",
-                    True, color_config.RED)
-                error_rect = error_text.get_rect(center=(screen_w // 2, 380))
-                self.screen.blit(error_text, error_rect)
+            # Note: timer is already decremented in update() — do NOT decrement here again
+            error_text = self.assets.fonts['medium'].render(
+                "❌ Username already exists! Please choose a different one.",
+                True, color_config.RED)
+            error_rect = error_text.get_rect(center=(screen_w // 2, 380))
+            self.screen.blit(error_text, error_rect)
         
         # Detailed instructions
         hint1 = self.assets.fonts['small'].render(
@@ -1718,9 +1735,9 @@ class Game:
         title_rect = title_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 200))
         self.screen.blit(title_text, title_rect)
         
-        # Warning message
+        # Warning message - updated to be more accurate
         warning = self.assets.fonts['medium'].render(
-            "Score and coins will be reset and lost!", True, color_config.YELLOW)
+            "Progress from this session will be lost!", True, color_config.YELLOW)
         warning_rect = warning.get_rect(center=(game_config.SCREEN_WIDTH // 2, 280))
         self.screen.blit(warning, warning_rect)
         
@@ -1848,7 +1865,7 @@ class Game:
             self.screen.blit(no_scores, no_scores_rect)
         else:
             y_offset = 200
-            for i, entry in enumerate(scores[:10]):
+            for i, entry in enumerate(scores[:5]):
                 rank_text = f"{i + 1}."
                 name_text = entry['name']
                 score_text = f"Score: {entry['score']}"
@@ -1889,7 +1906,7 @@ class Game:
         menu_surface = menu_font.render(menu_text, True, color_config.YELLOW)
         menu_rect = menu_surface.get_rect(center=(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT // 2 + 100))
 
-        self.screen.blit(text_surface, text_rect)
+        self.screen.blit(menu_surface, menu_rect)
 
 
     
