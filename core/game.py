@@ -19,7 +19,7 @@ if __name__ == "__main__" and __package__ is None:
 
 from config.settings import GameState, game_config, color_config
 from systems import ParticleSystem, SaveSystem, PlayerProfile, AssetManager
-from systems.network import send_data, receive_data
+from systems.network import send_data, receive_data, test_connection, DEFAULT_SERVER_HOST, DEFAULT_SERVER_PORT
 from systems.logger import get_logger
 from entities import Player, EnemyFactory, BulletFactory, PowerUp
 from entities.base_entity import ShapeRenderer
@@ -134,8 +134,19 @@ class Game:
         self.quit_no_rect = None
         self.game_state_from_server = None
         self.server_socket = None
-        self.server_host = '127.0.0.1'  # Default server host (may be overridden by CLI args)
-        self.server_port = 35555
+        self.server_host = DEFAULT_SERVER_HOST  # Default server host
+        self.server_port = DEFAULT_SERVER_PORT  # Default server port
+        
+        # Server connection UI variables
+        self.server_connect_input = None  # TextInput for server address
+        self.server_port_input = None  # TextInput for server port
+        self.server_test_button_rect = None  # Button rect for test connection
+        self.server_connect_button_rect = None  # Button rect for connect
+        self.server_back_button_rect = None  # Button rect for back
+        self.server_test_result = None  # Result message from connection test
+        self.server_test_result_timer = 0  # Timer for result message
+        self.server_testing = False  # Whether a test is in progress
+        self.server_selected_index = 0  # Selected button index (0=address, 1=port, 2=test, 3=connect, 4=back)
         
         # Password authentication variables
         self.authenticating_profile = None  # Profile name being authenticated
@@ -490,6 +501,92 @@ class Game:
                         self.state = GameState.MAIN_MENU
                     elif self.quit_no_rect and self.quit_no_rect.collidepoint(event.pos):
                         self.state = GameState.PLAYING
+
+            elif self.state == GameState.SERVER_CONNECT:
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        # Go back to main menu
+                        self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_TAB:
+                        # Cycle through input fields/buttons
+                        self.server_selected_index = (self.server_selected_index + 1) % 5
+                    elif event.key == pygame.K_UP:
+                        self.server_selected_index = max(0, self.server_selected_index - 1)
+                    elif event.key == pygame.K_DOWN:
+                        self.server_selected_index = min(4, self.server_selected_index + 1)
+                    elif event.key == pygame.K_RETURN:
+                        # Handle button actions based on selection
+                        if self.server_selected_index == 2:
+                            # Test Connection button
+                            self._test_server_connection()
+                        elif self.server_selected_index == 3:
+                            # Connect button
+                            self._connect_to_server_from_ui()
+                        elif self.server_selected_index == 4:
+                            # Back button
+                            self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_BACKSPACE:
+                        # Handle backspace for input fields
+                        if self.server_selected_index == 0 and self.server_connect_input:
+                            self.server_connect_input.text = self.server_connect_input.text[:-1]
+                        elif self.server_selected_index == 1 and self.server_port_input:
+                            self.server_port_input.text = self.server_port_input.text[:-1]
+                    elif event.key == pygame.K_1:
+                        self.server_selected_index = 0
+                    elif event.key == pygame.K_2:
+                        self.server_selected_index = 1
+                    elif event.key == pygame.K_3:
+                        self.server_selected_index = 2
+                    elif event.key == pygame.K_4:
+                        self.server_selected_index = 3
+                    elif event.key == pygame.K_5:
+                        self.server_selected_index = 4
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    mouse_pos = event.pos
+                    # Check input fields
+                    if self.server_connect_input and self.server_connect_input.rect.collidepoint(mouse_pos):
+                        self.server_selected_index = 0
+                        self.server_connect_input.active = True
+                        if self.server_port_input:
+                            self.server_port_input.active = False
+                    elif self.server_port_input and self.server_port_input.rect.collidepoint(mouse_pos):
+                        self.server_selected_index = 1
+                        self.server_port_input.active = True
+                        self.server_connect_input.active = False
+                    # Check buttons
+                    elif self.server_test_button_rect and self.server_test_button_rect.collidepoint(mouse_pos):
+                        self._test_server_connection()
+                    elif self.server_connect_button_rect and self.server_connect_button_rect.collidepoint(mouse_pos):
+                        self._connect_to_server_from_ui()
+                    elif self.server_back_button_rect and self.server_back_button_rect.collidepoint(mouse_pos):
+                        self.state = GameState.MAIN_MENU
+                elif event.type == pygame.MOUSEMOTION:
+                    # Update selection based on hover
+                    mouse_pos = event.pos
+                    if self.server_connect_input and self.server_connect_input.rect.collidepoint(mouse_pos):
+                        self.server_selected_index = 0
+                    elif self.server_port_input and self.server_port_input.rect.collidepoint(mouse_pos):
+                        self.server_selected_index = 1
+                    elif self.server_test_button_rect and self.server_test_button_rect.collidepoint(mouse_pos):
+                        self.server_selected_index = 2
+                    elif self.server_connect_button_rect and self.server_connect_button_rect.collidepoint(mouse_pos):
+                        self.server_selected_index = 3
+                    elif self.server_back_button_rect and self.server_back_button_rect.collidepoint(mouse_pos):
+                        self.server_selected_index = 4
+                elif event.type == pygame.KEYDOWN:
+                    # Handle text input for selected field
+                    if self.server_selected_index == 0 and self.server_connect_input:
+                        if event.key == pygame.K_BACKSPACE:
+                            self.server_connect_input.text = self.server_connect_input.text[:-1]
+                        elif len(self.server_connect_input.text) < self.server_connect_input.max_length:
+                            if event.unicode.isprintable():
+                                self.server_connect_input.text += event.unicode
+                    elif self.server_selected_index == 1 and self.server_port_input:
+                        if event.key == pygame.K_BACKSPACE:
+                            self.server_port_input.text = self.server_port_input.text[:-1]
+                        elif len(self.server_port_input.text) < self.server_port_input.max_length:
+                            if event.unicode.isdigit():
+                                self.server_port_input.text += event.unicode
 
             elif self.state in [GameState.GAME_OVER, GameState.LEVEL_COMPLETE, GameState.HIGH_SCORES]:
                 if event.type == pygame.KEYDOWN:
@@ -1235,8 +1332,11 @@ class Game:
         # Handle the new waiting state
         elif self.state == GameState.WAITING_FOR_PLAYERS:
             self.draw_waiting_for_players()
+        
+        elif self.state == GameState.SERVER_CONNECT:
+            self.draw_server_connect()
 
-        pygame.display.flip()        
+        pygame.display.flip()
         if self.state == GameState.WAITING_FOR_PLAYERS:
             for event in pygame.event.get():
                 if event.type == pygame.KEYDOWN:
@@ -1925,21 +2025,185 @@ class Game:
         
         pygame.quit()
 
+    def _test_server_connection(self):
+        """Test connection to the server with the current input values."""
+        # Get host and port from input fields
+        host = self.server_connect_input.text if self.server_connect_input else self.server_host
+        port_str = self.server_port_input.text if self.server_port_input else str(self.server_port)
+        
+        try:
+            port = int(port_str) if port_str else DEFAULT_SERVER_PORT
+        except ValueError:
+            self.server_test_result = "Invalid port number"
+            self.server_test_result_timer = 180
+            return
+        
+        # Use default if empty
+        if not host:
+            host = DEFAULT_SERVER_HOST
+        
+        # Run connection test in a blocking manner (small timeout)
+        success, message = test_connection(host, port, timeout=3.0)
+        self.server_test_result = message
+        self.server_test_result_timer = 180  # 3 seconds at 60 FPS
+        
+        if success:
+            # Update stored values on successful connection test
+            self.server_host = host
+            self.server_port = port
+    
+    def _connect_to_server_from_ui(self):
+        """Connect to server using values from UI input fields."""
+        # Get host and port from input fields
+        host = self.server_connect_input.text if self.server_connect_input else self.server_host
+        port_str = self.server_port_input.text if self.server_port_input else str(self.server_port)
+        
+        try:
+            port = int(port_str) if port_str else DEFAULT_SERVER_PORT
+        except ValueError:
+            self.server_test_result = "Invalid port number"
+            self.server_test_result_timer = 180
+            return
+        
+        # Use default if empty
+        if not host:
+            host = DEFAULT_SERVER_HOST
+        
+        # Store the values
+        self.server_host = host
+        self.server_port = port
+        
+        # Attempt connection
+        logger.info(f"Connecting to server at {host}:{port}...")
+        if self.connect_to_server(host, port):
+            logger.info("Connected to server. Initializing game...")
+            self.init_game()
+            self.state = GameState.PLAYING
+            self.state = GameState.WAITING_FOR_PLAYERS
+        else:
+            self.server_test_result = f"Failed to connect to {host}:{port}"
+            self.server_test_result_timer = 180
+    
+    def _init_server_connect_inputs(self):
+        """Initialize server connection input fields."""
+        if not self.server_connect_input:
+            self.server_connect_input = TextInput(
+                game_config.SCREEN_WIDTH // 2 - 150, 280, 300, 50,
+                self.assets.fonts['medium'], max_length=30
+            )
+            self.server_connect_input.text = self.server_host
+        
+        if not self.server_port_input:
+            self.server_port_input = TextInput(
+                game_config.SCREEN_WIDTH // 2 - 75, 360, 150, 50,
+                self.assets.fonts['medium'], max_length=5
+            )
+            self.server_port_input.text = str(self.server_port)
+    
+    def draw_server_connect(self):
+        """Draw the server connection screen."""
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        
+        # Initialize inputs if needed
+        self._init_server_connect_inputs()
+        
+        # Draw overlay
+        overlay = pygame.Surface((screen_w, screen_h))
+        overlay.fill(color_config.BLACK)
+        overlay.set_alpha(220)
+        self.screen.blit(overlay, (0, 0))
+        
+        # Draw title
+        title = self.assets.fonts['large'].render("PLAY ONLINE", True, color_config.CYAN)
+        title_rect = title.get_rect(center=(screen_w // 2, 80))
+        self.screen.blit(title, title_rect)
+        
+        # Draw box
+        box_width = 500
+        box_height = 450
+        box_x = (screen_w - box_width) // 2
+        box_y = 120
+        
+        pygame.draw.rect(self.screen, color_config.UI_BG, (box_x, box_y, box_width, box_height))
+        pygame.draw.rect(self.screen, color_config.CYAN, (box_x, box_y, box_width, box_height), 3)
+        
+        # Server Address
+        addr_label = self.assets.fonts['medium'].render("Server Address:", True, color_config.WHITE)
+        self.screen.blit(addr_label, (box_x + 30, box_y + 40))
+        
+        # Draw address input field
+        self.server_connect_input.rect.x = box_x + 30
+        self.server_connect_input.rect.y = box_y + 70
+        self.server_connect_input.draw(self.screen)
+        
+        # Server Port
+        port_label = self.assets.fonts['medium'].render("Port:", True, color_config.WHITE)
+        self.screen.blit(port_label, (box_x + 30, box_y + 140))
+        
+        # Draw port input field
+        self.server_port_input.rect.x = box_x + 30
+        self.server_port_input.rect.y = box_y + 170
+        self.server_port_input.draw(self.screen)
+        
+        # Draw test result message
+        if self.server_test_result and self.server_test_result_timer > 0:
+            self.server_test_result_timer -= 1
+            success = self.server_test_result.startswith("Connected")
+            result_color = color_config.GREEN if success else color_config.RED
+            result_text = self.assets.fonts['small'].render(self.server_test_result, True, result_color)
+            result_rect = result_text.get_rect(center=(screen_w // 2, box_y + 230))
+            self.screen.blit(result_text, result_rect)
+        
+        # Button dimensions
+        button_width = 140
+        button_height = 50
+        button_y = box_y + 280
+        
+        # Test Connection button
+        test_btn_x = box_x + 30
+        self.server_test_button_rect = pygame.Rect(test_btn_x, button_y, button_width, button_height)
+        test_selected = (self.server_selected_index == 2)
+        test_color = color_config.YELLOW if test_selected else color_config.UI_BORDER
+        pygame.draw.rect(self.screen, test_color, self.server_test_button_rect, 2)
+        test_text = self.assets.fonts['small'].render("TEST", True, color_config.WHITE)
+        test_rect = test_text.get_rect(center=self.server_test_button_rect.center)
+        self.screen.blit(test_text, test_rect)
+        
+        # Connect button
+        connect_btn_x = box_x + box_width - button_width - 30
+        self.server_connect_button_rect = pygame.Rect(connect_btn_x, button_y, button_width, button_height)
+        connect_selected = (self.server_selected_index == 3)
+        connect_color = color_config.GREEN if connect_selected else color_config.UI_BORDER
+        pygame.draw.rect(self.screen, connect_color, self.server_connect_button_rect, 2)
+        connect_text = self.assets.fonts['small'].render("CONNECT", True, color_config.WHITE)
+        connect_rect = connect_text.get_rect(center=self.server_connect_button_rect.center)
+        self.screen.blit(connect_text, connect_rect)
+        
+        # Back button
+        back_btn_x = box_x + (box_width - button_width) // 2
+        self.server_back_button_rect = pygame.Rect(back_btn_x, button_y + 70, button_width, button_height)
+        back_selected = (self.server_selected_index == 4)
+        back_color = color_config.RED if back_selected else color_config.UI_BORDER
+        pygame.draw.rect(self.screen, back_color, self.server_back_button_rect, 2)
+        back_text = self.assets.fonts['small'].render("BACK", True, color_config.WHITE)
+        back_rect = back_text.get_rect(center=self.server_back_button_rect.center)
+        self.screen.blit(back_text, back_rect)
+        
+        # Instructions
+        instructions = self.assets.fonts['tiny'].render(
+            "1: Address | 2: Port | 3: Test | 4: Connect | 5: Back | TAB: Next | ENTER: Select",
+            True, color_config.UI_TEXT)
+        instructions_rect = instructions.get_rect(center=(screen_w // 2, box_y + box_height - 20))
+        self.screen.blit(instructions, instructions_rect)
+
     def _handle_menu_action(self, action: str):
         """Handle actions based on main menu selection."""
-        if action == "play_online":  # Multiplayer via network
-            logger.info("Attempting to connect to server...")
-            if self.connect_to_server(self.server_host, self.server_port):
-                logger.info("Connected to server. Initializing game...")
-                self.init_game()
-                self.state = GameState.PLAYING
-                # The server will immediately send a WAITING state, which will override this.
-                # We set it to PLAYING so the network update loop runs.
-                # A better approach would be a dedicated WAITING state on the client too.
-                # For now, we'll check the server's state enum.
-                self.state = GameState.WAITING_FOR_PLAYERS
-            else:
-                logger.error(f"Failed to connect to {self.server_host}:{self.server_port}")
+        if action == "play_online":  # Multiplayer via network - go to server connect screen
+            self._init_server_connect_inputs()
+            self.server_selected_index = 0
+            self.server_test_result = None
+            self.state = GameState.SERVER_CONNECT
             return
 
         if action == "play":

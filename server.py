@@ -101,6 +101,16 @@ def client_handler(client_socket: socket.socket, player_id: int):
                 break
             # Data can be game inputs or game-state updates (e.g., client gone to GAME_OVER)
             if isinstance(data, dict):
+                # Handle connectivity test ping/pong
+                if data.get('type') == 'ping':
+                    # Respond to ping with pong
+                    pong_data = {'type': 'pong', 'timestamp': time.time()}
+                    try:
+                        send_data(client_socket, pong_data)
+                    except:
+                        pass
+                    continue
+                
                 if data.get('message') == 'game_over':
                     # Client is signaling game over; we can log it
                     logger.info(f"Player {player_id} signaled GAME_OVER")

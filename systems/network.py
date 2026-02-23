@@ -5,9 +5,14 @@ Supports both blocking (server) and timeout-based non-blocking (client) modes.
 """
 import socket
 import json
-from typing import Optional
+import time
+from typing import Optional, Tuple
 
 HEADER_SIZE = 10
+
+# Default server values
+DEFAULT_SERVER_HOST = '127.0.0.1'
+DEFAULT_SERVER_PORT = 35555
 
 def send_data(client_socket: socket.socket, data: dict):
     """
@@ -60,3 +65,46 @@ def receive_data(client_socket: socket.socket) -> Optional[dict]:
     except (ConnectionResetError, json.JSONDecodeError, BrokenPipeError):
         # Handle client disconnection or corrupted data
         return None
+
+
+def test_connection(host: str, port: int, timeout: float = 3.0) -> Tuple[bool, str]:
+    """
+    Test connectivity to a server.
+    Returns (success: bool, message: str)
+    """
+    test_socket = None
+    try:
+        test_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        test_socket.settimeout(timeout)
+        
+        start_time = time.time()
+        test_socket.connect((host, port))
+        connect_time = (time.time() - start_time) * 1000  # Convert to ms
+        
+        # Send a ping message
+        ping_data = {'type': 'ping', 'timestamp': time.time()}
+        send_data(test_socket, ping_data)
+        
+        # Try to receive a response
+        test_socket.settimeout(timeout)
+        response = receive_data(test_socket)
+        
+        if response and response.get('type') == 'pong':
+            return True, f"Connected! Response time: {connect_time:.0f}ms"
+        else:
+            return True, f"Connected! (Server responded but ping not acknowledged)"
+            
+    except socket.timeout:
+        return False, "Connection timed out"
+    except ConnectionRefusedError:
+        return False, "Connection refused - server not running"
+    except socket.gaierror:
+        return False, "Invalid hostname or IP address"
+    except Exception as e:
+        return False, f"Connection failed: {str(e)}"
+    finally:
+        if test_socket:
+            try:
+                test_socket.close()
+            except:
+                pass

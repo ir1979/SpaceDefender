@@ -72,6 +72,7 @@ class GameState(Enum):
     HIGH_SCORES = 10
     QUIT_CONFIRM = 11
     WAITING_FOR_PLAYERS = 12
+    SERVER_CONNECT = 13  # New state for online game server connection settings
 
 # Global instances
 game_config = GameConfig()
