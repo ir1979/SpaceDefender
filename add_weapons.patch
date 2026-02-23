@@ -1,0 +1,277 @@
+diff --git a/entities/enemy.py b/entities/enemy.py
+--- a/entities/enemy.py
++++ b/entities/enemy.py
+@@ -33,6 +33,10 @@ class Enemy(BaseEntity):
+         # Freeze effect (freeze_timer > 0 means enemy is frozen)
+         self.frozen_timer = 0
+         
++        # Slow effect (slow_timer > 0 means enemy is slowed)
++        self.slow_timer = 0
++        self.slow_factor = 1.0  # 1.0 = normal speed, <1.0 = slowed
++        
+         super().__init__(x, y)
+     
+     def _create_image(self):
+@@ -49,6 +53,12 @@ class Enemy(BaseEntity):
+                 self.kill()
+             return
+         
++        # Handle slow timer
++        if self.slow_timer > 0:
++            self.slow_timer -= 1
++            if self.slow_timer == 0:
++                self.slow_factor = 1.0
++        
+         self.movement_counter += 1
+         self._move()
+         
+@@ -58,25 +68,26 @@ class Enemy(BaseEntity):
+     
+     def _move(self):
+         """Move based on pattern"""
++        effective_speed = self.speed * self.slow_factor
+         if self.movement_pattern == 'straight':
+-            self.rect.y += self.speed
++            self.rect.y += effective_speed
+         
+         elif self.movement_pattern == 'sine':
+-            self.rect.y += self.speed
+-            self.rect.x += math.sin(self.movement_counter * 0.1) * 3
++            self.rect.y += effective_speed
++            self.rect.x += math.sin(self.movement_counter * 0.1) * 3 * self.slow_factor
+         
+         elif self.movement_pattern == 'zigzag':
+-            self.rect.y += self.speed
++            self.rect.y += effective_speed
+             if self.movement_counter % 30 == 0:
+                 self.direction *= -1
+-            self.rect.x += self.direction * 2
++            self.rect.x += self.direction * 2 * self.slow_factor
+         
+         elif self.movement_pattern == 'spiral':
+             angle = self.movement_counter * 0.1
+             radius = self.movement_counter * 0.5
+-            self.rect.x += math.cos(angle) * 2
+-            self.rect.y += self.speed
++            self.rect.x += math.cos(angle) * 2 * self.slow_factor
++            self.rect.y += effective_speed
+         
+         elif self.movement_pattern == 'chase':
+             # Would need player reference - placeholder
+-            self.rect.y += self.speed
++            self.rect.y += effective_speed
+     
+     def draw_health_bar(self, surface: pygame.Surface):
+         """Draw health bar and freeze effect if applicable"""
+@@ -93,6 +104,14 @@ class Enemy(BaseEntity):
+             # Add a border
+             pygame.draw.rect(surface, color_config.WHITE,
+                             (bar_x, bar_y, bar_width, bar_height), 1)
++        elif self.slow_timer > 0:
++            # Draw purple bar to indicate slow effect
++            pygame.draw.rect(surface, color_config.PURPLE,
++                            (bar_x, bar_y, bar_width, bar_height))
++            health_width = int(bar_width * (self.health / self.max_health))
++            pygame.draw.rect(surface, color_config.GREEN,
++                            (bar_x, bar_y, health_width, bar_height))
++            pygame.draw.rect(surface, color_config.WHITE,
++                            (bar_x, bar_y, bar_width, bar_height), 1)
+         else:
+             # Normal health bar
+             if self.health >= self.max_health:
+diff --git a/ui/menus.py b/ui/menus.py
+--- a/ui/menus.py
++++ b/ui/menus.py
+@@ -53,6 +53,18 @@ class Shop:
+             {'name': '🌪️ Enemy Freeze', 'cost': 140, 'description': 'Slow down all enemies temporarily',
+              'effect': 'enemy_freeze', 'level': 0, 'max_level': 3, 'base_cost': 140},
++            
++            # New Unique Weapons
++            {'name': '🌊 Shockwave', 'cost': 180, 'description': 'Damage all enemies, more damage up close',
++             'effect': 'shockwave', 'level': 0, 'max_level': 999, 'base_cost': 180},
++            {'name': '⚡ Chain Lightning', 'cost': 200, 'description': 'Lightning chains between 5 nearest enemies',
++             'effect': 'chain_lightning', 'level': 0, 'max_level': 999, 'base_cost': 200},
++            {'name': '💫 Time Warp', 'cost': 160, 'description': 'Slow all enemies to 25% speed for 5s',
++             'effect': 'time_warp', 'level': 0, 'max_level': 3, 'base_cost': 160},
++            {'name': '🎯 Spread Burst', 'cost': 220, 'description': 'Fire 12 bullets in a wide fan pattern',
++             'effect': 'spread_burst', 'level': 0, 'max_level': 999, 'base_cost': 220},
++            {'name': '☄️ Meteor Strike', 'cost': 300, 'description': 'Massive damage to 3 random enemies',
++             'effect': 'meteor_strike', 'level': 0, 'max_level': 999, 'base_cost': 300},
+         ]
+     
+     def handle_input(self, event: pygame.event.Event, player: 'Player') -> bool:
+@@ -185,6 +197,31 @@ class Shop:
+                 player.enemy_freeze_duration = 180 + (item['level'] * 60)  # Frames
+                 logger.info(f"  -> Enemy Freeze activated! Duration: {player.enemy_freeze_duration} frames")
+             
++            elif item['effect'] == 'shockwave':
++                if player.add_weapon('shockwave'):
++                    logger.info(f"  -> 🌊 SHOCKWAVE added to weapons! Total weapons: {len(player.weapons)}")
++                else:
++                    logger.info(f"  -> SHOCKWAVE already in inventory")
++            
++            elif item['effect'] == 'chain_lightning':
++                if player.add_weapon('chain_lightning'):
++                    logger.info(f"  -> ⚡ CHAIN LIGHTNING added to weapons! Total weapons: {len(player.weapons)}")
++                else:
++                    logger.info(f"  -> CHAIN LIGHTNING already in inventory")
++            
++            elif item['effect'] == 'time_warp':
++                if player.add_weapon('time_warp'):
++                    logger.info(f"  -> 💫 TIME WARP added to weapons! Total weapons: {len(player.weapons)}")
++                else:
++                    logger.info(f"  -> TIME WARP already in inventory")
++            
++            elif item['effect'] == 'spread_burst':
++                if player.add_weapon('spread_burst'):
++                    logger.info(f"  -> 🎯 SPREAD BURST added to weapons! Total weapons: {len(player.weapons)}")
++                else:
++                    logger.info(f"  -> SPREAD BURST already in inventory")
++            
++            elif item['effect'] == 'meteor_strike':
++                if player.add_weapon('meteor_strike'):
++                    logger.info(f"  -> ☄️ METEOR STRIKE added to weapons! Total weapons: {len(player.weapons)}")
++                else:
++                    logger.info(f"  -> METEOR STRIKE already in inventory")
++            
+             item['level'] += 1
+             item['cost'] = int(item['base_cost'] * (1.5 ** item['level']))
+             logger.info(f"  -> Item level: {item['level']}, New cost: {item['cost']}")
+diff --git a/core/game.py b/core/game.py
+--- a/core/game.py
++++ b/core/game.py
+@@ -316,6 +316,72 @@ class Game:
+                                     if not hasattr(enemy, 'frozen_timer'):
+                                         enemy.frozen_timer = 0
+                                     enemy.frozen_timer = 300  # 5 seconds at 60 FPS
++                            elif weapon == 'shockwave':
++                                logger.info("🌊 SHOCKWAVE ACTIVATED!")
++                                self.assets.play_sound('explosion', 0.8)
++                                self.camera_shake_intensity = 10
++                                self.camera_shake_duration = 20
++                                enemies_list = list(self.enemies)
++                                for enemy in enemies_list:
++                                    dx = enemy.rect.centerx - self.player.rect.centerx
++                                    dy = enemy.rect.centery - self.player.rect.centery
++                                    dist = max(1, math.sqrt(dx*dx + dy*dy))
++                                    damage = max(10, int(150 / (dist / 50)))
++                                    enemy.health -= damage
++                                    push_x = int(dx / dist * 80)
++                                    push_y = int(dy / dist * 80)
++                                    enemy.rect.x += push_x
++                                    enemy.rect.y += push_y
++                                    self.particle_system.emit_explosion(
++                                        enemy.rect.centerx, enemy.rect.centery,
++                                        color_config.CYAN, count=8)
++                                    if enemy.health <= 0:
++                                        self.player.coins += random.randint(5, 15)
++                                        self.player.score += int(enemy.max_health * 10)
++                                        enemy.kill()
++                            elif weapon == 'chain_lightning':
++                                logger.info("⚡ CHAIN LIGHTNING ACTIVATED!")
++                                self.assets.play_sound('powerup', 0.8)
++                                enemies_list = list(self.enemies)
++                                if enemies_list:
++                                    enemies_list.sort(key=lambda e: math.sqrt(
++                                        (e.rect.centerx - self.player.rect.centerx)**2 +
++                                        (e.rect.centery - self.player.rect.centery)**2))
++                                    chain_targets = enemies_list[:5]
++                                    chain_damage = 80
++                                    for enemy in chain_targets:
++                                        enemy.health -= chain_damage
++                                        self.particle_system.emit_explosion(
++                                            enemy.rect.centerx, enemy.rect.centery,
++                                            color_config.YELLOW, count=12)
++                                        if enemy.health <= 0:
++                                            self.player.coins += random.randint(5, 15)
++                                            self.player.score += int(enemy.max_health * 10)
++                                            enemy.kill()
++                                        chain_damage = int(chain_damage * 0.7)
++                            elif weapon == 'time_warp':
++                                logger.info("💫 TIME WARP ACTIVATED! Slowing all enemies!")
++                                self.assets.play_sound('powerup', 0.7)
++                                for enemy in self.enemies:
++                                    enemy.slow_timer = 300  # 5 seconds
++                                    enemy.slow_factor = 0.25  # 25% speed
++                                    self.particle_system.emit_explosion(
++                                        enemy.rect.centerx, enemy.rect.centery,
++                                        color_config.PURPLE, count=5)
++                            elif weapon == 'spread_burst':
++                                logger.info("🎯 SPREAD BURST ACTIVATED!")
++                                self.assets.play_sound('shoot', 0.9)
++                                for angle in range(-55, 56, 10):
++                                    bullet = BulletFactory.create(
++                                        'default', self.player.rect.centerx,
++                                        self.player.rect.top, -12,
++                                        self.player.damage, angle)
++                                    if bullet:
++                                        self.bullets.add(bullet)
++                                        self.all_sprites.add(bullet)
++                                        self.particle_system.emit_trail(
++                                            bullet.rect.centerx, bullet.rect.centery,
++                                            color_config.ORANGE)
++                            elif weapon == 'meteor_strike':
++                                logger.info("☄️ METEOR STRIKE ACTIVATED!")
++                                self.assets.play_sound('explosion', 0.9)
++                                self.camera_shake_intensity = 12
++                                self.camera_shake_duration = 25
++                                self.atomic_bomb_flash = 120
++                                enemies_list = list(self.enemies)
++                                if enemies_list:
++                                    import random as _rng
++                                    targets = _rng.sample(enemies_list, min(3, len(enemies_list)))
++                                    for enemy in targets:
++                                        enemy.health -= 150
++                                        self.particle_system.emit_explosion(
++                                            enemy.rect.centerx, enemy.rect.centery,
++                                            color_config.RED, count=25)
++                                        self.particle_system.emit_explosion(
++                                            enemy.rect.centerx, enemy.rect.centery,
++                                            color_config.ORANGE, count=20)
++                                        if enemy.health <= 0:
++                                            self.player.coins += _rng.randint(10, 25)
++                                            self.player.score += int(enemy.max_health * 10)
++                                            enemy.kill()
+                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                     if self.player:
+                         # In network mode, shooting is sent as an input event
+@@ -520,7 +586,7 @@ class Game:
+ 
+                 for enemy in self.enemies:
+                     # Draw health bar with shake offset
+-                    if enemy.health < enemy.max_health or enemy.frozen_timer > 0:
++                    if enemy.health < enemy.max_health or enemy.frozen_timer > 0 or enemy.slow_timer > 0:
+                         bar_width = enemy.rect.width
+                         bar_height = 5
+                         bar_x = enemy.rect.x + shake_offset_x
+@@ -532,6 +598,14 @@ class Game:
+                             pygame.draw.rect(self.screen, color_config.WHITE,
+                                            (bar_x, bar_y, bar_width, bar_height), 1)
+                         else:
++                        elif enemy.slow_timer > 0:
++                            pygame.draw.rect(self.screen, color_config.PURPLE,
++                                           (bar_x, bar_y, bar_width, bar_height))
++                            health_width = int(bar_width * (enemy.health / enemy.max_health))
++                            pygame.draw.rect(self.screen, color_config.GREEN,
++                                           (bar_x, bar_y, health_width, bar_height))
++                            pygame.draw.rect(self.screen, color_config.WHITE,
++                                           (bar_x, bar_y, bar_width, bar_height), 1)
++                        else:
+                             pygame.draw.rect(self.screen, color_config.RED,
+                                            (bar_x, bar_y, bar_width, bar_height))
+                             health_width = int(bar_width * (enemy.health / enemy.max_health))
+diff --git a/ui/hud.py b/ui/hud.py
+--- a/ui/hud.py
++++ b/ui/hud.py
+@@ -108,7 +108,12 @@ class HUD:
+             weapon_names = {
+                 'atomic_bomb': '💣 ATOMIC BOMB',
+-                'enemy_freeze': '🌪️ ENEMY FREEZE'
++                'enemy_freeze': '🌪️ ENEMY FREEZE',
++                'shockwave': '🌊 SHOCKWAVE',
++                'chain_lightning': '⚡ CHAIN LIGHTNING',
++                'time_warp': '💫 TIME WARP',
++                'spread_burst': '🎯 SPREAD BURST',
++                'meteor_strike': '☄️ METEOR STRIKE',
+             }
+             weapon_display = weapon_names.get(current_weapon, current_weapon.upper())
