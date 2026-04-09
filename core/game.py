@@ -433,13 +433,131 @@ class Game:
                                     break
                                 # Use the enemy freeze (decrement count)
                                 self.player.use_weapon('enemy_freeze')
-                                
+
                                 logger.info("❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!")
                                 self.assets.play_sound('powerup', 0.7)
                                 for enemy in self.enemies:
                                     if not hasattr(enemy, 'frozen_timer'):
                                         enemy.frozen_timer = 0
                                     enemy.frozen_timer = 300  # 5 seconds at 60 FPS
+                            elif weapon == 'shockwave':
+                                if not self.player.has_weapon('shockwave'):
+                                    logger.warning("No shockwave weapon available!")
+                                    self.assets.play_sound('menu_select', 0.5)
+                                    break
+                                self.player.use_weapon('shockwave')
+
+                                logger.info("🌊 SHOCKWAVE ACTIVATED!")
+                                self.assets.play_sound('explosion', 0.8)
+                                self.camera_shake_intensity = 10
+                                self.camera_shake_duration = 20
+                                enemies_list = list(self.enemies)
+                                for enemy in enemies_list:
+                                    dx = enemy.rect.centerx - self.player.rect.centerx
+                                    dy = enemy.rect.centery - self.player.rect.centery
+                                    dist = max(1, math.sqrt(dx*dx + dy*dy))
+                                    damage = max(10, int(150 / (dist / 50)))
+                                    enemy.health -= damage
+                                    push_x = int(dx / dist * 80)
+                                    push_y = int(dy / dist * 80)
+                                    enemy.rect.x += push_x
+                                    enemy.rect.y += push_y
+                                    self.particle_system.emit_explosion(
+                                        enemy.rect.centerx, enemy.rect.centery,
+                                        color_config.CYAN, count=8)
+                                    if enemy.health <= 0:
+                                        self.player.coins += random.randint(5, 15)
+                                        self.player.score += int(enemy.max_health * 10)
+                                        enemy.kill()
+                            elif weapon == 'chain_lightning':
+                                if not self.player.has_weapon('chain_lightning'):
+                                    logger.warning("No chain lightning weapon available!")
+                                    self.assets.play_sound('menu_select', 0.5)
+                                    break
+                                self.player.use_weapon('chain_lightning')
+
+                                logger.info("⚡ CHAIN LIGHTNING ACTIVATED!")
+                                self.assets.play_sound('powerup', 0.8)
+                                enemies_list = list(self.enemies)
+                                if enemies_list:
+                                    enemies_list.sort(key=lambda e: math.sqrt(
+                                        (e.rect.centerx - self.player.rect.centerx)**2 +
+                                        (e.rect.centery - self.player.rect.centery)**2))
+                                    chain_targets = enemies_list[:5]
+                                    chain_damage = 80
+                                    for enemy in chain_targets:
+                                        enemy.health -= chain_damage
+                                        self.particle_system.emit_explosion(
+                                            enemy.rect.centerx, enemy.rect.centery,
+                                            color_config.YELLOW, count=12)
+                                        if enemy.health <= 0:
+                                            self.player.coins += random.randint(5, 15)
+                                            self.player.score += int(enemy.max_health * 10)
+                                            enemy.kill()
+                                        chain_damage = int(chain_damage * 0.7)
+                            elif weapon == 'time_warp':
+                                if not self.player.has_weapon('time_warp'):
+                                    logger.warning("No time warp weapon available!")
+                                    self.assets.play_sound('menu_select', 0.5)
+                                    break
+                                self.player.use_weapon('time_warp')
+
+                                logger.info("💫 TIME WARP ACTIVATED! Slowing all enemies!")
+                                self.assets.play_sound('powerup', 0.7)
+                                for enemy in self.enemies:
+                                    enemy.slow_timer = 300  # 5 seconds
+                                    enemy.slow_factor = 0.25  # 25% speed
+                                    self.particle_system.emit_explosion(
+                                        enemy.rect.centerx, enemy.rect.centery,
+                                        color_config.PURPLE, count=5)
+                            elif weapon == 'spread_burst':
+                                if not self.player.has_weapon('spread_burst'):
+                                    logger.warning("No spread burst weapon available!")
+                                    self.assets.play_sound('menu_select', 0.5)
+                                    break
+                                self.player.use_weapon('spread_burst')
+
+                                logger.info("🎯 SPREAD BURST ACTIVATED!")
+                                self.assets.play_sound('shoot', 0.9)
+                                for angle in range(-55, 56, 10):
+                                    bullet = BulletFactory.create(
+                                        'default', self.player.rect.centerx,
+                                        self.player.rect.top, -12,
+                                        self.player.damage, angle)
+                                    if bullet:
+                                        self.bullets.add(bullet)
+                                        self.all_sprites.add(bullet)
+                                        self.particle_system.emit_trail(
+                                            bullet.rect.centerx, bullet.rect.centery,
+                                            color_config.ORANGE)
+                            elif weapon == 'meteor_strike':
+                                if not self.player.has_weapon('meteor_strike'):
+                                    logger.warning("No meteor strike weapon available!")
+                                    self.assets.play_sound('menu_select', 0.5)
+                                    break
+                                self.player.use_weapon('meteor_strike')
+
+                                logger.info("☄️ METEOR STRIKE ACTIVATED!")
+                                self.assets.play_sound('explosion', 0.9)
+                                self.camera_shake_intensity = 12
+                                self.camera_shake_duration = 25
+                                self.atomic_bomb_flash = 120
+                                enemies_list = list(self.enemies)
+                                if enemies_list:
+                                    import random as _rng
+                                    targets = _rng.sample(enemies_list, min(3, len(enemies_list)))
+                                    for enemy in targets:
+                                        enemy.health -= 150
+                                        self.particle_system.emit_explosion(
+                                            enemy.rect.centerx, enemy.rect.centery,
+                                            color_config.RED, count=25)
+                                        self.particle_system.emit_explosion(
+                                            enemy.rect.centerx, enemy.rect.centery,
+                                            color_config.ORANGE, count=20)
+                                        if enemy.health <= 0:
+                                            self.player.coins += _rng.randint(10, 25)
+                                            self.player.score += int(enemy.max_health * 10)
+                                            enemy.kill()
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.player:
                         # In network mode, shooting is sent as an input event
@@ -504,6 +622,7 @@ class Game:
 
             elif self.state == GameState.SERVER_CONNECT:
                 if event.type == pygame.KEYDOWN:
+                    # Handle special keys (navigation and actions)
                     if event.key == pygame.K_ESCAPE:
                         # Go back to main menu
                         self.state = GameState.MAIN_MENU
@@ -525,12 +644,6 @@ class Game:
                         elif self.server_selected_index == 4:
                             # Back button
                             self.state = GameState.MAIN_MENU
-                    elif event.key == pygame.K_BACKSPACE:
-                        # Handle backspace for input fields
-                        if self.server_selected_index == 0 and self.server_connect_input:
-                            self.server_connect_input.text = self.server_connect_input.text[:-1]
-                        elif self.server_selected_index == 1 and self.server_port_input:
-                            self.server_port_input.text = self.server_port_input.text[:-1]
                     elif event.key == pygame.K_1:
                         self.server_selected_index = 0
                     elif event.key == pygame.K_2:
@@ -541,6 +654,20 @@ class Game:
                         self.server_selected_index = 3
                     elif event.key == pygame.K_5:
                         self.server_selected_index = 4
+                    else:
+                        # Handle text input for selected field (for keys not handled above)
+                        if self.server_selected_index == 0 and self.server_connect_input:
+                            if event.key == pygame.K_BACKSPACE:
+                                self.server_connect_input.text = self.server_connect_input.text[:-1]
+                            elif len(self.server_connect_input.text) < self.server_connect_input.max_length:
+                                if event.unicode.isprintable():
+                                    self.server_connect_input.text += event.unicode
+                        elif self.server_selected_index == 1 and self.server_port_input:
+                            if event.key == pygame.K_BACKSPACE:
+                                self.server_port_input.text = self.server_port_input.text[:-1]
+                            elif len(self.server_port_input.text) < self.server_port_input.max_length:
+                                if event.unicode.isdigit():
+                                    self.server_port_input.text += event.unicode
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     mouse_pos = event.pos
                     # Check input fields
@@ -573,20 +700,6 @@ class Game:
                         self.server_selected_index = 3
                     elif self.server_back_button_rect and self.server_back_button_rect.collidepoint(mouse_pos):
                         self.server_selected_index = 4
-                elif event.type == pygame.KEYDOWN:
-                    # Handle text input for selected field
-                    if self.server_selected_index == 0 and self.server_connect_input:
-                        if event.key == pygame.K_BACKSPACE:
-                            self.server_connect_input.text = self.server_connect_input.text[:-1]
-                        elif len(self.server_connect_input.text) < self.server_connect_input.max_length:
-                            if event.unicode.isprintable():
-                                self.server_connect_input.text += event.unicode
-                    elif self.server_selected_index == 1 and self.server_port_input:
-                        if event.key == pygame.K_BACKSPACE:
-                            self.server_port_input.text = self.server_port_input.text[:-1]
-                        elif len(self.server_port_input.text) < self.server_port_input.max_length:
-                            if event.unicode.isdigit():
-                                self.server_port_input.text += event.unicode
 
             elif self.state in [GameState.GAME_OVER, GameState.LEVEL_COMPLETE, GameState.HIGH_SCORES]:
                 if event.type == pygame.KEYDOWN:
@@ -651,9 +764,10 @@ class Game:
                 self.current_profile.start_new_game()
                 self.player.coins = self.current_profile.coins
                 self.player.score = self.current_profile.score
-            
-            self.all_sprites.add(self.player)
+                self.current_profile.apply_upgrades(self.player)
 
+            # Ensure the local player is part of the render/update sprite group.
+            self.all_sprites.add(self.player)
         self.level = Level(self.current_level)
         self.session_start_time = time.time()
 
@@ -814,7 +928,10 @@ class Game:
         if self.current_profile:
             # load saved session state so user can continue where they left off
             self.players[0].coins = self.current_profile.coins
-            self.players[0].score = self.current_profile.score    
+            self.players[0].score = self.current_profile.score
+            self.players[0].current_profile = self.current_profile
+            self.players[0].profile = self.current_profile
+            self.current_profile.apply_upgrades(self.players[0])
 
     def save_and_exit(self):
         if self.current_profile and self.player:

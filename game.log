@@ -1,8 +1,11 @@
-2026-02-23 23:47:53 - space_defender - INFO - [logger.py:41] - ================================================================================
-2026-02-23 23:47:53 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
-2026-02-23 23:47:53 - space_defender - INFO - [logger.py:43] - ================================================================================
-2026-02-23 23:47:53 - space_defender - INFO - [main.py:38] - Starting Space Defender in game mode...
-2026-02-23 23:48:06 - space_defender.game - INFO - [game.py:2210] - Game started (via menu)
-2026-02-23 23:48:06 - space_defender.save_system - INFO - [save_system.py:124] - Profile 'Reza': Starting new game. Session coins set to 11110999999999999981184, session score to 0.
-2026-02-23 23:48:34 - space_defender.game - INFO - [game.py:2077] - Connecting to server at 127.:35555...
-2026-02-23 23:48:34 - space_defender.game - ERROR - [game.py:858] - Failed to connect to server: [Errno -5] No address associated with hostname
+2026-04-09 18:54:05 - space_defender - INFO - [logger.py:41] - ================================================================================
+2026-04-09 18:54:05 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
+2026-04-09 18:54:05 - space_defender - INFO - [logger.py:43] - ================================================================================
+2026-04-09 18:54:05 - space_defender - INFO - [main.py:38] - Starting Space Defender in game mode...
+2026-04-09 18:54:16 - space_defender.game - INFO - [game.py:2327] - Game started (via menu)
+2026-04-09 18:54:16 - space_defender.save_system - INFO - [save_system.py:159] - Profile 'Reza': Starting new game. Session coins set to 11110999999999936062582, session score to 0.
+2026-04-09 18:54:20 - space_defender.game - INFO - [game.py:1254] - Player collided with enemy. Took 30 damage. Health is now 70/100.
+2026-04-09 18:54:24 - space_defender.game - INFO - [game.py:1254] - Player collided with enemy. Took 30 damage. Health is now 40/100.
+2026-04-09 18:54:26 - space_defender.game - INFO - [game.py:405] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
+2026-04-09 18:54:36 - space_defender.game - DEBUG - [game.py:1236] - Enemy destroyed. Player gained 72 coins, 720 score.
+2026-04-09 18:54:41 - space_defender.game - INFO - [game.py:2346] - Game quit (via menu)

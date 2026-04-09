@@ -79,29 +79,23 @@ class HUD:
             triple_rect = triple_text.get_rect(topright=(pu_x_right, pu_y))
             surface.blit(triple_text, triple_rect)
 
-        # Weapon display (center-bottom, if weapons available)
+        # Weapon display (center-bottom)
+        weapons_y = screen_h - font_small.get_height() - margin - 30
+        weapon_names = {
+            'atomic_bomb': '💣 ATOMIC BOMB',
+            'enemy_freeze': '🌪️ ENEMY FREEZE'
+        }
+
         if player.weapons:
-            weapons_y = screen_h - font_small.get_height() - margin - 30
-            current_weapon = player.get_selected_weapon()
-            
-            # Convert weapon name to display text
-            weapon_names = {
-                'atomic_bomb': '💣 ATOMIC BOMB',
-                'enemy_freeze': '🌪️ ENEMY FREEZE'
-            }
+            current_weapon = player.get_selected_weapon() or "none"
             weapon_display = weapon_names.get(current_weapon, current_weapon.upper())
-            
-            # Get weapon count from player's inventory
             weapon_count = player.get_weapon_count(current_weapon)
-            
-            # Display current weapon with count
             weapon_text = font_small.render(
                 f"Weapon: {weapon_display} x{weapon_count} ({player.selected_weapon_index + 1}/{len(player.weapons)})",
                 True, color_config.CYAN)
             weapon_rect = weapon_text.get_rect(center=(screen_w // 2, weapons_y))
             surface.blit(weapon_text, weapon_rect)
-            
-            # Display all weapons available with counts
+
             weapon_parts = []
             for w in player.weapons:
                 count = player.get_weapon_count(w)
@@ -112,6 +106,10 @@ class HUD:
             weapons_list_rect = weapons_list.get_rect(
                 center=(screen_w // 2, weapons_y + font_small.get_height() + 5))
             surface.blit(weapons_list, weapons_list_rect)
+        else:
+            weapon_text = font_small.render("Weapon: NONE", True, color_config.UI_TEXT)
+            weapon_rect = weapon_text.get_rect(center=(screen_w // 2, weapons_y))
+            surface.blit(weapon_text, weapon_rect)
 
         # Controls hint (bottom-left, with margin)
         hint_text = self.assets.fonts['tiny'].render(

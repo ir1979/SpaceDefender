@@ -106,24 +106,41 @@ Different enemy variants with unique behaviors:
 - Python 3.7 or higher
 - Pygame 2.0+
 
-### Installation
+### Install on Windows
 
-```bash
-# Navigate to the game directory
-cd space_defender
+Open PowerShell and run:
 
-# Install dependencies
-pip install pygame
-
-# (Optional) Install test dependencies
-pip install pytest
+```powershell
+cd \path\to\space_defender
+python -m pip install --upgrade pip
+python -m pip install pygame
+python -m pip install pytest
 ```
 
-### Running the Game
+### Install on Linux
+
+Open a terminal and run:
+
+```bash
+cd /path/to/space_defender
+python3 -m pip install --upgrade pip
+python3 -m pip install pygame
+python3 -m pip install pytest
+```
+
+> `pytest` is optional unless you want to run the test suite.
+
+### Run the Game
 
 #### Single Player Mode
 ```bash
 python main.py
+```
+
+If your system uses `python3` instead of `python`, use:
+
+```bash
+python3 main.py
 ```
 
 #### Multiplayer Client (Connect to Server)
@@ -179,6 +196,9 @@ space_defender/
 ├── assets/
 │   ├── sprites/           # Game graphics
 │   └── sounds/            # Audio files
+├── docs/                  # Design notes and guides
+├── logs/                  # Runtime logs and crash traces
+├── scripts/               # Legacy helper scripts and manual checks
 ├── tests/                 # Test suite
 └── misc/                  # Additional assets (screenshots)
 ```
@@ -187,7 +207,7 @@ space_defender/
 
 ## 🧪 Testing
 
-Run the test suite to verify game functionality:
+Run the automated test suite to verify game functionality:
 
 ```bash
 # Run all tests
@@ -196,8 +216,15 @@ pytest
 # Run with verbose output
 pytest -v
 
-# Run specific test file
+# Run specific test folder
 pytest tests/gameplay/
+```
+
+For manual helper scripts, run them directly from the `scripts/` folder:
+
+```bash
+python scripts/test_weapons.py
+python scripts/test_shop_items.py
 ```
 
 All 12 core tests validate game mechanics, networking, and integration scenarios.
