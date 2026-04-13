@@ -3,29 +3,29 @@
     "Reza": {
       "name": "Reza",
       "password": "reza123",
-      "total_score": 718240,
-      "total_coins": 11110999999999936062582,
+      "total_score": 1480816,
+      "total_coins": 11110991855569571048483,
       "highest_level": 14,
-      "games_played": 32,
-      "total_time_played": 2181.7559501647947,
-      "last_played": 1775713534.096885,
+      "games_played": 43,
+      "total_time_played": 2865.4981297969816,
+      "last_played": 1775754281.4241204,
       "score": 0,
-      "coins": 11110999999999936062582,
+      "coins": 11110991855569571045393,
       "current_score": 0,
-      "current_coins": 11110999999999936062582,
+      "current_coins": 11110991855569571045393,
       "current_level": 1,
       "weapon_inventory": {
-        "atomic_bomb": 27,
-        "shockwave": 1,
-        "spread_burst": 1,
-        "chain_lightning": 2,
-        "enemy_freeze": 1
+        "atomic_bomb": 504,
+        "shockwave": 550,
+        "spread_burst": 50,
+        "chain_lightning": 51,
+        "enemy_freeze": 129
       },
       "upgrade_levels": {
-        "max_health": 0,
-        "damage": 1,
-        "speed": 1,
-        "fire_rate": 0,
+        "max_health": 299,
+        "damage": 390,
+        "speed": 930,
+        "fire_rate": 299,
         "extra_life": 0,
         "piercing": 1
       }
@@ -189,6 +189,12 @@
   "high_scores": [
     {
       "name": "Reza",
+      "score": 305178,
+      "level": 14,
+      "timestamp": 1775753428.480027
+    },
+    {
+      "name": "Reza",
       "score": 84900,
       "level": 14,
       "timestamp": 1771876567.6584787
@@ -240,12 +246,6 @@
       "score": 20140,
       "level": 14,
       "timestamp": 1775677095.5022695
-    },
-    {
-      "name": "Reza",
-      "score": 18620,
-      "level": 6,
-      "timestamp": 1770207273.4394462
     }
   ]
 }

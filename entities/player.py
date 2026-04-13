@@ -64,6 +64,13 @@ class Player(BaseEntity):
         self.weapon_inventory = {}  # Dict mapping weapon names to counts: {'atomic_bomb': 2, 'enemy_freeze': 1}
         self.selected_weapon_index = 0  # Currently selected weapon
 
+        # Movement and physics
+        self.velocity = [0.0, 0.0]
+        self.acceleration = player_config.ACCELERATION
+        self.max_speed = player_config.MAX_SPEED
+        self.drag = player_config.DRAG
+        self.mouse_follow_factor = player_config.MOUSE_FOLLOW_FACTOR
+
         # State
         self.invincible = False
         self.invincible_timer = 0
@@ -96,38 +103,53 @@ class Player(BaseEntity):
         keys = pygame.key.get_pressed()
 
         # Movement from keyboard (arrow keys AND WASD)
-        dx = dy = 0
+        accel_x = 0.0
+        accel_y = 0.0
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            dx -= self.speed
+            accel_x -= self.acceleration
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            dx += self.speed
+            accel_x += self.acceleration
         if keys[pygame.K_UP] or keys[pygame.K_w]:
-            dy -= self.speed
+            accel_y -= self.acceleration
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            dy += self.speed
+            accel_y += self.acceleration
 
-        # Movement from mouse (only in single player)
+        # Mouse guidance remains subtle, not direct teleportation.
         mouse_x, mouse_y = pygame.mouse.get_pos()
         from config.settings import game_config
 
-        # Move player towards mouse position (with dead zone to prevent jitter)
         dist_x = mouse_x - self.rect.centerx
         dist_y = mouse_y - self.rect.centery
-        distance = math.sqrt(dist_x**2 + dist_y**2)
-
-        # Dead zone: ignore very small distances
+        distance = math.hypot(dist_x, dist_y)
         MOUSE_DEAD_ZONE = 25
 
         if distance > MOUSE_DEAD_ZONE:
-            # Normalize and apply speed
             norm_x = dist_x / distance
             norm_y = dist_y / distance
-            dx += norm_x * self.speed
-            dy += norm_y * self.speed
+            accel_x += norm_x * self.acceleration * self.mouse_follow_factor
+            accel_y += norm_y * self.acceleration * self.mouse_follow_factor
 
-        # Apply movement
-        self.rect.x += dx
-        self.rect.y += dy
+        # Apply acceleration and velocity
+        self.velocity[0] += accel_x
+        self.velocity[1] += accel_y
+
+        # Apply damping when no active input exists
+        if accel_x == 0 and accel_y == 0:
+            self.velocity[0] *= self.drag
+            self.velocity[1] *= self.drag
+
+        # Clamp speed to max values
+        self.velocity[0] = max(-self.max_speed, min(self.max_speed, self.velocity[0]))
+        self.velocity[1] = max(-self.max_speed, min(self.max_speed, self.velocity[1]))
+
+        # Avoid tiny jitter when slowing down
+        if abs(self.velocity[0]) < 0.05:
+            self.velocity[0] = 0.0
+        if abs(self.velocity[1]) < 0.05:
+            self.velocity[1] = 0.0
+
+        self.rect.x += int(self.velocity[0])
+        self.rect.y += int(self.velocity[1])
 
         # Clamp to screen
         self.rect.clamp_ip(
@@ -176,7 +198,7 @@ class Player(BaseEntity):
         fire_rate_modifier = 5 if self.rapid_fire else self.fire_rate
         self.fire_cooldown = fire_rate_modifier
 
-        speed = -10  # Negative = UP
+        speed = -16  # Negative = UP
 
         if self.triple_shot:
             bullets.append(

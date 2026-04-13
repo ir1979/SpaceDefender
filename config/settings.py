@@ -56,6 +56,10 @@ class PlayerConfig:
     HEALTH: int = 100
     DAMAGE: int = 25
     FIRE_RATE: int = 10
+    ACCELERATION: float = 0.45
+    MAX_SPEED: float = 8.0
+    DRAG: float = 0.90
+    MOUSE_FOLLOW_FACTOR: float = 0.25
 
 class GameState(Enum):
     """Game state enumeration"""

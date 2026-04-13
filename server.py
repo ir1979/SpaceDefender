@@ -308,7 +308,8 @@ def game_loop():
                             enemy_type,
                             random.randint(50, game_config.SCREEN_WIDTH - 50),
                             -50,
-                            game.current_level
+                            game.current_level,
+                            target=game.player
                         )
                         if enemy:
                             game.enemies.add(enemy)

@@ -19,9 +19,9 @@
   },
   "boss": {
     "type": "boss",
-    "speed": 1.5,
-    "health": 200,
-    "coin_value": 100,
+    "speed": 1.2,
+    "health": 400,
+    "coin_value": 200,
     "movement": "sine",
     "color": [
       255,
@@ -30,10 +30,10 @@
     ],
     "shape": "enemy_boss",
     "size": [
-      80,
-      80
+      140,
+      140
     ],
-    "score_value": 1000
+    "score_value": 1500
   },
   "basic": {
     "type": "basic",
@@ -88,5 +88,23 @@
       45
     ],
     "score_value": 200
+  },
+  "hunter": {
+    "type": "hunter",
+    "speed": 2.2,
+    "health": 35,
+    "coin_value": 25,
+    "movement": "chase",
+    "color": [
+      150,
+      255,
+      150
+    ],
+    "shape": "enemy_fast",
+    "size": [
+      42,
+      42
+    ],
+    "score_value": 220
   }
 }

@@ -12,7 +12,7 @@ from config.settings import color_config
 class Enemy(BaseEntity):
     """Enemy entity with configurable behavior"""
     
-    def __init__(self, x: int, y: int, config: Dict[str, Any]):
+    def __init__(self, x: int, y: int, config: Dict[str, Any], target: Optional[BaseEntity] = None):
         self.config = config
         self.enemy_type = config.get('type', 'basic')
         self.shape_type = config.get('shape', 'rectangle')
@@ -30,6 +30,13 @@ class Enemy(BaseEntity):
         self.movement_pattern = config.get('movement', 'straight')
         self.movement_counter = 0
         self.direction = random.choice([-1, 1])
+        self.target = target
+        
+        # Boss pulse effect
+        self.base_size = self.size
+        self.pulse_counter = 0.0
+        self.pulse_speed = 0.08
+        self.pulse_strength = 0.22
         
         # Freeze effect (freeze_timer > 0 means enemy is frozen)
         self.frozen_timer = 0
@@ -63,6 +70,8 @@ class Enemy(BaseEntity):
         
         self.movement_counter += 1
         self._move()
+        if self.enemy_type == 'boss':
+            self._pulse()
         
         # Remove if off screen
         from config.settings import game_config
@@ -72,65 +81,105 @@ class Enemy(BaseEntity):
     def _move(self):
         """Move based on pattern"""
         effective_speed = self.speed * self.slow_factor
+        from config.settings import game_config
+
+        if self.enemy_type == 'boss':
+            # Boss enters from above and then stays inside the screen.
+            if self.rect.top < 80:
+                self.rect.y += effective_speed
+            else:
+                self.rect.x += math.sin(self.movement_counter * 0.08) * 3 * self.slow_factor
+                self.rect.y += math.sin(self.movement_counter * 0.05) * 1.5 * self.slow_factor
+
+            if self.rect.left < 0:
+                self.rect.left = 0
+                self.direction = 1
+            elif self.rect.right > game_config.SCREEN_WIDTH:
+                self.rect.right = game_config.SCREEN_WIDTH
+                self.direction = -1
+
+            if self.rect.top < 0:
+                self.rect.top = 0
+            if self.rect.bottom > game_config.SCREEN_HEIGHT:
+                self.rect.bottom = game_config.SCREEN_HEIGHT
+            return
+
         if self.movement_pattern == 'straight':
             self.rect.y += effective_speed
-        
+
         elif self.movement_pattern == 'sine':
             self.rect.y += effective_speed
             self.rect.x += math.sin(self.movement_counter * 0.1) * 3 * self.slow_factor
-        
+
         elif self.movement_pattern == 'zigzag':
             self.rect.y += effective_speed
             if self.movement_counter % 30 == 0:
                 self.direction *= -1
             self.rect.x += self.direction * 2 * self.slow_factor
-        
+
         elif self.movement_pattern == 'spiral':
             angle = self.movement_counter * 0.1
-            radius = self.movement_counter * 0.5
             self.rect.x += math.cos(angle) * 2 * self.slow_factor
             self.rect.y += effective_speed
-        
+
         elif self.movement_pattern == 'chase':
-            # Would need player reference - placeholder
+            self._chase(effective_speed)
+
+        else:
             self.rect.y += effective_speed
-    
+
+    def _pulse(self):
+        """Pulse boss size to draw attention."""
+        self.pulse_counter += self.pulse_speed
+        scale = 1.0 + math.sin(self.pulse_counter) * self.pulse_strength
+        width = max(40, int(self.base_size[0] * scale))
+        height = max(40, int(self.base_size[1] * scale))
+        center = self.rect.center
+        self.size = (width, height)
+        self._create_image()
+        self.rect = self.image.get_rect(center=center)
+
+    def _chase(self, effective_speed: float):
+        """Move toward the player target with a simple steering style."""
+        if self.target and hasattr(self.target, 'rect'):
+            dx = self.target.rect.centerx - self.rect.centerx
+            dy = self.target.rect.centery - self.rect.centery
+            distance = math.hypot(dx, dy)
+            if distance > 0:
+                self.rect.x += int((dx / distance) * effective_speed)
+                self.rect.y += int((dy / distance) * effective_speed)
+        else:
+            self.rect.y += effective_speed
+
     def draw_health_bar(self, surface: pygame.Surface):
         """Draw health bar and freeze effect if applicable"""
         bar_width = self.rect.width
         bar_height = 5
         bar_x = self.rect.x
         bar_y = self.rect.y - 10
-        
-        # Draw health bar (or frozen/slow indicator)
+
         if self.frozen_timer > 0:
-            # Draw blue/cyan bar to indicate frozen state
             pygame.draw.rect(surface, color_config.CYAN,
-                            (bar_x, bar_y, bar_width, bar_height))
-            # Add a border
+                             (bar_x, bar_y, bar_width, bar_height))
             pygame.draw.rect(surface, color_config.WHITE,
-                            (bar_x, bar_y, bar_width, bar_height), 1)
+                             (bar_x, bar_y, bar_width, bar_height), 1)
         elif self.slow_timer > 0:
-            # Draw purple bar to indicate slow effect
             pygame.draw.rect(surface, color_config.PURPLE,
-                            (bar_x, bar_y, bar_width, bar_height))
+                             (bar_x, bar_y, bar_width, bar_height))
             health_width = int(bar_width * (self.health / self.max_health))
             pygame.draw.rect(surface, color_config.GREEN,
-                            (bar_x, bar_y, health_width, bar_height))
+                             (bar_x, bar_y, health_width, bar_height))
             pygame.draw.rect(surface, color_config.WHITE,
-                            (bar_x, bar_y, bar_width, bar_height), 1)
+                             (bar_x, bar_y, bar_width, bar_height), 1)
         else:
-            # Normal health bar
             if self.health >= self.max_health:
                 return
-            
             pygame.draw.rect(surface, color_config.RED,
-                            (bar_x, bar_y, bar_width, bar_height))
-            
+                             (bar_x, bar_y, bar_width, bar_height))
             health_width = int(bar_width * (self.health / self.max_health))
             pygame.draw.rect(surface, color_config.GREEN,
-                            (bar_x, bar_y, health_width, bar_height))
-    
+                             (bar_x, bar_y, health_width, bar_height))
+
     def get_data(self) -> Dict[str, Any]:
         """Get enemy data"""
         data = super().get_data()
@@ -207,19 +256,19 @@ class EnemyFactory:
             'boss': {
                 'type': 'boss',
                 'shape': 'star',
-                'size': [80, 80],
+                'size': [140, 140],
                 'color': [255, 255, 50],
-                'health': 200,
-                'speed': 1.5,
+                'health': 400,
+                'speed': 1.2,
                 'movement': 'sine',
-                'coin_value': 100,
-                'score_value': 1000
+                'coin_value': 200,
+                'score_value': 1500
             }
         }
     
     @classmethod
     def create(cls, enemy_type: str, x: int, y: int, 
-               level: int = 1) -> Optional[Enemy]:
+               level: int = 1, target: Optional[BaseEntity] = None) -> Optional[Enemy]:
         """Create an enemy"""
         if not cls._enemy_configs:
             cls._create_default_configs()
@@ -230,12 +279,18 @@ class EnemyFactory:
         
         # Scale with level
         scaled_config = config.copy()
-        scaled_config['health'] = int(config['health'] * (1 + level * 0.2))
-        scaled_config['speed'] = config['speed'] * (1 + level * 0.05)
-        scaled_config['coin_value'] = int(config['coin_value'] * (1 + level * 0.1))
-        scaled_config['score_value'] = int(config['score_value'] * (1 + level * 0.1))
+        if enemy_type == 'boss':
+            scaled_config['health'] = int(config['health'] * (1 + level * 0.35))
+            scaled_config['speed'] = max(0.9, config['speed'] * (1 + level * 0.02))
+            scaled_config['coin_value'] = int(config['coin_value'] * (1 + level * 0.15))
+            scaled_config['score_value'] = int(config['score_value'] * (1 + level * 0.15))
+        else:
+            scaled_config['health'] = int(config['health'] * (1 + level * 0.2))
+            scaled_config['speed'] = config['speed'] * (1 + level * 0.05)
+            scaled_config['coin_value'] = int(config['coin_value'] * (1 + level * 0.1))
+            scaled_config['score_value'] = int(config['score_value'] * (1 + level * 0.1))
         
-        return Enemy(x, y, scaled_config)
+        return Enemy(x, y, scaled_config, target=target)
     
     @classmethod
     def get_available_types(cls):
@@ -254,6 +309,7 @@ class EnemyFactory:
         elif level <= 5:
             return random.choice(['basic', 'basic', 'fast'])
         elif level <= 10:
-            return random.choice(['basic', 'fast', 'weaver', 'tank'])
+            return random.choice(['basic', 'fast', 'weaver', 'tank', 'hunter'])
         else:
-            return random.choice(types)
+            non_boss_types = [t for t in types if t != 'boss']
+            return random.choice(non_boss_types if non_boss_types else types)

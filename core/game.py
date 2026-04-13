@@ -34,6 +34,7 @@ class Level:
         self.level_num = level_num
         self.enemies_to_spawn = 30 + (level_num * 15)
         self.enemies_spawned = 0
+        self.boss_spawned = False
         self.spawn_timer = 0
         self.spawn_delay = max(20, 60 - (level_num * 3))
         self.powerup_timer = 0
@@ -62,6 +63,19 @@ class Level:
             self.powerup_timer = 0
             return random.random() < 0.3
         return False
+
+    def should_spawn_boss(self, active_regular_enemies: int) -> bool:
+        """Spawn one boss once per level after the regular wave has finished."""
+        if self.boss_spawned:
+            return False
+        if self.level_num < 4:
+            return False
+        if self.enemies_spawned < self.enemies_to_spawn:
+            return False
+        if active_regular_enemies > 0:
+            return False
+        self.boss_spawned = True
+        return True
 
 class Game:
     """Main game controller"""
@@ -822,7 +836,7 @@ class Game:
                     continue
                 ex = int(e_state.get('x', 0))
                 ey = int(e_state.get('y', 0))
-                e = EnemyFactory.create(etype, ex, ey, 1)
+                e = EnemyFactory.create(etype, ex, ey, 1, target=self.player)
                 if e:
                     self.enemies.add(e)
                     self.all_sprites.add(e)
@@ -1185,14 +1199,29 @@ class Game:
                             self.particle_system.emit_trail(
                                 bullet.rect.centerx, bullet.rect.centery, color_config.YELLOW)
             
+            # Spawn boss once per level after the regular spawn wave is finished
+            active_regular_enemies = len([e for e in self.enemies if e.enemy_type != 'boss'])
+            if self.level.should_spawn_boss(active_regular_enemies):
+                boss = EnemyFactory.create(
+                    'boss',
+                    random.randint(150, game_config.SCREEN_WIDTH - 150),
+                    -160,  # higher entry for a dramatic reveal
+                    self.current_level,
+                    target=self.player
+                )
+                if boss:
+                    self.enemies.add(boss)
+                    self.all_sprites.add(boss)
+
             # Spawn enemies
-            if self.level.should_spawn_enemy():
+            if not self.level.boss_spawned and self.level.should_spawn_enemy():
                 enemy_type = EnemyFactory.get_random_type(self.current_level)
                 enemy = EnemyFactory.create(
-                    enemy_type, 
+                    enemy_type,
                     random.randint(50, game_config.SCREEN_WIDTH - 50),
                     -50, # y-position
-                    self.current_level
+                    self.current_level,
+                    target=self.player
                 )
                 if enemy:
                     self.enemies.add(enemy)
