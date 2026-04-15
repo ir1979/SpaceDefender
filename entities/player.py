@@ -179,6 +179,7 @@ class Player(BaseEntity):
             self.triple_shot_timer -= 1
             if self.triple_shot_timer == 0:
                 self.triple_shot = False
+                self.triple_shot_duration = 0
 
     def _update_invincibility(self):
         """Update invincibility frames"""
@@ -246,6 +247,7 @@ class Player(BaseEntity):
         elif power_type == "triple_shot":
             self.triple_shot = True
             self.triple_shot_timer = 450
+            self.triple_shot_duration = self.triple_shot_timer
         elif power_type == "health":
             self.health = min(self.health + 30, self.max_health)
 

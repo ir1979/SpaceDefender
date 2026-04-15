@@ -303,13 +303,15 @@ class EnemyFactory:
     def get_random_type(cls, level: int = 1):
         """Get random enemy type based on level"""
         types = cls.get_available_types()
+        non_boss_types = [t for t in types if t != 'boss']
         
         if level <= 2:
             return 'basic'
         elif level <= 5:
             return random.choice(['basic', 'basic', 'fast'])
         elif level <= 10:
-            return random.choice(['basic', 'fast', 'weaver', 'tank', 'hunter'])
+            # Keep this list aligned with configured enemy types.
+            mid_pool = [t for t in ['basic', 'fast', 'weaver', 'tank'] if t in types]
+            return random.choice(mid_pool if mid_pool else non_boss_types if non_boss_types else types)
         else:
-            non_boss_types = [t for t in types if t != 'boss']
             return random.choice(non_boss_types if non_boss_types else types)

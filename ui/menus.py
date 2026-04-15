@@ -330,12 +330,14 @@ class Shop:
                 if not hasattr(player, "triple_shot"):
                     player.triple_shot = False
                 player.triple_shot = True
-                # Increase duration based on level
-                if not hasattr(player, "triple_shot_duration"):
-                    player.triple_shot_duration = 0
-                player.triple_shot_duration = 300 + (item["level"] * 100)  # Frames
+                # Keep timer and duration in sync so the effect actually expires.
+                duration_frames = 300 + (item["level"] * 100)
+                player.triple_shot_timer = max(
+                    getattr(player, "triple_shot_timer", 0), duration_frames
+                )
+                player.triple_shot_duration = player.triple_shot_timer
                 logger.info(
-                    f"  -> Triple Shot activated! Duration: {player.triple_shot_duration} frames"
+                    f"  -> Triple Shot activated! Duration: {player.triple_shot_timer} frames"
                 )
 
             elif item["effect"] == "rapid_fire":

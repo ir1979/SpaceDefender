@@ -301,21 +301,6 @@ def game_loop():
                     # --- Server-Side Update ---
                     game.all_sprites.update()
 
-                    # Spawn enemies
-                    if game.level.should_spawn_enemy() and game.state == GameState.PLAYING:
-                        enemy_type = EnemyFactory.get_random_type(game.current_level)
-                        enemy = EnemyFactory.create(
-                            enemy_type,
-                            random.randint(50, game_config.SCREEN_WIDTH - 50),
-                            -50,
-                            game.current_level,
-                            target=game.player
-                        )
-                        if enemy:
-                            game.enemies.add(enemy)
-                            game.all_sprites.add(enemy)
-                            vprint(f"[SERVER] Enemy spawned: {enemy_type} (Total: {len(game.enemies)})", level=3)
-
                     # Run collision checks
                     game.update()
                     
