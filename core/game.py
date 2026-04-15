@@ -773,6 +773,7 @@ class Game:
             self.player.health = self.player.max_health
             self.player.x = game_config.SCREEN_WIDTH // 2
             self.player.y = game_config.SCREEN_HEIGHT - 100
+            self.player.rect.center = (self.player.x, self.player.y)
             
             if self.current_profile:
                 self.current_profile.start_new_game()
@@ -840,9 +841,6 @@ class Game:
                 if e:
                     self.enemies.add(e)
                     self.all_sprites.add(e)
-                    # Visual feedback for enemy spawn (client-side only)
-                    if not self.is_server and self.particle_system:
-                        self.particle_system.emit_explosion(ex, ey, color_config.RED, 10)
             except Exception:
                 continue
 
@@ -859,9 +857,6 @@ class Game:
                 if bullet:
                     self.bullets.add(bullet)
                     self.all_sprites.add(bullet)
-                    # Visual feedback for bullet (client-side only)
-                    if not self.is_server and self.particle_system:
-                        self.particle_system.emit_trail(bx, by, color_config.YELLOW)
             except Exception:
                 # fallback placeholder bullet
                 try:
@@ -882,9 +877,6 @@ class Game:
                 powerup = PowerUp(px, py, ptype)
                 self.powerups.add(powerup)
                 self.all_sprites.add(powerup)
-                # Visual feedback for powerup spawn (client-side only)
-                if not self.is_server and self.particle_system:
-                    self.particle_system.emit_explosion(px, py, color_config.GREEN, 8)
             except Exception:
                 continue
 
@@ -1239,10 +1231,20 @@ class Game:
                 self.all_sprites.add(powerup)
             
             # Check bullet-enemy collisions
-            for bullet in self.bullets:
+            for bullet in list(self.bullets):
+                if not bullet.alive():
+                    continue
                 hit_enemies = pygame.sprite.spritecollide(bullet, self.enemies, False)
                 if hit_enemies:
-                    bullet.kill()
+                    # Piercing bullets keep traveling and can damage multiple enemies.
+                    should_consume_bullet = True
+                    if self.is_server and self.players:
+                        should_consume_bullet = not getattr(self.players[0], "piercing_shots", False)
+                    elif not self.is_server and self.player:
+                        should_consume_bullet = not getattr(self.player, "piercing_shots", False)
+
+                    if should_consume_bullet:
+                        bullet.kill()
                     if not self.is_server:
                         self.assets.play_sound('enemy_hit', 0.7)
                     for enemy in hit_enemies:
