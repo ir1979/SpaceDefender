@@ -203,7 +203,7 @@ class MeteorStrikeAbility(AbilityWeaponPlugin):
         return True
 
 
-def register_builtin_ability_weapons(register_fn=None) -> None:
+def register_builtin_weapon_abilities(register_fn=None) -> None:
     if register_fn is None:
         register_fn = register_weapon
     for plugin in [
@@ -216,3 +216,8 @@ def register_builtin_ability_weapons(register_fn=None) -> None:
         MeteorStrikeAbility(),
     ]:
         register_fn(plugin, replace=True)
+
+
+# Backward-compatible alias for earlier integration naming.
+def register_builtin_ability_weapons(register_fn=None) -> None:
+    register_builtin_weapon_abilities(register_fn)
