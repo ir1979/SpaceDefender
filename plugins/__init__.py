@@ -1,5 +1,60 @@
-"""Plugins module"""
+"""Plugin infrastructure exports."""
+
+from .base import (
+    BasePlugin,
+    EnemyPlugin,
+    LevelPlugin,
+    PluginMetadata,
+    PowerupPlugin,
+    ShopItemDefinition,
+    ShopItemPlugin,
+    ShopPurchaseContext,
+    WeaponPlugin,
+)
+from .loader import PluginLoader, PluginLoadReport, discover_plugin_modules, safe_import_module
+from .registry import (
+    get_enemy_plugin,
+    get_enemy_plugin_ids,
+    get_shop_item_plugin,
+    get_shop_item_plugins,
+    get_weapon_plugin,
+    get_weapon_plugin_ids,
+    list_enemy_plugins,
+    list_shop_item_plugins,
+    list_weapon_plugins,
+    register_enemy,
+    register_shop_item,
+    register_weapon,
+    reset_registries,
+)
+from .runtime import bootstrap_plugins
+
 __all__ = [
-    'BasePlugin',
-    'PluginManager'
+    "BasePlugin",
+    "PluginMetadata",
+    "ShopPurchaseContext",
+    "EnemyPlugin",
+    "WeaponPlugin",
+    "ShopItemPlugin",
+    "PowerupPlugin",
+    "LevelPlugin",
+    "ShopItemDefinition",
+    "register_enemy",
+    "get_enemy_plugin",
+    "get_enemy_plugin_ids",
+    "list_enemy_plugins",
+    "register_weapon",
+    "get_weapon_plugin",
+    "get_weapon_plugin_ids",
+    "list_weapon_plugins",
+    "register_shop_item",
+    "get_shop_item_plugin",
+    "get_shop_item_plugins",
+    "list_shop_item_plugins",
+    "reset_registries",
+    "PluginLoader",
+    "PluginLoadReport",
+    "discover_plugin_modules",
+    "safe_import_module",
+    "bootstrap_plugins",
 ]

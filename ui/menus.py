@@ -6,8 +6,14 @@ import pygame
 import math
 from typing import TYPE_CHECKING, List
 from config.settings import color_config, game_config
-from systems.save_system import SaveSystem
 from systems.logger import get_logger
+from plugins.registry import (
+    get_shop_item_plugin,
+    list_shop_item_plugins,
+    register_shop_item,
+)
+from plugins.base import ShopPurchaseContext
+from plugins.shop.builtins import register_builtin_shop_plugins
 
 logger = get_logger("space_defender.shop")
 
@@ -22,6 +28,7 @@ class Shop:
 
     def __init__(self, assets: "AssetManager"):
         self.assets = assets
+        register_builtin_shop_plugins(register_shop_item)
         self.items = self.create_shop_items()
         self.selected_index = 0
         self.item_rects = []  # Store rectangles for mouse click detection
@@ -29,165 +36,22 @@ class Shop:
         self.max_visible_items = 5  # Show 5 items at a time
 
     def create_shop_items(self):
-        return [
-            # Core Upgrades
-            {
-                "name": "Max Health +20",
-                "cost": 75,
-                "description": "Increase maximum health",
-                "effect": "max_health",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 75,
-            },
-            {
-                "name": "Damage +10",
-                "cost": 100,
-                "description": "Increase bullet damage",
-                "effect": "damage",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 100,
-            },
-            {
-                "name": "Speed +1",
-                "cost": 80,
-                "description": "Increase movement speed",
-                "effect": "speed",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 80,
-            },
-            {
-                "name": "Fire Rate +2",
-                "cost": 90,
-                "description": "Shoot faster",
-                "effect": "fire_rate",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 90,
-            },
-            {
-                "name": "Heal 50 HP",
-                "cost": 60,
-                "description": "Restore health",
-                "effect": "heal",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 60,
-            },
-            # Weapon Power-ups
-            {
-                "name": "⚡ Triple Shot",
-                "cost": 120,
-                "description": "Fire 3 bullets at once",
-                "effect": "triple_shot",
-                "level": 0,
-                "max_level": 3,
-                "base_cost": 120,
-            },
-            {
-                "name": "🔫 Rapid Fire Upgrade",
-                "cost": 110,
-                "description": "Extreme fire rate boost",
-                "effect": "rapid_fire",
-                "level": 0,
-                "max_level": 5,
-                "base_cost": 110,
-            },
-            {
-                "name": "🎯 Piercing Shots",
-                "cost": 130,
-                "description": "Bullets penetrate enemies",
-                "effect": "piercing",
-                "level": 0,
-                "max_level": 1,
-                "base_cost": 130,
-            },
-            # Defense Power-ups
-            {
-                "name": "🛡️ Shield",
-                "cost": 150,
-                "description": "Temporary protection from damage",
-                "effect": "shield",
-                "level": 0,
-                "max_level": 10,
-                "base_cost": 150,
-            },
-            {
-                "name": "❤️ Extra Life",
-                "cost": 200,
-                "description": "Get an extra life/respawn",
-                "effect": "extra_life",
-                "level": 0,
-                "max_level": 3,
-                "base_cost": 200,
-            },
-            # Special Abilities
-            {
-                "name": "💣 ATOMIC BOMB",
-                "cost": 250,
-                "description": "DESTROY ALL ENEMIES ON SCREEN!",
-                "effect": "atomic_bomb",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 250,
-            },
-            {
-                "name": "🌪️ Enemy Freeze",
-                "cost": 140,
-                "description": "Slow down all enemies temporarily",
-                "effect": "enemy_freeze",
-                "level": 0,
-                "max_level": 3,
-                "base_cost": 140,
-            },
-            {
-                "name": "🌊 Shockwave",
-                "cost": 180,
-                "description": "Damage all enemies, more damage up close",
-                "effect": "shockwave",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 180,
-            },
-            {
-                "name": "⚡ Chain Lightning",
-                "cost": 200,
-                "description": "Lightning chains between 5 nearest enemies",
-                "effect": "chain_lightning",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 200,
-            },
-            {
-                "name": "💫 Time Warp",
-                "cost": 160,
-                "description": "Slow all enemies to 25% speed for 5s",
-                "effect": "time_warp",
-                "level": 0,
-                "max_level": 3,
-                "base_cost": 160,
-            },
-            {
-                "name": "🎯 Spread Burst",
-                "cost": 220,
-                "description": "Fire 12 bullets in a wide fan pattern",
-                "effect": "spread_burst",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 220,
-            },
-            {
-                "name": "☄️ Meteor Strike",
-                "cost": 300,
-                "description": "Massive damage to 3 random enemies",
-                "effect": "meteor_strike",
-                "level": 0,
-                "max_level": 999,
-                "base_cost": 300,
-            },
-        ]
+        entries = []
+        plugins = sorted(list_shop_item_plugins(), key=lambda p: p.definition().order)
+        for plugin in plugins:
+            definition = plugin.definition()
+            entries.append(
+                {
+                    "name": definition.name,
+                    "cost": definition.base_cost,
+                    "description": definition.description,
+                    "effect": plugin.plugin_id,
+                    "level": 0,
+                    "max_level": definition.max_level,
+                    "base_cost": definition.base_cost,
+                }
+            )
+        return entries
 
     def handle_input(self, event: pygame.event.Event, player: "Player") -> bool:
         if event.type == pygame.KEYDOWN:
@@ -276,27 +140,24 @@ class Shop:
                 profile.apply_purchase(item["cost"])
                 player.coins = int(profile.coins)
 
-            # Special conditions for certain items
-            if item["effect"] == "heal" and player.health >= player.max_health:
-                logger.warning(
-                    f"✗ Purchase denied: {item['name']} - already at max health"
-                )
-                self._safe_play_sound(
-                    "menu_select", 0.7
-                )  # Use existing sound instead of missing 'error'
+            plugin = get_shop_item_plugin(item["effect"])
+            if plugin is None:
+                logger.error(f"No shop plugin registered for effect '{item['effect']}'")
+                self._safe_play_sound("menu_select", 0.7)
                 return
-
-            if (
-                item["effect"] == "shield"
-                and hasattr(player, "has_shield")
-                and player.has_shield
-            ):
+            context = ShopPurchaseContext(
+                shop=self,
+                player=player,
+                profile=profile,
+                item=item,
+                assets=self.assets,
+            )
+            can_purchase, reason = plugin.can_purchase(context)
+            if not can_purchase:
+                self._safe_play_sound("menu_select", 0.7)
                 logger.warning(
-                    f"✗ Purchase denied: {item['name']} - already have shield"
+                    f"✗ Purchase denied: {item['name']} - {reason or 'conditions not met'}"
                 )
-                self._safe_play_sound(
-                    "menu_select", 0.7
-                )  # Use existing sound instead of missing 'error'
                 return
 
             logger.info(f"✓ Purchase approved: {item['name']} for {item['cost']} coins")
@@ -304,158 +165,13 @@ class Shop:
                 player.coins -= item["cost"]
             self._safe_play_sound("shop_purchase", 0.7)
 
-            # Core Upgrades
-            if item["effect"] == "max_health":
-                player.max_health += 20
-                player.health = player.max_health
-                logger.info(
-                    f"  -> Max Health increased to {player.max_health}, Health restored to {player.health}"
-                )
-            elif item["effect"] == "damage":
-                player.damage += 10
-                logger.info(f"  -> Damage increased to {player.damage}")
-            elif item["effect"] == "speed":
-                player.speed = min(player.speed + 1, 12)
-                logger.info(f"  -> Speed increased to {player.speed}")
-            elif item["effect"] == "fire_rate":
-                player.fire_rate = max(player.fire_rate - 2, 3)
-                logger.info(f"  -> Fire Rate improved to {player.fire_rate}")
-            elif item["effect"] == "heal":
-                old_health = player.health
-                player.health = min(player.health + 50, player.max_health)
-                logger.info(f"  -> Health restored: {old_health} -> {player.health}")
-
-            # Weapon Power-ups
-            elif item["effect"] == "triple_shot":
-                if not hasattr(player, "triple_shot"):
-                    player.triple_shot = False
-                player.triple_shot = True
-                # Keep timer and duration in sync so the effect actually expires.
-                duration_frames = 300 + (item["level"] * 100)
-                player.triple_shot_timer = max(
-                    getattr(player, "triple_shot_timer", 0), duration_frames
-                )
-                player.triple_shot_duration = player.triple_shot_timer
-                logger.info(
-                    f"  -> Triple Shot activated! Duration: {player.triple_shot_timer} frames"
-                )
-
-            elif item["effect"] == "rapid_fire":
-                # Extreme fire rate boost - reduce fire rate significantly
-                player.fire_rate = max(player.fire_rate - 5, 1)
-                logger.info(
-                    f"  -> RAPID FIRE! Fire Rate improved to {player.fire_rate}"
-                )
-
-            elif item["effect"] == "piercing":
-                if not hasattr(player, "piercing_shots"):
-                    player.piercing_shots = False
-                player.piercing_shots = True
-                logger.info(f"  -> Piercing Shots enabled! Bullets penetrate enemies")
-
-            # Defense Power-ups
-            elif item["effect"] == "shield":
-                player.has_shield = True
-                logger.info(f"  -> Shield activated!")
-
-            elif item["effect"] == "extra_life":
-                if not hasattr(player, "lives"):
-                    player.lives = 1
-                player.lives += 1
-                logger.info(f"  -> Extra life granted! Total lives: {player.lives}")
-
-            # Special Abilities
-            elif item["effect"] == "atomic_bomb":
-                # Add atomic bomb to player's weapons inventory
-                player.add_weapon("atomic_bomb")
-                # Also add to the current profile for persistence
-                if hasattr(player, "current_profile") and player.current_profile:
-                    player.current_profile.add_weapon("atomic_bomb")
-                    logger.info(
-                        f"  -> 💣 ATOMIC BOMB added to profile! Total: {player.current_profile.get_weapon_count('atomic_bomb')}"
-                    )
-                elif hasattr(player, "profile") and player.profile:
-                    player.profile.add_weapon("atomic_bomb")
-                    logger.info(
-                        f"  -> 💣 ATOMIC BOMB added to profile! Total: {player.profile.get_weapon_count('atomic_bomb')}"
-                    )
-                logger.info(
-                    f"  -> 💣 ATOMIC BOMB added to player! Total in inventory: {player.get_weapon_count('atomic_bomb')}"
-                )
-
-            elif item["effect"] == "enemy_freeze":
-                # Add enemy freeze to player's weapons inventory
-                player.add_weapon("enemy_freeze")
-                # Also add to the current profile for persistence
-                if hasattr(player, "current_profile") and player.current_profile:
-                    player.current_profile.add_weapon("enemy_freeze")
-                    logger.info(
-                        f"  -> 🌪️ ENEMY FREEZE added to profile! Total: {player.current_profile.get_weapon_count('enemy_freeze')}"
-                    )
-                elif hasattr(player, "profile") and player.profile:
-                    player.profile.add_weapon("enemy_freeze")
-                    logger.info(
-                        f"  -> 🌪️ ENEMY FREEZE added to profile! Total: {player.profile.get_weapon_count('enemy_freeze')}"
-                    )
-                player.enemy_freeze_duration = 180 + (item["level"] * 60)  # Frames
-                logger.info(
-                    f"  -> Enemy Freeze available! Duration: {player.enemy_freeze_duration} frames"
-                )
-
-            elif item["effect"] == "shockwave":
-                player.add_weapon("shockwave")
-                if hasattr(player, "current_profile") and player.current_profile:
-                    player.current_profile.add_weapon("shockwave")
-                elif hasattr(player, "profile") and player.profile:
-                    player.profile.add_weapon("shockwave")
-                logger.info(f"  -> 🌊 SHOCKWAVE added to player inventory")
-
-            elif item["effect"] == "chain_lightning":
-                player.add_weapon("chain_lightning")
-                if hasattr(player, "current_profile") and player.current_profile:
-                    player.current_profile.add_weapon("chain_lightning")
-                elif hasattr(player, "profile") and player.profile:
-                    player.profile.add_weapon("chain_lightning")
-                logger.info(f"  -> ⚡ CHAIN LIGHTNING added to player inventory")
-
-            elif item["effect"] == "time_warp":
-                player.add_weapon("time_warp")
-                if hasattr(player, "current_profile") and player.current_profile:
-                    player.current_profile.add_weapon("time_warp")
-                elif hasattr(player, "profile") and player.profile:
-                    player.profile.add_weapon("time_warp")
-                logger.info(f"  -> 💫 TIME WARP added to player inventory")
-
-            elif item["effect"] == "spread_burst":
-                player.add_weapon("spread_burst")
-                if hasattr(player, "current_profile") and player.current_profile:
-                    player.current_profile.add_weapon("spread_burst")
-                elif hasattr(player, "profile") and player.profile:
-                    player.profile.add_weapon("spread_burst")
-                logger.info(f"  -> 🎯 SPREAD BURST added to player inventory")
-
-            elif item["effect"] == "meteor_strike":
-                player.add_weapon("meteor_strike")
-                if hasattr(player, "current_profile") and player.current_profile:
-                    player.current_profile.add_weapon("meteor_strike")
-                elif hasattr(player, "profile") and player.profile:
-                    player.profile.add_weapon("meteor_strike")
-                logger.info(f"  -> ☄️ METEOR STRIKE added to player inventory")
-
-            if profile is not None and item["effect"] in {
-                "max_health",
-                "damage",
-                "speed",
-                "fire_rate",
-                "extra_life",
-                "piercing",
-            }:
-                profile.upgrade_levels[item["effect"]] = (
-                    profile.upgrade_levels.get(item["effect"], 0) + 1
-                )
+            plugin.apply_purchase(context)
+            if profile is not None and plugin.persistent_upgrade_key:
+                key = plugin.persistent_upgrade_key
+                profile.upgrade_levels[key] = profile.upgrade_levels.get(key, 0) + 1
 
             item["level"] += 1
-            item["cost"] = int(item["base_cost"] * (1.5 ** item["level"]))
+            item["cost"] = plugin.cost_for_level(item["level"])
             logger.info(f"  -> Item level: {item['level']}, New cost: {item['cost']}")
         else:
             # Play an error sound for denied purchases

@@ -7,6 +7,12 @@ import math
 from typing import Dict, Any, Optional
 from .base_entity import BaseEntity, ShapeRenderer
 from config.settings import color_config
+from plugins.registry import (
+    WeaponPlugin,
+    get_weapon_plugin,
+    list_weapon_plugins,
+    register_weapon,
+)
 
 class Bullet(BaseEntity):
     """Projectile entity"""
@@ -61,6 +67,35 @@ class Bullet(BaseEntity):
         })
         return data
 
+
+class ConfigWeaponPlugin(WeaponPlugin):
+    """Adapter that exposes legacy weapon configs as plugins."""
+
+    plugin_kind = "weapon"
+
+    def __init__(self, weapon_id: str, config: Dict[str, Any]):
+        from plugins.base import PluginMetadata
+
+        super().__init__(
+            PluginMetadata(
+                plugin_id=weapon_id,
+                name=config.get("type", weapon_id).title(),
+                description=f"Built-in weapon: {weapon_id}",
+                author="core",
+            )
+        )
+        self.config = dict(config)
+
+    def bullet_config(self) -> Dict[str, Any]:
+        return dict(self.config)
+
+    def create_bullet(
+        self, x: int, y: int, speed: float, damage: int, angle: float = 0
+    ) -> Optional[Bullet]:
+        config_copy = dict(self.config)
+        config_copy["speed"] = speed
+        return Bullet(x, y, config_copy, damage, angle)
+
 class BulletFactory:
     """Factory for creating bullets from configuration"""
     
@@ -75,6 +110,7 @@ class BulletFactory:
                 cls._weapon_configs = json.load(f)
         except FileNotFoundError:
             cls._create_default_configs()
+        cls._register_config_plugins()
     
     @classmethod
     def _create_default_configs(cls):
@@ -109,6 +145,13 @@ class BulletFactory:
                 'speed': 7.0
             }
         }
+        cls._register_config_plugins()
+
+    @classmethod
+    def _register_config_plugins(cls):
+        """Mirror config-defined weapons into plugin registry."""
+        for weapon_id, config in cls._weapon_configs.items():
+            register_weapon(ConfigWeaponPlugin(weapon_id, config), replace=True)
     
     @classmethod
     def create(cls, weapon_type: str, x: int, y: int, 
@@ -116,16 +159,15 @@ class BulletFactory:
         """Create a bullet"""
         if not cls._weapon_configs:
             cls._create_default_configs()
-        
-        config = cls._weapon_configs.get(weapon_type, cls._weapon_configs['default'])
-        config_copy = config.copy()
-        config_copy['speed'] = speed
-        
-        return Bullet(x, y, config_copy, damage, angle)
+
+        plugin = get_weapon_plugin(weapon_type) or get_weapon_plugin("default")
+        if plugin is None:
+            return None
+        return plugin.create_bullet(x, y, speed, damage, angle=angle)
     
     @classmethod
     def get_available_types(cls):
         """Get available weapon types"""
         if not cls._weapon_configs:
             cls._create_default_configs()
-        return list(cls._weapon_configs.keys())
+        return [plugin.plugin_id for plugin in list_weapon_plugins()]

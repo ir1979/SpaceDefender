@@ -24,6 +24,9 @@ from systems.logger import get_logger
 from entities import Player, EnemyFactory, BulletFactory, PowerUp
 from entities.base_entity import ShapeRenderer
 from ui import HUD, Shop, TextInput
+from plugins.runtime import bootstrap_plugins
+from plugins.registry import get_weapon_plugin
+from plugins.weapons.builtin_abilities import register_builtin_weapon_abilities
 
 logger = get_logger('space_defender.game')
 
@@ -198,6 +201,8 @@ class Game:
         # Load configs (needed for hitbox/behavior logic on server)
         EnemyFactory.load_configs('data/enemies.json')
         BulletFactory.load_configs('data/weapons.json')
+        register_builtin_weapon_abilities()
+        bootstrap_plugins()
 
     def _init_loading_list(self):
         """Create list of items to load during splash screen"""
@@ -403,175 +408,16 @@ class Game:
                             self.player.cycle_weapon_next()
                             logger.info(f"Weapon changed to: {self.player.get_selected_weapon()}")
                     elif event.key == pygame.K_b:
-                        # Activate selected weapon (atomic bomb, enemy freeze, etc.)
+                        # Activate selected weapon via plugin ability hook when available.
                         if self.player:
                             weapon = self.player.get_selected_weapon()
-                            if weapon == 'atomic_bomb':
-                                # Check if player has atomic bombs available
-                                if not self.player.has_weapon('atomic_bomb'):
-                                    logger.warning("No atomic bombs available!")
-                                    self.assets.play_sound('menu_select', 0.5)  # Error feedback
-                                    break
-                                # Use the atomic bomb (decrement count)
-                                self.player.use_weapon('atomic_bomb')
-                                
-                                # Clear all enemies from the level
-                                logger.info("⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!")
-                                self.assets.play_sound('explosion', 0.9)
-                                
-                                # Trigger visual effects
-                                self.camera_shake_intensity = 15  # Strong shake
-                                self.camera_shake_duration = 30   # 0.5 seconds at 60 FPS
-                                self.atomic_bomb_flash = 200      # Bright white flash
-                                
-                                # Collect enemies list first to avoid modifying during iteration
-                                enemies_to_destroy = list(self.enemies)
-                                for enemy in enemies_to_destroy:
-                                    coins_reward = random.randint(5, 15)
-                                    self.player.coins += coins_reward
-                                    score = int(enemy.max_health * 10)
-                                    self.player.score += score
-                                    # Create explosion particles at enemy location
-                                    self.particle_system.emit_explosion(
-                                        enemy.rect.centerx, enemy.rect.centery,
-                                        color_config.YELLOW, count=15
-                                    )
-                                    # Remove from all_sprites so they disappear immediately
-                                    enemy.kill()
-                                self.enemies.empty()
-                            elif weapon == 'enemy_freeze':
-                                # Check if player has enemy freeze available
-                                if not self.player.has_weapon('enemy_freeze'):
-                                    logger.warning("No enemy freeze available!")
-                                    self.assets.play_sound('menu_select', 0.5)  # Error feedback
-                                    break
-                                # Use the enemy freeze (decrement count)
-                                self.player.use_weapon('enemy_freeze')
-
-                                logger.info("❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!")
-                                self.assets.play_sound('powerup', 0.7)
-                                for enemy in self.enemies:
-                                    if not hasattr(enemy, 'frozen_timer'):
-                                        enemy.frozen_timer = 0
-                                    enemy.frozen_timer = 300  # 5 seconds at 60 FPS
-                            elif weapon == 'shockwave':
-                                if not self.player.has_weapon('shockwave'):
-                                    logger.warning("No shockwave weapon available!")
+                            weapon_plugin = get_weapon_plugin(weapon)
+                            if weapon_plugin is not None:
+                                if not self.player.has_weapon(weapon):
+                                    logger.warning(f"No {weapon} weapon available!")
                                     self.assets.play_sound('menu_select', 0.5)
-                                    break
-                                self.player.use_weapon('shockwave')
-
-                                logger.info("🌊 SHOCKWAVE ACTIVATED!")
-                                self.assets.play_sound('explosion', 0.8)
-                                self.camera_shake_intensity = 10
-                                self.camera_shake_duration = 20
-                                enemies_list = list(self.enemies)
-                                for enemy in enemies_list:
-                                    dx = enemy.rect.centerx - self.player.rect.centerx
-                                    dy = enemy.rect.centery - self.player.rect.centery
-                                    dist = max(1, math.sqrt(dx*dx + dy*dy))
-                                    damage = max(10, int(150 / (dist / 50)))
-                                    enemy.health -= damage
-                                    push_x = int(dx / dist * 80)
-                                    push_y = int(dy / dist * 80)
-                                    enemy.rect.x += push_x
-                                    enemy.rect.y += push_y
-                                    self.particle_system.emit_explosion(
-                                        enemy.rect.centerx, enemy.rect.centery,
-                                        color_config.CYAN, count=8)
-                                    if enemy.health <= 0:
-                                        self.player.coins += random.randint(5, 15)
-                                        self.player.score += int(enemy.max_health * 10)
-                                        enemy.kill()
-                            elif weapon == 'chain_lightning':
-                                if not self.player.has_weapon('chain_lightning'):
-                                    logger.warning("No chain lightning weapon available!")
-                                    self.assets.play_sound('menu_select', 0.5)
-                                    break
-                                self.player.use_weapon('chain_lightning')
-
-                                logger.info("⚡ CHAIN LIGHTNING ACTIVATED!")
-                                self.assets.play_sound('powerup', 0.8)
-                                enemies_list = list(self.enemies)
-                                if enemies_list:
-                                    enemies_list.sort(key=lambda e: math.sqrt(
-                                        (e.rect.centerx - self.player.rect.centerx)**2 +
-                                        (e.rect.centery - self.player.rect.centery)**2))
-                                    chain_targets = enemies_list[:5]
-                                    chain_damage = 80
-                                    for enemy in chain_targets:
-                                        enemy.health -= chain_damage
-                                        self.particle_system.emit_explosion(
-                                            enemy.rect.centerx, enemy.rect.centery,
-                                            color_config.YELLOW, count=12)
-                                        if enemy.health <= 0:
-                                            self.player.coins += random.randint(5, 15)
-                                            self.player.score += int(enemy.max_health * 10)
-                                            enemy.kill()
-                                        chain_damage = int(chain_damage * 0.7)
-                            elif weapon == 'time_warp':
-                                if not self.player.has_weapon('time_warp'):
-                                    logger.warning("No time warp weapon available!")
-                                    self.assets.play_sound('menu_select', 0.5)
-                                    break
-                                self.player.use_weapon('time_warp')
-
-                                logger.info("💫 TIME WARP ACTIVATED! Slowing all enemies!")
-                                self.assets.play_sound('powerup', 0.7)
-                                for enemy in self.enemies:
-                                    enemy.slow_timer = 300  # 5 seconds
-                                    enemy.slow_factor = 0.25  # 25% speed
-                                    self.particle_system.emit_explosion(
-                                        enemy.rect.centerx, enemy.rect.centery,
-                                        color_config.PURPLE, count=5)
-                            elif weapon == 'spread_burst':
-                                if not self.player.has_weapon('spread_burst'):
-                                    logger.warning("No spread burst weapon available!")
-                                    self.assets.play_sound('menu_select', 0.5)
-                                    break
-                                self.player.use_weapon('spread_burst')
-
-                                logger.info("🎯 SPREAD BURST ACTIVATED!")
-                                self.assets.play_sound('shoot', 0.9)
-                                for angle in range(-55, 56, 10):
-                                    bullet = BulletFactory.create(
-                                        'default', self.player.rect.centerx,
-                                        self.player.rect.top, -12,
-                                        self.player.damage, angle)
-                                    if bullet:
-                                        self.bullets.add(bullet)
-                                        self.all_sprites.add(bullet)
-                                        self.particle_system.emit_trail(
-                                            bullet.rect.centerx, bullet.rect.centery,
-                                            color_config.ORANGE)
-                            elif weapon == 'meteor_strike':
-                                if not self.player.has_weapon('meteor_strike'):
-                                    logger.warning("No meteor strike weapon available!")
-                                    self.assets.play_sound('menu_select', 0.5)
-                                    break
-                                self.player.use_weapon('meteor_strike')
-
-                                logger.info("☄️ METEOR STRIKE ACTIVATED!")
-                                self.assets.play_sound('explosion', 0.9)
-                                self.camera_shake_intensity = 12
-                                self.camera_shake_duration = 25
-                                self.atomic_bomb_flash = 120
-                                enemies_list = list(self.enemies)
-                                if enemies_list:
-                                    import random as _rng
-                                    targets = _rng.sample(enemies_list, min(3, len(enemies_list)))
-                                    for enemy in targets:
-                                        enemy.health -= 150
-                                        self.particle_system.emit_explosion(
-                                            enemy.rect.centerx, enemy.rect.centery,
-                                            color_config.RED, count=25)
-                                        self.particle_system.emit_explosion(
-                                            enemy.rect.centerx, enemy.rect.centery,
-                                            color_config.ORANGE, count=20)
-                                        if enemy.health <= 0:
-                                            self.player.coins += _rng.randint(10, 25)
-                                            self.player.score += int(enemy.max_health * 10)
-                                            enemy.kill()
+                                elif weapon_plugin.activate_ability(self, self.player):
+                                    self.player.use_weapon(weapon)
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.player:
                         # In network mode, shooting is sent as an input event
@@ -1181,6 +1027,7 @@ class Game:
             
             # Player shooting (guard against null player after state change)
             if self.player:
+                self.player.enemy_group = self.enemies
                 keys = pygame.key.get_pressed()
                 if keys[pygame.K_SPACE]:
                     new_bullets = self.player.shoot()
