@@ -7,6 +7,7 @@ import math
 from typing import List, Dict, Any, TYPE_CHECKING
 from .base_entity import BaseEntity, ShapeRenderer
 from config.settings import color_config, player_config
+from plugins.registry import get_weapon_plugin
 
 if TYPE_CHECKING:
     from .bullet import Bullet
@@ -194,6 +195,12 @@ class Player(BaseEntity):
             return []
 
         from .bullet import BulletFactory
+
+        plugin = get_weapon_plugin(weapon_type)
+        if plugin is not None:
+            bullets = plugin.fire(self, BulletFactory)
+            self.fire_cooldown = max(1, int(plugin.get_cooldown(self)))
+            return [b for b in bullets if b is not None]
 
         bullets = []
         fire_rate_modifier = 5 if self.rapid_fire else self.fire_rate

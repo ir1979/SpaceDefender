@@ -8,6 +8,12 @@ import random
 from typing import Dict, Any, Optional
 from .base_entity import BaseEntity, ShapeRenderer
 from config.settings import color_config
+from plugins.registry import (
+    EnemyPlugin,
+    get_enemy_plugin,
+    list_enemy_plugins,
+    register_enemy,
+)
 
 class Enemy(BaseEntity):
     """Enemy entity with configurable behavior"""
@@ -190,6 +196,40 @@ class Enemy(BaseEntity):
         })
         return data
 
+
+class ConfigEnemyPlugin(EnemyPlugin):
+    """Adapter that exposes legacy JSON/config enemies as plugins."""
+
+    plugin_kind = "enemy"
+
+    def __init__(self, enemy_id: str, config: Dict[str, Any]):
+        from plugins.base import PluginMetadata
+
+        super().__init__(
+            PluginMetadata(
+                plugin_id=enemy_id,
+                name=config.get("type", enemy_id).title(),
+                description=f"Built-in enemy: {enemy_id}",
+                author="core",
+            )
+        )
+        self._base_config = dict(config)
+
+    def base_config(self) -> Dict[str, Any]:
+        return dict(self._base_config)
+
+    def spawn_weight(self, level: int) -> float:
+        enemy_id = self.plugin_id
+        if enemy_id == "boss":
+            return 0.0
+        if level <= 2:
+            return 1.0 if enemy_id == "basic" else 0.0
+        if level <= 5:
+            return {"basic": 2.0, "fast": 1.0}.get(enemy_id, 0.0)
+        if level <= 10:
+            return {"basic": 1.0, "fast": 1.0, "weaver": 1.0, "tank": 1.0, "hunter": 1.0}.get(enemy_id, 0.0)
+        return 1.0
+
 class EnemyFactory:
     """Factory for creating enemies from configuration"""
     
@@ -204,6 +244,7 @@ class EnemyFactory:
                 cls._enemy_configs = json.load(f)
         except FileNotFoundError:
             cls._create_default_configs()
+        cls._register_config_plugins()
     
     @classmethod
     def _create_default_configs(cls):
@@ -265,6 +306,13 @@ class EnemyFactory:
                 'score_value': 1500
             }
         }
+        cls._register_config_plugins()
+
+    @classmethod
+    def _register_config_plugins(cls):
+        """Mirror config-defined enemies into the plugin registry."""
+        for enemy_id, config in cls._enemy_configs.items():
+            register_enemy(ConfigEnemyPlugin(enemy_id, config), replace=True)
     
     @classmethod
     def create(cls, enemy_type: str, x: int, y: int, 
@@ -272,46 +320,36 @@ class EnemyFactory:
         """Create an enemy"""
         if not cls._enemy_configs:
             cls._create_default_configs()
-        
-        config = cls._enemy_configs.get(enemy_type)
-        if not config:
-            return None
-        
-        # Scale with level
-        scaled_config = config.copy()
-        if enemy_type == 'boss':
-            scaled_config['health'] = int(config['health'] * (1 + level * 0.35))
-            scaled_config['speed'] = max(0.9, config['speed'] * (1 + level * 0.02))
-            scaled_config['coin_value'] = int(config['coin_value'] * (1 + level * 0.15))
-            scaled_config['score_value'] = int(config['score_value'] * (1 + level * 0.15))
-        else:
-            scaled_config['health'] = int(config['health'] * (1 + level * 0.2))
-            scaled_config['speed'] = config['speed'] * (1 + level * 0.05)
-            scaled_config['coin_value'] = int(config['coin_value'] * (1 + level * 0.1))
-            scaled_config['score_value'] = int(config['score_value'] * (1 + level * 0.1))
-        
-        return Enemy(x, y, scaled_config, target=target)
+
+        plugin = get_enemy_plugin(enemy_type)
+        if plugin is not None:
+            return plugin.create(x, y, level=level, target=target)
+        return None
     
     @classmethod
     def get_available_types(cls):
         """Get available enemy types"""
         if not cls._enemy_configs:
             cls._create_default_configs()
-        return list(cls._enemy_configs.keys())
+        return [plugin.plugin_id for plugin in list_enemy_plugins()]
     
     @classmethod
     def get_random_type(cls, level: int = 1):
         """Get random enemy type based on level"""
+        weighted_ids = []
+        weighted_values = []
+        for plugin in list_enemy_plugins():
+            enemy_id = plugin.plugin_id
+            if enemy_id == "boss":
+                continue
+            weight = plugin.spawn_weight(level)
+            if weight > 0:
+                weighted_ids.append(enemy_id)
+                weighted_values.append(weight)
+
+        if weighted_ids:
+            return random.choices(weighted_ids, weights=weighted_values, k=1)[0]
+
         types = cls.get_available_types()
-        non_boss_types = [t for t in types if t != 'boss']
-        
-        if level <= 2:
-            return 'basic'
-        elif level <= 5:
-            return random.choice(['basic', 'basic', 'fast'])
-        elif level <= 10:
-            # Keep this list aligned with configured enemy types.
-            mid_pool = [t for t in ['basic', 'fast', 'weaver', 'tank'] if t in types]
-            return random.choice(mid_pool if mid_pool else non_boss_types if non_boss_types else types)
-        else:
-            return random.choice(non_boss_types if non_boss_types else types)
+        non_boss_types = [t for t in types if t != "boss"]
+        return random.choice(non_boss_types if non_boss_types else types)
