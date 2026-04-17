@@ -66,7 +66,7 @@ class Shop:
             elif event.key == pygame.K_DOWN or event.key == pygame.K_s:
                 self.selected_index = (self.selected_index + 1) % len(self.items)
                 self._update_scroll_for_selection()
-            elif event.key == pygame.K_RETURN or event.key == pygame.K_SPACE:
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE):
                 self.purchase(self.selected_index, player)
         elif event.type == pygame.MOUSEMOTION:
             # Update selection based on mouse hover (only one active at a time)

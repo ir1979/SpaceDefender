@@ -23,7 +23,7 @@ class TextInput:
         if event.type == pygame.KEYDOWN and self.active:
             if event.key == pygame.K_BACKSPACE:
                 self.text = self.text[:-1]
-            elif event.key == pygame.K_RETURN:
+            elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 return self.text
             elif len(self.text) < self.max_length:
                 if event.unicode.isprintable():

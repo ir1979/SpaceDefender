@@ -29,6 +29,7 @@ from plugins.registry import get_weapon_plugin
 from plugins.weapons.builtin_abilities import register_builtin_weapon_abilities
 
 logger = get_logger('space_defender.game')
+ENTER_KEYS = (pygame.K_RETURN, pygame.K_KP_ENTER)
 
 class Level:
     """Level manager"""
@@ -145,6 +146,9 @@ class Game:
         self.creating_new_profile = False
         self.menu_buttons = []
         self.menu_selected_index = 0
+        self.menu_scroll_offset = 0
+        self.max_visible_menu_items = 6
+        self.menu_options_cache = []
         self.text_input = None
         self.quit_confirm_selected = True
         self.quit_yes_rect = None
@@ -164,6 +168,17 @@ class Game:
         self.server_test_result_timer = 0  # Timer for result message
         self.server_testing = False  # Whether a test is in progress
         self.server_selected_index = 0  # Selected button index (0=address, 1=port, 2=test, 3=connect, 4=back)
+        self.profile_scroll_offset = 0
+        self.max_visible_profiles = 5
+        self.high_score_scroll_offset = 0
+        self.max_visible_scores = 8
+        self.options_selected_index = 0
+        self.options_scroll_offset = 0
+        self.max_visible_options = 6
+        self.options_buttons = []
+        self.fullscreen_enabled = False
+        self.target_fps = game_config.FPS
+        self.show_particles = True
         
         # Password authentication variables
         self.authenticating_profile = None  # Profile name being authenticated
@@ -227,6 +242,82 @@ class Game:
             self.current_profile = self.profile
         self.init_game()
 
+    def _apply_display_mode(self):
+        """Apply fullscreen/windowed mode using current settings."""
+        if self.is_server:
+            return
+        flags = pygame.FULLSCREEN if self.fullscreen_enabled else 0
+        self.screen = pygame.display.set_mode(
+            (game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT), flags
+        )
+        pygame.display.set_caption(game_config.TITLE)
+
+    def _get_main_menu_options(self):
+        options = [("PLAY", "play")]
+        if self.server_host and self.server_port:
+            options.append(("PLAY ONLINE", "play_online"))
+        options.extend(
+            [
+                ("SHOP", "shop"),
+                ("HIGH SCORES", "scores"),
+                ("OPTIONS", "options"),
+                ("CHANGE PROFILE", "profile"),
+                ("QUIT", "quit"),
+            ]
+        )
+        return options
+
+    def _sync_menu_scroll(self):
+        max_scroll = max(0, len(self.menu_options_cache) - self.max_visible_menu_items)
+        self.menu_scroll_offset = max(0, min(self.menu_scroll_offset, max_scroll))
+        if self.menu_selected_index < self.menu_scroll_offset:
+            self.menu_scroll_offset = self.menu_selected_index
+        elif self.menu_selected_index >= self.menu_scroll_offset + self.max_visible_menu_items:
+            self.menu_scroll_offset = self.menu_selected_index - self.max_visible_menu_items + 1
+
+    def _sync_profile_scroll(self, total_profiles: int):
+        max_scroll = max(0, total_profiles - self.max_visible_profiles)
+        self.profile_scroll_offset = max(0, min(self.profile_scroll_offset, max_scroll))
+        if self.profile_selected_index < self.profile_scroll_offset:
+            self.profile_scroll_offset = self.profile_selected_index
+        elif self.profile_selected_index >= self.profile_scroll_offset + self.max_visible_profiles:
+            self.profile_scroll_offset = self.profile_selected_index - self.max_visible_profiles + 1
+
+    def _sync_high_scores_scroll(self, total_scores: int):
+        max_scroll = max(0, total_scores - self.max_visible_scores)
+        self.high_score_scroll_offset = max(0, min(self.high_score_scroll_offset, max_scroll))
+
+    def _get_options_items(self):
+        return [
+            ("Display Mode", "fullscreen"),
+            ("Target FPS", "fps"),
+            ("Particles", "particles"),
+            ("Back", "back"),
+        ]
+
+    def _sync_options_scroll(self):
+        options = self._get_options_items()
+        max_scroll = max(0, len(options) - self.max_visible_options)
+        self.options_scroll_offset = max(0, min(self.options_scroll_offset, max_scroll))
+        if self.options_selected_index < self.options_scroll_offset:
+            self.options_scroll_offset = self.options_selected_index
+        elif self.options_selected_index >= self.options_scroll_offset + self.max_visible_options:
+            self.options_scroll_offset = self.options_selected_index - self.max_visible_options + 1
+
+    def _adjust_option_value(self, action: str, delta: int = 0):
+        if action == "fullscreen":
+            self.fullscreen_enabled = not self.fullscreen_enabled
+            self._apply_display_mode()
+        elif action == "fps":
+            fps_choices = [30, 45, 60, 75, 120]
+            current_idx = fps_choices.index(self.target_fps) if self.target_fps in fps_choices else 0
+            current_idx = max(0, min(len(fps_choices) - 1, current_idx + delta))
+            self.target_fps = fps_choices[current_idx]
+        elif action == "particles":
+            self.show_particles = not self.show_particles
+        elif action == "back":
+            self.state = GameState.MAIN_MENU
+
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -268,11 +359,19 @@ class Game:
                         self.creating_new_profile = False
             
             if self.state == GameState.PROFILE_SELECT:
+                profiles = SaveSystem.get_profiles()
+                if profiles:
+                    self.profile_selected_index = max(
+                        0, min(self.profile_selected_index, len(profiles) - 1)
+                    )
+                    self._sync_profile_scroll(len(profiles))
+
                 if event.type == pygame.KEYDOWN:
                     if self.server_socket:
                         try:
                             self.server_socket.close()
-                        except Exception: pass
+                        except Exception:
+                            pass
                     if event.key == pygame.K_ESCAPE:
                         # ESC allows users to create a new profile instead of selecting existing
                         self.creating_new_profile = True
@@ -286,11 +385,26 @@ class Game:
                         self.text_input = TextInput(
                             game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
                             self.assets.fonts['medium'])
+                    elif event.key in [pygame.K_UP, pygame.K_w] and profiles:
+                        self.profile_selected_index = max(0, self.profile_selected_index - 1)
+                        self._sync_profile_scroll(len(profiles))
+                    elif event.key in [pygame.K_DOWN, pygame.K_s] and profiles:
+                        self.profile_selected_index = min(
+                            len(profiles) - 1, self.profile_selected_index + 1
+                        )
+                        self._sync_profile_scroll(len(profiles))
+                    elif event.key in ENTER_KEYS and profiles:
+                        idx = self.profile_selected_index
+                        if 0 <= idx < len(profiles):
+                            self.authenticating_profile = profiles[idx].name
+                            self.state = GameState.PASSWORD_INPUT
+                            self.password_input = TextInput(
+                                game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
+                                self.assets.fonts['medium'], is_password=True)
+                            self.password_error = False
                     elif event.unicode.isdigit():
                         idx = int(event.unicode) - 1
-                        profiles = SaveSystem.get_profiles()
                         if 0 <= idx < len(profiles):
-                            # Transition to PASSWORD_INPUT state for authentication
                             self.authenticating_profile = profiles[idx].name
                             self.state = GameState.PASSWORD_INPUT
                             self.password_input = TextInput(
@@ -298,31 +412,35 @@ class Game:
                                 self.assets.fonts['medium'], is_password=True)
                             self.password_error = False
                     elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
-                        profiles = SaveSystem.get_profiles()
                         if profiles:
                             idx = self.profile_selected_index
                             if 0 <= idx < len(profiles):
                                 self._delete_profile_at_index(idx)
-                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    for box_rect, idx in self.profile_buttons:
-                        if box_rect.collidepoint(event.pos):
-                            profiles = SaveSystem.get_profiles()
-                            if 0 <= idx < len(profiles):
-                                # Transition to PASSWORD_INPUT state for authentication
-                                self.authenticating_profile = profiles[idx].name
-                                self.state = GameState.PASSWORD_INPUT
-                                self.password_input = TextInput(
-                                    game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
-                                    self.assets.fonts['medium'], is_password=True)
-                                self.password_error = False
-                                break
-                    if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
-                        self.creating_new_profile = True
-                        self.state = GameState.NAME_INPUT
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
-                
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button in (4, 5) and profiles:
+                        delta = -1 if event.button == 4 else 1
+                        self.profile_selected_index = max(
+                            0, min(len(profiles) - 1, self.profile_selected_index + delta)
+                        )
+                        self._sync_profile_scroll(len(profiles))
+                    elif event.button == 1:
+                        for box_rect, idx in self.profile_buttons:
+                            if box_rect.collidepoint(event.pos):
+                                if 0 <= idx < len(profiles):
+                                    self.authenticating_profile = profiles[idx].name
+                                    self.state = GameState.PASSWORD_INPUT
+                                    self.password_input = TextInput(
+                                        game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
+                                        self.assets.fonts['medium'], is_password=True)
+                                    self.password_error = False
+                                    break
+                        if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
+                            self.creating_new_profile = True
+                            self.state = GameState.NAME_INPUT
+                            self.text_input = TextInput(
+                                game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                                self.assets.fonts['medium'])
+
                 elif event.type == pygame.MOUSEMOTION:
                     for box_rect, idx in self.profile_buttons:
                         if box_rect.collidepoint(event.pos):
@@ -373,27 +491,97 @@ class Game:
                         self.password_error = False
             
             elif self.state == GameState.MAIN_MENU:
+                self.menu_options_cache = self._get_main_menu_options()
+                if self.menu_options_cache:
+                    self.menu_selected_index = max(
+                        0, min(self.menu_selected_index, len(self.menu_options_cache) - 1)
+                    )
+                    self._sync_menu_scroll()
                 if event.type == pygame.KEYDOWN:
                     if event.key in [pygame.K_UP, pygame.K_w]:
-                        self.menu_selected_index = (self.menu_selected_index - 1) % len(self.menu_buttons)
+                        self.menu_selected_index = max(0, self.menu_selected_index - 1)
+                        self._sync_menu_scroll()
                     elif event.key in [pygame.K_DOWN, pygame.K_s]:
-                        self.menu_selected_index = (self.menu_selected_index + 1) % len(self.menu_buttons)
-                    elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
-                        if self.menu_buttons:
-                            _, action = self.menu_buttons[self.menu_selected_index]
-                            self._handle_menu_action(action)
+                        self.menu_selected_index = min(
+                            max(0, len(self.menu_options_cache) - 1),
+                            self.menu_selected_index + 1,
+                        )
+                        self._sync_menu_scroll()
+                    elif event.key in ENTER_KEYS or event.key == pygame.K_SPACE:
+                        selected_action = None
+                        for _, action, menu_idx in self.menu_buttons:
+                            if menu_idx == self.menu_selected_index:
+                                selected_action = action
+                                break
+                        if selected_action:
+                            self._handle_menu_action(selected_action)
                     elif event.key == pygame.K_ESCAPE:
                         self.running = False
                 elif event.type == pygame.MOUSEMOTION:
                     mouse_pos = event.pos
-                    for i, (button_rect, action) in enumerate(self.menu_buttons):
+                    for button_rect, action, menu_idx in self.menu_buttons:
                         if button_rect.collidepoint(mouse_pos):
-                            self.menu_selected_index = i
+                            self.menu_selected_index = menu_idx
                             break
-                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.menu_buttons:
-                        _, action = self.menu_buttons[self.menu_selected_index]
-                        self._handle_menu_action(action)
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button in (4, 5) and self.menu_options_cache:
+                        delta = -1 if event.button == 4 else 1
+                        self.menu_selected_index = max(
+                            0,
+                            min(len(self.menu_options_cache) - 1, self.menu_selected_index + delta),
+                        )
+                        self._sync_menu_scroll()
+                    elif event.button == 1 and self.menu_buttons:
+                        for button_rect, action, menu_idx in self.menu_buttons:
+                            if button_rect.collidepoint(event.pos):
+                                self.menu_selected_index = menu_idx
+                                self._handle_menu_action(action)
+                                break
+
+            elif self.state == GameState.OPTIONS_MENU:
+                options = self._get_options_items()
+                if options:
+                    self.options_selected_index = max(
+                        0, min(self.options_selected_index, len(options) - 1)
+                    )
+                    self._sync_options_scroll()
+                if event.type == pygame.KEYDOWN:
+                    if event.key in [pygame.K_UP, pygame.K_w]:
+                        self.options_selected_index = max(0, self.options_selected_index - 1)
+                        self._sync_options_scroll()
+                    elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                        self.options_selected_index = min(
+                            max(0, len(options) - 1), self.options_selected_index + 1
+                        )
+                        self._sync_options_scroll()
+                    elif event.key in [pygame.K_LEFT, pygame.K_a]:
+                        _, action = options[self.options_selected_index]
+                        if action == "fps":
+                            self._adjust_option_value(action, delta=-1)
+                    elif event.key in [pygame.K_RIGHT, pygame.K_d]:
+                        _, action = options[self.options_selected_index]
+                        if action == "fps":
+                            self._adjust_option_value(action, delta=1)
+                    elif event.key in ENTER_KEYS or event.key == pygame.K_SPACE:
+                        _, action = options[self.options_selected_index]
+                        self._adjust_option_value(action, delta=1)
+                    elif event.key == pygame.K_ESCAPE:
+                        self.state = GameState.MAIN_MENU
+                elif event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button in (4, 5) and options:
+                        delta = -1 if event.button == 4 else 1
+                        self.options_selected_index = max(
+                            0, min(len(options) - 1, self.options_selected_index + delta)
+                        )
+                        self._sync_options_scroll()
+                    elif event.button == 1:
+                        for rect, action in self.options_buttons:
+                            if rect.collidepoint(event.pos):
+                                if action == "fps":
+                                    self._adjust_option_value(action, delta=1)
+                                else:
+                                    self._adjust_option_value(action)
+                                break
 
             elif self.state == GameState.PLAYING:
                 if event.type == pygame.KEYDOWN:
@@ -456,7 +644,7 @@ class Game:
                         self.quit_confirm_selected = False # Select NO
                     elif event.key in [pygame.K_RIGHT, pygame.K_d]:
                         self.quit_confirm_selected = True # Select YES
-                    elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                    elif event.key in ENTER_KEYS or event.key == pygame.K_SPACE:
                         if self.quit_confirm_selected: # YES
                             # Player chose to quit the level. We should end the game session
                             # but not penalize their total accumulated coins.
@@ -493,7 +681,7 @@ class Game:
                         self.server_selected_index = max(0, self.server_selected_index - 1)
                     elif event.key == pygame.K_DOWN:
                         self.server_selected_index = min(4, self.server_selected_index + 1)
-                    elif event.key == pygame.K_RETURN:
+                    elif event.key in ENTER_KEYS:
                         # Handle button actions based on selection
                         if self.server_selected_index == 2:
                             # Test Connection button
@@ -561,9 +749,30 @@ class Game:
                     elif self.server_back_button_rect and self.server_back_button_rect.collidepoint(mouse_pos):
                         self.server_selected_index = 4
 
-            elif self.state in [GameState.GAME_OVER, GameState.LEVEL_COMPLETE, GameState.HIGH_SCORES]:
+            elif self.state == GameState.HIGH_SCORES:
                 if event.type == pygame.KEYDOWN:
-                    if event.key in [pygame.K_RETURN, pygame.K_SPACE]:
+                    scores = SaveSystem.get_high_scores()
+                    self._sync_high_scores_scroll(len(scores))
+                    if event.key in [pygame.K_UP, pygame.K_w]:
+                        self.high_score_scroll_offset = max(0, self.high_score_scroll_offset - 1)
+                    elif event.key in [pygame.K_DOWN, pygame.K_s]:
+                        max_scroll = max(0, len(scores) - self.max_visible_scores)
+                        self.high_score_scroll_offset = min(max_scroll, self.high_score_scroll_offset + 1)
+                    elif event.key in ENTER_KEYS or event.key == pygame.K_SPACE:
+                        self.state = GameState.MAIN_MENU
+                    elif event.key == pygame.K_ESCAPE:
+                        self.state = GameState.MAIN_MENU
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button in (4, 5):
+                    scores = SaveSystem.get_high_scores()
+                    max_scroll = max(0, len(scores) - self.max_visible_scores)
+                    if event.button == 4:
+                        self.high_score_scroll_offset = max(0, self.high_score_scroll_offset - 1)
+                    else:
+                        self.high_score_scroll_offset = min(max_scroll, self.high_score_scroll_offset + 1)
+
+            elif self.state in [GameState.GAME_OVER, GameState.LEVEL_COMPLETE]:
+                if event.type == pygame.KEYDOWN:
+                    if event.key in ENTER_KEYS or event.key == pygame.K_SPACE:
                         if self.state == GameState.LEVEL_COMPLETE:
                             self.current_level += 1
                             self.init_game()
@@ -654,6 +863,9 @@ class Game:
                 p.max_health = int(p_state.get('max_health', p.max_health))
                 p.coins = int(p_state.get('coins', getattr(p, 'coins', 0)))
                 p.score = int(p_state.get('score', getattr(p, 'score', 0)))
+                p.selected_weapon_index = getattr(self.player, "selected_weapon_index", 0)
+                p.weapons = list(getattr(self.player, "weapons", []))
+                p.weapon_inventory = dict(getattr(self.player, "weapon_inventory", {}))
                 self.players.append(p)
                 self.all_sprites.add(p)
             except Exception:
@@ -1217,6 +1429,9 @@ class Game:
         
         elif self.state == GameState.MAIN_MENU:
             self.draw_main_menu()
+
+        elif self.state == GameState.OPTIONS_MENU:
+            self.draw_options_menu()
         
         elif self.state == GameState.PLAYING:
             # Apply camera shake offset
@@ -1252,7 +1467,7 @@ class Game:
                             pygame.draw.rect(self.screen, color_config.GREEN,
                                            (bar_x, bar_y, health_width, bar_height))
 
-                if self.particle_system:
+                if self.particle_system and self.show_particles:
                     self.particle_system.draw(self.screen)
 
                 # Draw atomic bomb flash effect
@@ -1321,7 +1536,8 @@ class Game:
                 self.all_sprites.draw(self.screen)
                 for enemy in self.enemies:
                     enemy.draw_health_bar(self.screen)
-                self.particle_system.draw(self.screen)
+                if self.show_particles:
+                    self.particle_system.draw(self.screen)
                 self.draw_quit_confirm()
         
         # Handle the new waiting state
@@ -1546,6 +1762,7 @@ class Game:
         self.screen.blit(subtitle, subtitle_rect)
         
         profiles = SaveSystem.get_profiles()
+        self._sync_profile_scroll(len(profiles))
         box_width = min(700, screen_w - 400)
         box_height = 80
         x = (screen_w - box_width) // 2
@@ -1555,7 +1772,10 @@ class Game:
         # Clear and rebuild profile button list
         self.profile_buttons = []
         
-        for i, profile in enumerate(profiles[:5]):
+        visible_start = self.profile_scroll_offset
+        visible_end = min(len(profiles), visible_start + self.max_visible_profiles)
+        for i in range(visible_start, visible_end):
+            profile = profiles[i]
             box_rect = pygame.Rect(x, y_offset, box_width, box_height)
             self.profile_buttons.append((box_rect, i))
             
@@ -1587,6 +1807,12 @@ class Game:
             self.screen.blit(stats_surface, (x + text_pad + 60, y_offset + 45))
             
             y_offset += box_height + 20
+
+        if len(profiles) > self.max_visible_profiles:
+            up = self.assets.fonts['small'].render("▲", True, color_config.UI_TEXT)
+            down = self.assets.fonts['small'].render("▼", True, color_config.UI_TEXT)
+            self.screen.blit(up, up.get_rect(center=(screen_w - 44, int(screen_h * 0.24))))
+            self.screen.blit(down, down.get_rect(center=(screen_w - 44, int(screen_h * 0.72))))
         
         # New Profile button - centered under the boxes
         new_profile_rect = pygame.Rect(x, y_offset + 10, box_width, 60)
@@ -1607,7 +1833,7 @@ class Game:
         self.screen.blit(new_profile, new_rect)
         
         hint = self.assets.fonts['small'].render(
-            "Select with mouse or keyboard (1-5) • Existing profiles require password authentication",
+            "Select with mouse, wheel, ↑↓ or number keys • ENTER to authenticate",
             True, color_config.UI_TEXT)
         hint_rect = hint.get_rect(center=(screen_w // 2, y_offset + 110))
         self.screen.blit(hint, hint_rect)
@@ -1736,10 +1962,17 @@ class Game:
                     self.screen.blit(error_msg, error_rect)
     
     def draw_main_menu(self):
-        """Draw main menu (responsive layout)"""
+        """Draw main menu with scrolling and modernized UI."""
         screen_w = game_config.SCREEN_WIDTH
         screen_h = game_config.SCREEN_HEIGHT
         title_y = int(screen_h * 0.14)
+
+        # Back panel
+        panel = pygame.Surface((min(760, screen_w - 120), min(620, screen_h - 120)), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (14, 18, 34, 180), panel.get_rect(), border_radius=18)
+        pygame.draw.rect(panel, (*color_config.UI_BORDER, 220), panel.get_rect(), 2, border_radius=18)
+        panel_rect = panel.get_rect(center=(screen_w // 2, screen_h // 2))
+        self.screen.blit(panel, panel_rect)
 
         title = self.assets.fonts['title'].render("SPACE DEFENDER", True, color_config.CYAN)
         title_rect = title.get_rect(center=(screen_w // 2, title_y))
@@ -1760,30 +1993,22 @@ class Game:
 
         # Menu layout
         mouse_pos = pygame.mouse.get_pos()
-        start_y = int(screen_h * 0.45)
-        spacing = int(screen_h * 0.06)
-        options = [
-            ("PRESS ENTER TO START", pygame.K_RETURN, "play"),
+        start_y = int(screen_h * 0.41)
+        spacing = int(screen_h * 0.075)
+        self.menu_options_cache = self._get_main_menu_options()
+        self._sync_menu_scroll()
+        visible_options = self.menu_options_cache[
+            self.menu_scroll_offset : self.menu_scroll_offset + self.max_visible_menu_items
         ]
-        
-        # Add "PLAY ONLINE" option if server connection details are provided
-        if self.server_host and self.server_port:
-            options.append(("O - PLAY ONLINE", pygame.K_o, "play_online"))
-        
-        options.extend([
-            ("S - SHOP", pygame.K_s, "shop"),
-            ("H - HIGH SCORES", pygame.K_h, "scores"),
-            ("P - CHANGE PROFILE", pygame.K_p, "profile"),
-            ("ESC - QUIT", pygame.K_ESCAPE, "quit")
-        ])
 
         # Store button rects for mouse detection
         self.menu_buttons = []
         button_width = min(520, screen_w - 300)
-        button_height = 56
+        button_height = 58
 
-        for idx, (text, key, action) in enumerate(options):
-            y = start_y + idx * spacing
+        for local_idx, (label, action) in enumerate(visible_options):
+            idx = self.menu_scroll_offset + local_idx
+            y = start_y + local_idx * spacing
             button_rect = pygame.Rect(
                 screen_w // 2 - button_width // 2,
                 y - button_height // 2,
@@ -1793,14 +2018,104 @@ class Game:
 
             is_selected = (idx == self.menu_selected_index)
             if is_selected:
-                pygame.draw.rect(self.screen, color_config.CYAN, button_rect)
-                surface = self.assets.fonts['medium'].render(text, True, color_config.BLACK)
+                pygame.draw.rect(self.screen, color_config.CYAN, button_rect, border_radius=10)
+                surface = self.assets.fonts['medium'].render(label, True, color_config.BLACK)
             else:
-                surface = self.assets.fonts['medium'].render(text, True, color_config.WHITE)
+                pygame.draw.rect(self.screen, color_config.UI_BG, button_rect, border_radius=10)
+                pygame.draw.rect(self.screen, color_config.UI_BORDER, button_rect, 2, border_radius=10)
+                surface = self.assets.fonts['medium'].render(label, True, color_config.WHITE)
+
+            if button_rect.collidepoint(mouse_pos):
+                pygame.draw.rect(self.screen, color_config.WHITE, button_rect, 1, border_radius=10)
+                self.menu_selected_index = idx
 
             rect = surface.get_rect(center=button_rect.center)
             self.screen.blit(surface, rect)
-            self.menu_buttons.append((button_rect, action))
+            self.menu_buttons.append((button_rect, action, idx))
+
+        # Scroll indicators
+        total_menu_items = len(self.menu_options_cache)
+        if total_menu_items > self.max_visible_menu_items:
+            up_hint = self.assets.fonts['small'].render("▲", True, color_config.UI_TEXT)
+            down_hint = self.assets.fonts['small'].render("▼", True, color_config.UI_TEXT)
+            self.screen.blit(up_hint, up_hint.get_rect(center=(screen_w // 2, start_y - 40)))
+            self.screen.blit(
+                down_hint,
+                down_hint.get_rect(
+                    center=(screen_w // 2, start_y + (self.max_visible_menu_items - 1) * spacing + 45)
+                ),
+            )
+
+        footer = self.assets.fonts['small'].render(
+            "ENTER: Confirm | ↑↓ or Mouse Wheel: Navigate",
+            True,
+            color_config.UI_TEXT,
+        )
+        self.screen.blit(footer, footer.get_rect(center=(screen_w // 2, panel_rect.bottom - 28)))
+
+    def draw_options_menu(self):
+        """Draw options menu for runtime settings."""
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+
+        panel_w = min(720, screen_w - 140)
+        panel_h = min(520, screen_h - 140)
+        panel = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+        pygame.draw.rect(panel, (12, 16, 34, 210), panel.get_rect(), border_radius=16)
+        pygame.draw.rect(panel, color_config.CYAN, panel.get_rect(), 2, border_radius=16)
+        panel_rect = panel.get_rect(center=(screen_w // 2, screen_h // 2))
+        self.screen.blit(panel, panel_rect)
+
+        title = self.assets.fonts['large'].render("OPTIONS", True, color_config.CYAN)
+        self.screen.blit(title, title.get_rect(center=(screen_w // 2, panel_rect.top + 42)))
+
+        options = self._get_options_items()
+        self._sync_options_scroll()
+        visible = options[
+            self.options_scroll_offset : self.options_scroll_offset + self.max_visible_options
+        ]
+        self.options_buttons = []
+
+        start_y = panel_rect.top + 110
+        row_h = 62
+        for local_idx, (label, action) in enumerate(visible):
+            idx = self.options_scroll_offset + local_idx
+            row_y = start_y + local_idx * row_h
+            row_rect = pygame.Rect(panel_rect.left + 36, row_y, panel_w - 72, 48)
+            is_selected = idx == self.options_selected_index
+            if is_selected:
+                pygame.draw.rect(self.screen, color_config.CYAN, row_rect, border_radius=10)
+                text_color = color_config.BLACK
+            else:
+                pygame.draw.rect(self.screen, color_config.UI_BG, row_rect, border_radius=10)
+                pygame.draw.rect(self.screen, color_config.UI_BORDER, row_rect, 1, border_radius=10)
+                text_color = color_config.WHITE
+
+            label_surface = self.assets.fonts['medium'].render(label, True, text_color)
+            self.screen.blit(label_surface, (row_rect.left + 16, row_rect.top + 11))
+
+            if action == "fullscreen":
+                value = "FULLSCREEN" if self.fullscreen_enabled else "WINDOWED"
+            elif action == "fps":
+                value = f"{self.target_fps} FPS"
+            elif action == "particles":
+                value = "ON" if self.show_particles else "OFF"
+            else:
+                value = "RETURN"
+            value_surface = self.assets.fonts['medium'].render(value, True, text_color)
+            self.screen.blit(
+                value_surface,
+                value_surface.get_rect(right=row_rect.right - 16, centery=row_rect.centery),
+            )
+
+            self.options_buttons.append((row_rect, action))
+
+        hint = self.assets.fonts['small'].render(
+            "ENTER: Toggle/Apply | LEFT/RIGHT: Adjust FPS | ESC: Back",
+            True,
+            color_config.UI_TEXT,
+        )
+        self.screen.blit(hint, hint.get_rect(center=(screen_w // 2, panel_rect.bottom - 34)))
     
     def draw_pause_screen(self):
         """Draw pause overlay"""
@@ -1952,6 +2267,7 @@ class Game:
         self.screen.blit(title, title_rect)
         
         scores = SaveSystem.get_high_scores()
+        self._sync_high_scores_scroll(len(scores))
         
         if not scores:
             no_scores = self.assets.fonts['medium'].render(
@@ -1960,8 +2276,11 @@ class Game:
             self.screen.blit(no_scores, no_scores_rect)
         else:
             y_offset = 200
-            for i, entry in enumerate(scores[:5]):
-                rank_text = f"{i + 1}."
+            visible_scores = scores[
+                self.high_score_scroll_offset : self.high_score_scroll_offset + self.max_visible_scores
+            ]
+            for i, entry in enumerate(visible_scores, start=self.high_score_scroll_offset + 1):
+                rank_text = f"{i}."
                 name_text = entry['name']
                 score_text = f"Score: {entry['score']}"
                 level_text = f"Level: {entry['level']}"
@@ -1977,9 +2296,18 @@ class Game:
                 self.screen.blit(level_surface, (680, y_offset + 5))
                 
                 y_offset += 50
+
+            if len(scores) > self.max_visible_scores:
+                up = self.assets.fonts['small'].render("▲", True, color_config.UI_TEXT)
+                down = self.assets.fonts['small'].render("▼", True, color_config.UI_TEXT)
+                self.screen.blit(up, up.get_rect(center=(game_config.SCREEN_WIDTH - 44, 180)))
+                self.screen.blit(
+                    down,
+                    down.get_rect(center=(game_config.SCREEN_WIDTH - 44, game_config.SCREEN_HEIGHT - 120)),
+                )
         
         back_text = self.assets.fonts['medium'].render(
-            "Press ESC to Return", True, color_config.UI_TEXT)
+            "Press ESC/ENTER to Return • Wheel/↑↓ to Scroll", True, color_config.UI_TEXT)
         back_rect = back_text.get_rect(
             center=(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 50))
         self.screen.blit(back_text, back_rect)
@@ -2016,7 +2344,7 @@ class Game:
             self.handle_events()
             self.update()
             self.draw()
-            self.clock.tick(game_config.FPS)
+            self.clock.tick(self.target_fps)
         
         pygame.quit()
 
@@ -2220,6 +2548,9 @@ class Game:
         elif action == "profile":
             logger.info("Profile selection (via menu)")
             self.state = GameState.PROFILE_SELECT
+        elif action == "options":
+            logger.info("Options menu opened (via menu)")
+            self.state = GameState.OPTIONS_MENU
         elif action == "quit":
             logger.info("Game quit (via menu)")
             self.running = False
