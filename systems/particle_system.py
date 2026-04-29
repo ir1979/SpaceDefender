@@ -14,8 +14,8 @@ class Particle(pygame.sprite.Sprite):
         super().__init__()
         self.color = color
         self.size = random.randint(2, 6)
-        self.image = pygame.Surface((self.size, self.size))
-        self.image.fill(color)
+        self.image = pygame.Surface((self.size, self.size), pygame.SRCALPHA)
+        pygame.draw.circle(self.image, color, (self.size // 2, self.size // 2), self.size // 2)
         self.rect = self.image.get_rect(center=(x, y))
         self.velocity = velocity
         self.lifetime = lifetime

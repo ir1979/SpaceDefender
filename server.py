@@ -278,11 +278,7 @@ def game_loop():
                         game.state = GameState.GAME_OVER
                         vprint(f"[SERVER] A player disconnected. Game ending...", level=1)
 
-                    # CHECK TIMER
-                    if game.level and not game.level.update_timer():
-                        logger.info("Server-side timer expired. Setting state to GAME_OVER.")
-                        game.state = GameState.GAME_OVER
-
+                    # No stage time limit in server mode.
                     # CHECK IF ANY PLAYER HAS DIED
                     for player in game.players:
                         if player.health <= 0 and game.state == GameState.PLAYING:
@@ -303,7 +299,7 @@ def game_loop():
 
                     # Spawn enemies
                     if game.level.should_spawn_enemy() and game.state == GameState.PLAYING:
-                        enemy_type = EnemyFactory.get_random_type(game.current_level)
+                        enemy_type = EnemyFactory.get_random_type(game.current_level, game.level.wave_number)
                         enemy = EnemyFactory.create(
                             enemy_type,
                             random.randint(50, game_config.SCREEN_WIDTH - 50),

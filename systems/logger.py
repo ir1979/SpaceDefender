@@ -4,6 +4,8 @@ Centralized logging for the game
 """
 import logging
 import os
+import sys
+import io
 from config.settings import LOG_LEVEL, LOG_FILE
 
 def setup_logging():
@@ -36,6 +38,18 @@ def setup_logging():
     console_handler = logging.StreamHandler()
     console_handler.setLevel(LOG_LEVEL)
     console_handler.setFormatter(formatter)
+    # Wrap the console stream in UTF-8 with replacement errors so Unicode
+    # symbols in log messages do not crash on narrow Windows console encodings.
+    if hasattr(console_handler.stream, "buffer"):
+        try:
+            console_handler.stream = io.TextIOWrapper(
+                console_handler.stream.buffer,
+                encoding="utf-8",
+                errors="replace",
+                line_buffering=True,
+            )
+        except Exception:
+            pass
     root_logger.addHandler(console_handler)
     
     root_logger.info("=" * 80)

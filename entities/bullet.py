@@ -19,6 +19,8 @@ class Bullet(BaseEntity):
         self.size = tuple(config.get('size', [6, 15]))
         self.color = tuple(config.get('color', color_config.YELLOW))
         self.speed = config.get('speed', 10.0)
+        self.owner = config.get('owner', 'player')
+        self.piercing = config.get('piercing', False)
         
         self.damage = damage
         self.angle = angle
@@ -57,7 +59,9 @@ class Bullet(BaseEntity):
             'weapon_type': self.weapon_type,
             'damage': self.damage,
             'angle': self.angle,
-            'speed': self.speed
+            'speed': self.speed,
+            'piercing': self.piercing,
+            'owner': self.owner,
         })
         return data
 
@@ -82,9 +86,9 @@ class BulletFactory:
         cls._weapon_configs = {
             'default': {
                 'type': 'default',
-                'shape': 'rectangle',
-                'size': [6, 15],
-                'color': [255, 255, 50],
+                'shape': 'bullet_laser',
+                'size': [4, 20],
+                'color': [0, 120, 255],
                 'speed': 10.0
             },
             'laser': {
@@ -112,7 +116,7 @@ class BulletFactory:
     
     @classmethod
     def create(cls, weapon_type: str, x: int, y: int, 
-               speed: float, damage: int, angle: float = 0) -> Optional[Bullet]:
+               speed: float, damage: int, angle: float = 0, extra_config: dict = None) -> Optional[Bullet]:
         """Create a bullet"""
         if not cls._weapon_configs:
             cls._create_default_configs()
@@ -120,7 +124,16 @@ class BulletFactory:
         config = cls._weapon_configs.get(weapon_type, cls._weapon_configs['default'])
         config_copy = config.copy()
         config_copy['speed'] = speed
-        
+        if extra_config:
+            config_copy.update(extra_config)
+
+        owner = config_copy.get('owner', 'player')
+        if owner == 'enemy':
+            config_copy['color'] = [255, 50, 50]
+        elif owner == 'player' and config_copy.get('type', 'default') == 'default':
+            config_copy['color'] = [30, 100, 255]
+        config_copy['owner'] = owner
+
         return Bullet(x, y, config_copy, damage, angle)
     
     @classmethod

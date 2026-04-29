@@ -22,7 +22,7 @@ class GameConfig:
     AUTHOR: str = "Ali Mortazavi"
     
     # Gameplay
-    LEVEL_TIME_LIMIT: int = 120
+    LEVEL_TIME_LIMIT: int = 90
     STARTING_COINS: int = 0
     LEVEL_COIN_BONUS: int = 100
     
@@ -30,6 +30,7 @@ class GameConfig:
     SAVE_FILE: str = "data/profiles.json"
     PLUGIN_DIR: str = "plugins"
     DATA_DIR: str = "data"
+    BACKGROUND_DIR: str = "assets/backgrounds"
 
 @dataclass
 class ColorConfig:
@@ -53,9 +54,9 @@ class ColorConfig:
 class PlayerConfig:
     """Player configuration"""
     SPEED: int = 6
-    HEALTH: int = 100
-    DAMAGE: int = 25
-    FIRE_RATE: int = 10
+    HEALTH: int = 65
+    DAMAGE: int = 20
+    FIRE_RATE: int = 14
     ACCELERATION: float = 0.45
     MAX_SPEED: float = 8.0
     DRAG: float = 0.90

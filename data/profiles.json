@@ -1,33 +1,43 @@
 {
   "profiles": {
-    "Reza": {
-      "name": "Reza",
+    "reza": {
+      "name": "reza",
       "password": "reza123",
-      "total_score": 1480816,
-      "total_coins": 11110991855569571048483,
+      "total_score": 3836346,
+      "total_coins": 11110991855568998445299,
       "highest_level": 14,
-      "games_played": 43,
-      "total_time_played": 2865.4981297969816,
-      "last_played": 1775754281.4241204,
+      "games_played": 51,
+      "total_time_played": 3650.077645730972,
+      "last_played": 1777481495.1037047,
       "score": 0,
-      "coins": 11110991855569571045393,
+      "coins": 11110991855568998445299,
       "current_score": 0,
-      "current_coins": 11110991855569571045393,
+      "current_coins": 11110991855568998445299,
       "current_level": 1,
       "weapon_inventory": {
-        "atomic_bomb": 504,
-        "shockwave": 550,
-        "spread_burst": 50,
-        "chain_lightning": 51,
-        "enemy_freeze": 129
+        "atomic_bomb": 22,
+        "shockwave": 20,
+        "spread_burst": 29,
+        "chain_lightning": 18,
+        "enemy_freeze": 11,
+        "meteor_strike": 24,
+        "time_warp": 9
       },
+      "unlocked_skins": [
+        "astral",
+        "screenshot_2026_04_18_162500"
+      ],
+      "selected_skin": "screenshot_2026_04_18_162500",
+      "daily_challenge_date": "2026-04-29",
+      "daily_challenge_completed": false,
       "upgrade_levels": {
-        "max_health": 299,
-        "damage": 390,
-        "speed": 930,
-        "fire_rate": 299,
-        "extra_life": 0,
-        "piercing": 1
+        "max_health": 37,
+        "damage": 22,
+        "speed": 22,
+        "fire_rate": 32,
+        "extra_life": 3,
+        "piercing": 1,
+        "drone_level": 5
       }
     },
     "Said": {
@@ -184,6 +194,484 @@
       "current_coins": 0,
       "current_level": 1,
       "weapon_inventory": {}
+    },
+    "1": {
+      "name": "1",
+      "password": "1",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776334299.3839877,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "Reza": {
+      "name": "Reza",
+      "password": "reza123",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1777479005.9005334,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0,
+        "drone_level": 0
+      }
+    },
+    "44": {
+      "name": "44",
+      "password": "44",
+      "total_score": 4840,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 93.53979706764221,
+      "last_played": 1776409077.4181097,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "8590": {
+      "name": "8590",
+      "password": "5890",
+      "total_score": 4455,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 92.93327331542969,
+      "last_played": 1776417033.164842,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "\u0647": {
+      "name": "\u0647",
+      "password": "i",
+      "total_score": 4400,
+      "total_coins": 434,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 95.13582754135132,
+      "last_played": 1776417385.3459938,
+      "score": 0,
+      "coins": 434,
+      "current_score": 0,
+      "current_coins": 434,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "\u062e": {
+      "name": "\u062e",
+      "password": "\u062e",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776419558.7738383,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "\u0639": {
+      "name": "\u0639",
+      "password": "\u0639",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776419655.8190203,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "\u062d": {
+      "name": "\u062d",
+      "password": "\u062d",
+      "total_score": 110,
+      "total_coins": 11,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 18.21481943130493,
+      "last_played": 1776420896.3039854,
+      "score": 0,
+      "coins": 11,
+      "current_score": 0,
+      "current_coins": 11,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "p": {
+      "name": "p",
+      "password": "p",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776431333.6507587,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "ui": {
+      "name": "ui",
+      "password": "ui",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776432044.0109866,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "\u0646\u0646": {
+      "name": "\u0646\u0646",
+      "password": "\u0645\u0645",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776443025.0215528,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "\u0645\u06af\u062d": {
+      "name": "\u0645\u06af\u062d",
+      "password": "\u0645\u06a9\u0646\u06a9",
+      "total_score": 4565,
+      "total_coins": 39,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 94.8639669418335,
+      "last_played": 1776443294.017004,
+      "score": 0,
+      "coins": 39,
+      "current_score": 0,
+      "current_coins": 39,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 1,
+        "extra_life": 1,
+        "piercing": 0
+      }
+    },
+    "\u06af\u06af\u06a9": {
+      "name": "\u06af\u06af\u06a9",
+      "password": "\u0645\u0646\u06a9\u0645",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776443700.031021,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "shop_credit_test": {
+      "name": "shop_credit_test",
+      "password": "",
+      "total_score": 0,
+      "total_coins": 50,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1776619380.396177,
+      "score": 0,
+      "coins": 50,
+      "current_score": 0,
+      "current_coins": 50,
+      "current_level": 1,
+      "weapon_inventory": {
+        "atomic_bomb": 1
+      },
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "rrr": {
+      "name": "rrr",
+      "password": "rrr",
+      "total_score": 990,
+      "total_coins": 7,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 39.012680768966675,
+      "last_played": 1776620396.759082,
+      "score": 0,
+      "coins": 7,
+      "current_score": 0,
+      "current_coins": 7,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "2026-04-19",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 1,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "uuh": {
+      "name": "uuh",
+      "password": "mlkfj",
+      "total_score": 19030,
+      "total_coins": 655,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 87.23245644569397,
+      "last_played": 1776940725.4460826,
+      "score": 0,
+      "coins": 655,
+      "current_score": 0,
+      "current_coins": 655,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "2026-04-23",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "ihijhik": {
+      "name": "ihijhik",
+      "password": "jbhgju",
+      "total_score": 1738,
+      "total_coins": 110,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 35.971327781677246,
+      "last_played": 1776942055.8906252,
+      "score": 0,
+      "coins": 110,
+      "current_score": 0,
+      "current_coins": 110,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "2026-04-23",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0
+      }
+    },
+    "jrkklr": {
+      "name": "jrkklr",
+      "password": "jkskgjr",
+      "total_score": 10505,
+      "total_coins": 471,
+      "highest_level": 1,
+      "games_played": 1,
+      "total_time_played": 90.67151141166687,
+      "last_played": 1777475321.0707805,
+      "score": 0,
+      "coins": 471,
+      "current_score": 0,
+      "current_coins": 471,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "2026-04-29",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0,
+        "drone_level": 0
+      }
     }
   },
   "high_scores": [
@@ -192,6 +680,12 @@
       "score": 305178,
       "level": 14,
       "timestamp": 1775753428.480027
+    },
+    {
+      "name": "reza",
+      "score": 218064,
+      "level": 14,
+      "timestamp": 1777051692.324488
     },
     {
       "name": "Reza",
@@ -240,12 +734,6 @@
       "score": 21360,
       "level": 14,
       "timestamp": 1771874428.881623
-    },
-    {
-      "name": "Reza",
-      "score": 20140,
-      "level": 14,
-      "timestamp": 1775677095.5022695
     }
   ]
 }

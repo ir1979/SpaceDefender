@@ -1,59 +1,126 @@
-2026-04-09 20:31:18 - space_defender - INFO - [logger.py:41] - ================================================================================
-2026-04-09 20:31:18 - space_defender - INFO - [logger.py:42] - GAME LOGGING INITIALIZED
-2026-04-09 20:31:18 - space_defender - INFO - [logger.py:43] - ================================================================================
-2026-04-09 20:31:18 - space_defender - INFO - [main.py:38] - Starting Space Defender in game mode...
-2026-04-09 20:31:36 - space_defender.game - INFO - [game.py:2356] - Game started (via menu)
-2026-04-09 20:31:36 - space_defender.save_system - INFO - [save_system.py:159] - Profile 'Reza': Starting new game. Session coins set to 11110991855569571045393, session score to 0.
-2026-04-09 20:31:40 - space_defender.game - DEBUG - [game.py:1265] - Enemy destroyed. Player gained 36 coins, 360 score.
-2026-04-09 20:31:40 - space_defender.game - INFO - [game.py:1283] - Player collided with enemy. Took 30 damage. Health is now 6050/6080.
-2026-04-09 20:31:41 - space_defender.game - DEBUG - [game.py:1265] - Enemy destroyed. Player gained 48 coins, 480 score.
-2026-04-09 20:31:41 - space_defender.game - DEBUG - [game.py:1265] - Enemy destroyed. Player gained 60 coins, 528 score.
-2026-04-09 20:31:42 - space_defender.game - DEBUG - [game.py:1265] - Enemy destroyed. Player gained 36 coins, 360 score.
-2026-04-09 20:31:50 - space_defender.game - INFO - [game.py:419] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
-2026-04-09 20:31:57 - space_defender.game - INFO - [game.py:419] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
-2026-04-09 20:32:06 - space_defender.game - INFO - [game.py:419] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
-2026-04-09 20:32:17 - space_defender.game - INFO - [game.py:419] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
-2026-04-09 20:32:22 - space_defender.game - INFO - [game.py:419] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
-2026-04-09 20:32:25 - space_defender.game - INFO - [game.py:404] - Weapon changed to: shockwave
-2026-04-09 20:32:26 - space_defender.game - INFO - [game.py:404] - Weapon changed to: spread_burst
-2026-04-09 20:32:27 - space_defender.game - INFO - [game.py:404] - Weapon changed to: chain_lightning
-2026-04-09 20:32:27 - space_defender.game - INFO - [game.py:404] - Weapon changed to: enemy_freeze
-2026-04-09 20:32:29 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:32:34 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:32:37 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:32:39 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:32:41 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:32:45 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:32:51 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:32:56 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:00 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:06 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:11 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:15 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:20 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:25 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:29 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:35 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:41 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:46 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:52 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:33:57 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:34:01 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:34:05 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:34:09 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:34:14 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:34:20 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:34:28 - space_defender.game - INFO - [game.py:451] - ❄️ ENEMY FREEZE ACTIVATED! Freezing all enemies!
-2026-04-09 20:34:30 - space_defender.game - INFO - [game.py:404] - Weapon changed to: atomic_bomb
-2026-04-09 20:34:31 - space_defender.game - INFO - [game.py:404] - Weapon changed to: shockwave
-2026-04-09 20:34:32 - space_defender.game - INFO - [game.py:404] - Weapon changed to: spread_burst
-2026-04-09 20:34:32 - space_defender.game - INFO - [game.py:404] - Weapon changed to: chain_lightning
-2026-04-09 20:34:33 - space_defender.game - INFO - [game.py:404] - Weapon changed to: enemy_freeze
-2026-04-09 20:34:34 - space_defender.game - INFO - [game.py:404] - Weapon changed to: atomic_bomb
-2026-04-09 20:34:35 - space_defender.game - INFO - [game.py:419] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
-2026-04-09 20:34:41 - space_defender.game - DEBUG - [game.py:1265] - Enemy destroyed. Player gained 620 coins, 4650 score.
-2026-04-09 20:34:41 - space_defender.save_system - INFO - [save_system.py:165] - Profile 'Reza': Ending game. Adding score: 354838, coins: 3090.
-2026-04-09 20:34:41 - space_defender.save_system - INFO - [save_system.py:168] -   - Before: total_score=1125978, total_coins=11110991855569571045393
-2026-04-09 20:34:41 - space_defender.save_system - INFO - [save_system.py:176] -   - After: total_score=1480816, total_coins=11110991855569571048483
-2026-04-09 20:34:41 - space_defender.save_system - INFO - [save_system.py:250] - Profile 'Reza' saved successfully.
-2026-04-09 20:34:56 - space_defender.game - INFO - [game.py:2360] - Shop opened (via menu)
+2026-04-29 20:19:22 - space_defender - INFO - [logger.py:55] - ================================================================================
+2026-04-29 20:19:22 - space_defender - INFO - [logger.py:56] - GAME LOGGING INITIALIZED
+2026-04-29 20:19:22 - space_defender - INFO - [logger.py:57] - ================================================================================
+2026-04-29 20:19:22 - space_defender - INFO - [main.py:36] - Starting Space Defender in game mode...
+2026-04-29 20:19:43 - space_defender.game - INFO - [game.py:2718] - Game started (via menu)
+2026-04-29 20:19:43 - space_defender.save_system - INFO - [save_system.py:176] - Profile 'reza': Starting new game. Session coins set to 11110991855568998438451, session score to 0.
+2026-04-29 20:19:47 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 672 score. Combo x1
+2026-04-29 20:19:48 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 624 score. Combo x1
+2026-04-29 20:19:50 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 48 coins, 960 score. Combo x2
+2026-04-29 20:19:50 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 84 coins, 1632 score. Combo x2
+2026-04-29 20:19:52 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1344 score. Combo x2
+2026-04-29 20:19:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 2016 score. Combo x3
+2026-04-29 20:19:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 2016 score. Combo x3
+2026-04-29 20:19:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 2160 score. Combo x3
+2026-04-29 20:19:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2112 score. Combo x4
+2026-04-29 20:19:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2112 score. Combo x4
+2026-04-29 20:19:54 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2112 score. Combo x4
+2026-04-29 20:19:54 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 67 coins, 3120 score. Combo x5
+2026-04-29 20:19:55 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3600 score. Combo x5
+2026-04-29 20:19:56 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 192 coins, 8400 score. Combo x5
+2026-04-29 20:19:57 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:19:57 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:19:58 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3120 score. Combo x5
+2026-04-29 20:19:58 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 36 coins, 1800 score. Combo x5
+2026-04-29 20:19:59 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 48 coins, 2400 score. Combo x5
+2026-04-29 20:20:00 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 48 coins, 2400 score. Combo x5
+2026-04-29 20:20:01 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:20:01 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 67 coins, 3240 score. Combo x5
+2026-04-29 20:20:02 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 48 coins, 2400 score. Combo x5
+2026-04-29 20:20:02 - space_defender.game - INFO - [game.py:472] - Weapon changed to: shockwave
+2026-04-29 20:20:03 - space_defender.game - INFO - [game.py:472] - Weapon changed to: spread_burst
+2026-04-29 20:20:04 - space_defender.game - INFO - [game.py:472] - Weapon changed to: chain_lightning
+2026-04-29 20:20:04 - space_defender.game - INFO - [game.py:472] - Weapon changed to: enemy_freeze
+2026-04-29 20:20:05 - space_defender.game - INFO - [game.py:1472] - Player collided with enemy. Took 30 damage. Health is now 775/805.
+2026-04-29 20:20:05 - space_defender.game - INFO - [game.py:472] - Weapon changed to: meteor_strike
+2026-04-29 20:20:05 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 672 score. Combo x1
+2026-04-29 20:20:06 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 28 coins, 288 score. Combo x1
+2026-04-29 20:20:06 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1344 score. Combo x2
+2026-04-29 20:20:09 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1440 score. Combo x2
+2026-04-29 20:20:09 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1440 score. Combo x2
+2026-04-29 20:20:11 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1872 score. Combo x3
+2026-04-29 20:20:11 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1872 score. Combo x3
+2026-04-29 20:20:12 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 36 coins, 1080 score. Combo x3
+2026-04-29 20:20:12 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 2880 score. Combo x4
+2026-04-29 20:20:13 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 76 coins, 3072 score. Combo x4
+2026-04-29 20:20:14 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 192 coins, 6720 score. Combo x4
+2026-04-29 20:20:14 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 84 coins, 4080 score. Combo x5
+2026-04-29 20:20:15 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:15 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 67 coins, 3120 score. Combo x5
+2026-04-29 20:20:15 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:16 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:20:17 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:20:18 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 48 coins, 2400 score. Combo x5
+2026-04-29 20:20:18 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 84 coins, 4080 score. Combo x5
+2026-04-29 20:20:18 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 28 coins, 1440 score. Combo x5
+2026-04-29 20:20:20 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3600 score. Combo x5
+2026-04-29 20:20:20 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 48 coins, 2400 score. Combo x5
+2026-04-29 20:20:20 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:20:21 - space_defender.game - INFO - [game.py:625] - ☄️ METEOR STRIKE ACTIVATED!
+2026-04-29 20:20:22 - space_defender.game - INFO - [game.py:625] - ☄️ METEOR STRIKE ACTIVATED!
+2026-04-29 20:20:24 - space_defender.game - INFO - [game.py:472] - Weapon changed to: time_warp
+2026-04-29 20:20:26 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 528 score. Combo x1
+2026-04-29 20:20:27 - space_defender.game - INFO - [game.py:1472] - Player collided with enemy. Took 30 damage. Health is now 745/805.
+2026-04-29 20:20:28 - space_defender.game - INFO - [game.py:590] - 💫 TIME WARP ACTIVATED! Slowing all enemies!
+2026-04-29 20:20:28 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 192 coins, 1680 score. Combo x1
+2026-04-29 20:20:29 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 720 score. Combo x1
+2026-04-29 20:20:29 - space_defender.game - INFO - [game.py:590] - 💫 TIME WARP ACTIVATED! Slowing all enemies!
+2026-04-29 20:20:29 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 1056 score. Combo x2
+2026-04-29 20:20:32 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 67 coins, 1248 score. Combo x2
+2026-04-29 20:20:32 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1440 score. Combo x2
+2026-04-29 20:20:34 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 192 coins, 5040 score. Combo x3
+2026-04-29 20:20:34 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 2016 score. Combo x3
+2026-04-29 20:20:34 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 2016 score. Combo x3
+2026-04-29 20:20:34 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2112 score. Combo x4
+2026-04-29 20:20:35 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 2880 score. Combo x4
+2026-04-29 20:20:35 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 192 coins, 6720 score. Combo x4
+2026-04-29 20:20:36 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:20:36 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:37 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 76 coins, 3840 score. Combo x5
+2026-04-29 20:20:37 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3600 score. Combo x5
+2026-04-29 20:20:38 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 192 coins, 8400 score. Combo x5
+2026-04-29 20:20:39 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:20:40 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 84 coins, 4080 score. Combo x5
+2026-04-29 20:20:40 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:40 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:41 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 36 coins, 1800 score. Combo x5
+2026-04-29 20:20:41 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 48 coins, 2400 score. Combo x5
+2026-04-29 20:20:42 - space_defender.game - INFO - [game.py:590] - 💫 TIME WARP ACTIVATED! Slowing all enemies!
+2026-04-29 20:20:45 - space_defender.game - INFO - [game.py:472] - Weapon changed to: atomic_bomb
+2026-04-29 20:20:45 - space_defender.game - INFO - [game.py:1472] - Player collided with enemy. Took 30 damage. Health is now 715/805.
+2026-04-29 20:20:46 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 67 coins, 648 score. Combo x1
+2026-04-29 20:20:47 - space_defender.game - INFO - [game.py:487] - ⚡ ATOMIC BOMB ACTIVATED! Destroying all enemies!
+2026-04-29 20:20:52 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3600 score. Combo x5
+2026-04-29 20:20:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 24 coins, 1200 score. Combo x5
+2026-04-29 20:20:53 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 36 coins, 1800 score. Combo x5
+2026-04-29 20:20:55 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3120 score. Combo x5
+2026-04-29 20:20:55 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:55 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:20:56 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3600 score. Combo x5
+2026-04-29 20:21:01 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3600 score. Combo x5
+2026-04-29 20:21:02 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:21:04 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 60 coins, 2640 score. Combo x5
+2026-04-29 20:21:04 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3120 score. Combo x5
+2026-04-29 20:21:05 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 3360 score. Combo x5
+2026-04-29 20:21:05 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 36 coins, 1800 score. Combo x5
+2026-04-29 20:21:05 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 67 coins, 3240 score. Combo x5
+2026-04-29 20:21:09 - space_defender.game - INFO - [game.py:1472] - Player collided with enemy. Took 30 damage. Health is now 685/805.
+2026-04-29 20:21:10 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 24 coins, 240 score. Combo x1
+2026-04-29 20:21:11 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 67 coins, 624 score. Combo x1
+2026-04-29 20:21:11 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 192 coins, 3360 score. Combo x2
+2026-04-29 20:21:12 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 72 coins, 1248 score. Combo x2
+2026-04-29 20:21:13 - space_defender.game - INFO - [game.py:472] - Weapon changed to: shockwave
+2026-04-29 20:21:13 - space_defender.save_system - INFO - [save_system.py:182] - Profile 'reza': Ending game. Adding score: 465556, coins: 6848.
+2026-04-29 20:21:13 - space_defender.save_system - INFO - [save_system.py:185] -   - Before: total_score=3370790, total_coins=11110991855568998438451
+2026-04-29 20:21:13 - space_defender.save_system - INFO - [save_system.py:194] -   - After: total_score=3836346, total_coins=11110991855568998445299
+2026-04-29 20:21:13 - space_defender.save_system - INFO - [save_system.py:277] - Profile 'reza' saved successfully.
+2026-04-29 20:21:13 - space_defender.save_system - INFO - [save_system.py:176] - Profile 'reza': Starting new game. Session coins set to 11110991855568998445299, session score to 0.
+2026-04-29 20:21:19 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 75 coins, 750 score. Combo x1
+2026-04-29 20:21:19 - space_defender.game - DEBUG - [game.py:1439] - Enemy destroyed. Player gained 75 coins, 750 score. Combo x1
+2026-04-29 20:21:26 - space_defender.game - INFO - [game.py:2725] - Shop opened (via menu)
+2026-04-29 20:21:35 - space_defender.shop - INFO - [menus.py:297] - Shop closed via ESC key.
+2026-04-29 20:21:35 - space_defender.game - INFO - [game.py:670] - Shop closed. Saving any profile changes made in the shop.
+2026-04-29 20:21:35 - space_defender.save_system - INFO - [save_system.py:206] - Profile 'reza': Syncing after shop. New total_coins: 11110991855568998445299
+2026-04-29 20:21:35 - space_defender.save_system - INFO - [save_system.py:277] - Profile 'reza' saved successfully.

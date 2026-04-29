@@ -53,8 +53,8 @@ class ShapeRenderer:
         if ShapeRenderer.asset_manager:
             sprite = ShapeRenderer.asset_manager.get_sprite(shape_type)
             if sprite:
-                # Scale sprite to desired size and return
-                scaled_sprite = pygame.transform.scale(sprite, size)
+                # Scale sprite to desired size and return with preserved alpha
+                scaled_sprite = pygame.transform.smoothscale(sprite.convert_alpha(), size)
                 return scaled_sprite
         
         # Fall back to procedural shape rendering

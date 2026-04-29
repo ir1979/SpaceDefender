@@ -37,11 +37,13 @@ from entities.player import Player
 from ui.menus import Shop
 from systems.asset_manager import AssetManager
 from core.game import Game
+from config.settings import GameState
 
 logger = get_logger('space_defender.profile_shop_test')
 
 TEST_PROFILE_NAME = "test_shopper_profile_123"
 TEST_EARNER_PROFILE_NAME = "test_earner_profile_456"
+TEST_LEVEL_COMPLETE_PROFILE_NAME = "test_level_complete_profile_999"
 TEST_QUITTER_PROFILE_NAME = "test_quitter_profile_789"
 
 def test_profile_selection_and_shop_purchase():
@@ -222,6 +224,61 @@ def test_quit_level_logic():
     # --- 6. Teardown ---
     SaveSystem.delete_profile(TEST_QUITTER_PROFILE_NAME)
     logger.info(f"Cleaned up test profile: {TEST_QUITTER_PROFILE_NAME}")
+    logger.info("="*80)
+    logger.info("✅ Integration test PASSED!")
+    logger.info("="*80)
+
+
+def test_level_complete_saves_earned_coins_to_profile():
+    """
+    Tests that completing a level awards earned coins to the profile
+    and persists the updated coin total to disk.
+    """
+    logger.info("="*80)
+    logger.info("Starting Level Complete coin persistence test...")
+    logger.info("="*80)
+
+    if SaveSystem.profile_exists(TEST_LEVEL_COMPLETE_PROFILE_NAME):
+        SaveSystem.delete_profile(TEST_LEVEL_COMPLETE_PROFILE_NAME)
+        logger.info(f"Cleaned up existing test profile: {TEST_LEVEL_COMPLETE_PROFILE_NAME}")
+
+    profile = PlayerProfile(TEST_LEVEL_COMPLETE_PROFILE_NAME)
+    profile.total_coins = 150
+    SaveSystem.save_profile(profile)
+    logger.info(f"Created test profile '{TEST_LEVEL_COMPLETE_PROFILE_NAME}' with {profile.total_coins} total_coins.")
+
+    game = Game(None)
+    loaded_profile = SaveSystem.load_profile(TEST_LEVEL_COMPLETE_PROFILE_NAME)
+    assert loaded_profile is not None, "Failed to load the level complete test profile."
+    game._apply_profile_start_level(loaded_profile)
+    game.init_game()
+
+    starting_coins = game.player.coins
+    assert starting_coins == 150, f"Expected player to start with 150 coins, got {starting_coins}"
+
+    # Simulate a level where the player earns coins and all enemies are cleared.
+    coins_earned = 35
+    game.player.coins += coins_earned
+    game.level.enemies_spawned = game.level.enemies_to_spawn
+    game.enemies.empty()
+    game.state = GameState.PLAYING
+
+    game.update()
+
+    assert game.state == GameState.LEVEL_COMPLETE, "Game should transition to LEVEL_COMPLETE after clearing the level."
+    assert game.current_profile.current_coins == game.player.coins, (
+        f"Profile session coins should match player coins after level completion. Expected {game.player.coins}, got {game.current_profile.current_coins}"
+    )
+
+    reloaded_profile = SaveSystem.load_profile(TEST_LEVEL_COMPLETE_PROFILE_NAME)
+    assert reloaded_profile is not None, "Failed to reload the profile after level completion."
+    assert reloaded_profile.total_coins == 150 + coins_earned, (
+        f"Level completion coins were not saved correctly. Expected {150 + coins_earned}, got {reloaded_profile.total_coins}"
+    )
+    logger.info(f"✓ Level completion earned coins were persisted correctly: {reloaded_profile.total_coins}")
+
+    SaveSystem.delete_profile(TEST_LEVEL_COMPLETE_PROFILE_NAME)
+    logger.info(f"Cleaned up test profile: {TEST_LEVEL_COMPLETE_PROFILE_NAME}")
     logger.info("="*80)
     logger.info("✅ Integration test PASSED!")
     logger.info("="*80)

@@ -20,17 +20,39 @@ if TYPE_CHECKING:
 class Shop:
     """In-game shop"""
 
-    def __init__(self, assets: "AssetManager"):
+    def __init__(self, assets: "AssetManager", profile: "PlayerProfile" = None):
         self.assets = assets
+        self.profile = profile
         self.items = self.create_shop_items()
         self.selected_index = 0
         self.item_rects = []  # Store rectangles for mouse click detection
         self.scroll_offset = 0  # For scrolling in long item lists
         self.max_visible_items = 5  # Show 5 items at a time
+        self._sync_profile_state()
+
+    def set_profile(self, profile: "PlayerProfile"):
+        """Attach a profile to the shop and restore saved upgrade state."""
+        self.profile = profile
+        self._sync_profile_state()
+
+    def _sync_profile_state(self):
+        """Restore shop levels and costs from the player's saved profile upgrades."""
+        if not self.profile:
+            return
+        profile_drone = self.profile.upgrade_levels.get("drone_level", 0)
+        for item in self.items:
+            effect = item.get("effect")
+            if effect.startswith("drone_"):
+                drone_level = int(effect.split("_")[1])
+                item["level"] = 1 if profile_drone >= drone_level else 0
+                item["cost"] = int(item["base_cost"] * (1.5 ** item["level"]))
+            elif effect in getattr(self.profile, "upgrade_levels", {}):
+                item["level"] = self.profile.upgrade_levels.get(effect, 0)
+                item["cost"] = int(item["base_cost"] * (1.5 ** item["level"]))
 
     def create_shop_items(self):
-        return [
-            # Core Upgrades
+        items = [
+            # Upgrades
             {
                 "name": "Max Health +20",
                 "cost": 75,
@@ -39,6 +61,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 75,
+                "category": "Upgrades",
             },
             {
                 "name": "Damage +10",
@@ -48,6 +71,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 100,
+                "category": "Upgrades",
             },
             {
                 "name": "Speed +1",
@@ -57,6 +81,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 80,
+                "category": "Upgrades",
             },
             {
                 "name": "Fire Rate +2",
@@ -66,6 +91,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 90,
+                "category": "Upgrades",
             },
             {
                 "name": "Heal 50 HP",
@@ -75,6 +101,27 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 60,
+                "category": "Upgrades",
+            },
+            {
+                "name": "🛡️ Shield",
+                "cost": 150,
+                "description": "Temporary protection from damage",
+                "effect": "shield",
+                "level": 0,
+                "max_level": 10,
+                "base_cost": 150,
+                "category": "Upgrades",
+            },
+            {
+                "name": "❤️ Extra Life",
+                "cost": 200,
+                "description": "Get an extra life/respawn",
+                "effect": "extra_life",
+                "level": 0,
+                "max_level": 3,
+                "base_cost": 200,
+                "category": "Upgrades",
             },
             # Weapon Power-ups
             {
@@ -85,6 +132,7 @@ class Shop:
                 "level": 0,
                 "max_level": 3,
                 "base_cost": 120,
+                "category": "Weapons",
             },
             {
                 "name": "🔫 Rapid Fire Upgrade",
@@ -94,6 +142,7 @@ class Shop:
                 "level": 0,
                 "max_level": 5,
                 "base_cost": 110,
+                "category": "Weapons",
             },
             {
                 "name": "🎯 Piercing Shots",
@@ -103,27 +152,8 @@ class Shop:
                 "level": 0,
                 "max_level": 1,
                 "base_cost": 130,
+                "category": "Weapons",
             },
-            # Defense Power-ups
-            {
-                "name": "🛡️ Shield",
-                "cost": 150,
-                "description": "Temporary protection from damage",
-                "effect": "shield",
-                "level": 0,
-                "max_level": 10,
-                "base_cost": 150,
-            },
-            {
-                "name": "❤️ Extra Life",
-                "cost": 200,
-                "description": "Get an extra life/respawn",
-                "effect": "extra_life",
-                "level": 0,
-                "max_level": 3,
-                "base_cost": 200,
-            },
-            # Special Abilities
             {
                 "name": "💣 ATOMIC BOMB",
                 "cost": 250,
@@ -132,6 +162,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 250,
+                "category": "Weapons",
             },
             {
                 "name": "🌪️ Enemy Freeze",
@@ -141,6 +172,7 @@ class Shop:
                 "level": 0,
                 "max_level": 3,
                 "base_cost": 140,
+                "category": "Weapons",
             },
             {
                 "name": "🌊 Shockwave",
@@ -150,6 +182,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 180,
+                "category": "Weapons",
             },
             {
                 "name": "⚡ Chain Lightning",
@@ -159,6 +192,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 200,
+                "category": "Weapons",
             },
             {
                 "name": "💫 Time Warp",
@@ -168,6 +202,7 @@ class Shop:
                 "level": 0,
                 "max_level": 3,
                 "base_cost": 160,
+                "category": "Weapons",
             },
             {
                 "name": "🎯 Spread Burst",
@@ -177,6 +212,7 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 220,
+                "category": "Weapons",
             },
             {
                 "name": "☄️ Meteor Strike",
@@ -186,8 +222,72 @@ class Shop:
                 "level": 0,
                 "max_level": 999,
                 "base_cost": 300,
+                "category": "Weapons",
+            },
+            # Drone Support
+            {
+                "name": "Drone Mk I",
+                "cost": 160,
+                "description": "Level 1 support drone follows and fires with you.",
+                "effect": "drone_1",
+                "level": 0,
+                "max_level": 1,
+                "base_cost": 160,
+                "category": "Drones",
+                "sprite_name": "engine1",
+            },
+            {
+                "name": "Drone Mk II",
+                "cost": 210,
+                "description": "Improved drone fire rate and damage.",
+                "effect": "drone_2",
+                "level": 0,
+                "max_level": 1,
+                "base_cost": 210,
+                "category": "Drones",
+                "sprite_name": "engine2",
+            },
+            {
+                "name": "Drone Mk III",
+                "cost": 260,
+                "description": "Level 3 drone with faster targeting.",
+                "effect": "drone_3",
+                "level": 0,
+                "max_level": 1,
+                "base_cost": 260,
+                "category": "Drones",
+                "sprite_name": "engine3",
+            },
+            {
+                "name": "Drone Mk IV",
+                "cost": 320,
+                "description": "Advanced drone support for tougher waves.",
+                "effect": "drone_4",
+                "level": 0,
+                "max_level": 1,
+                "base_cost": 320,
+                "category": "Drones",
+                "sprite_name": "engine4",
+            },
+            {
+                "name": "Drone Mk V",
+                "cost": 400,
+                "description": "Top-tier drone support with stronger firepower.",
+                "effect": "drone_5",
+                "level": 0,
+                "max_level": 1,
+                "base_cost": 400,
+                "category": "Drones",
+                "sprite_name": "engine5",
             },
         ]
+        category_order = {
+            "Drones": 0,
+            "Weapons": 1,
+            "Upgrades": 2,
+        }
+        items.sort(key=lambda item: category_order.get(item.get("category"), 3))
+        return items
 
     def handle_input(self, event: pygame.event.Event, player: "Player") -> bool:
         if event.type == pygame.KEYDOWN:
@@ -210,8 +310,14 @@ class Shop:
                 if rect.collidepoint(event.pos):
                     self.selected_index = item_index
                     break
+        elif event.type == pygame.MOUSEWHEEL:
+            max_scroll = max(0, len(self.items) - self.max_visible_items)
+            self.scroll_offset = min(
+                max_scroll,
+                max(0, self.scroll_offset - event.y),
+            )
         elif event.type == pygame.MOUSEBUTTONDOWN:
-            # Handle scroll wheel
+            # Handle legacy scroll events for older pygame versions
             if event.button == 4:  # Scroll up
                 self.scroll_offset = max(0, self.scroll_offset - 1)
             elif event.button == 5:  # Scroll down
@@ -248,6 +354,90 @@ class Shop:
         except (AttributeError, KeyError):
             pass  # Silently ignore missing sounds
 
+    def _get_item_effect_description(self, item: dict) -> str:
+        effect = item.get("effect", "")
+        descriptions = {
+            "max_health": "Increase ship health and survivability.",
+            "damage": "Increase bullet damage for faster kills.",
+            "speed": "Move faster to dodge bullets and reposition.",
+            "fire_rate": "Shoot more bullets per second.",
+            "heal": "Restore health instantly during battle.",
+            "triple_shot": "Fire three bullets at once.",
+            "rapid_fire": "Greatly improve your fire rate.",
+            "piercing": "Bullets pierce enemies and deal extra damage.",
+            "shield": "Gain temporary protection from damage.",
+            "extra_life": "Gain another chance after taking fatal damage.",
+            "atomic_bomb": "Destroy all on-screen enemies instantly.",
+            "enemy_freeze": "Slow enemies for a short time.",
+            "shockwave": "Damage all enemies with a radial blast.",
+            "chain_lightning": "Electrocute multiple nearby enemies.",
+            "time_warp": "Slow all enemies for several seconds.",
+            "spread_burst": "Fire a wide fan of bullets.",
+            "meteor_strike": "Call meteors to strike random enemies.",
+        }
+        return descriptions.get(effect, item.get("description", "No details available."))
+
+    def draw_item_info_panel(
+        self,
+        surface: pygame.Surface,
+        item: dict,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        player_coins: int,
+    ):
+        title_surface = self.assets.fonts["medium"].render("Selected Item", True, color_config.CYAN)
+        surface.blit(title_surface, (x, y))
+
+        sprite_name = item.get("sprite_name")
+        if sprite_name:
+            sprite = self.assets.get_sprite(sprite_name)
+            if sprite:
+                sprite_image = pygame.transform.smoothscale(sprite, (72, 72))
+                surface.blit(sprite_image, (x + width - 90, y))
+
+        y += title_surface.get_height() + 12
+        description = self._get_item_effect_description(item)
+        desc_surface = self.assets.fonts["small"].render(description, True, color_config.WHITE)
+        surface.blit(desc_surface, (x, y))
+
+        y += desc_surface.get_height() + 18
+        level_surface = self.assets.fonts["small"].render(
+            f"Level: {item['level']} / {item['max_level']}", True, color_config.UI_TEXT)
+        surface.blit(level_surface, (x, y))
+
+        y += level_surface.get_height() + 12
+        if item["level"] >= item["max_level"]:
+            cost_text = "MAX LEVEL"
+            cost_color = color_config.CYAN
+        else:
+            cost_text = f"Cost: {item['cost']} coins"
+            cost_color = color_config.GREEN if player_coins >= item["cost"] else color_config.RED
+
+        cost_surface = self.assets.fonts["small"].render(cost_text, True, cost_color)
+        surface.blit(cost_surface, (x, y))
+
+        y += cost_surface.get_height() + 12
+        effect_surface = self.assets.fonts["small"].render(
+            f"Effect: {item['description']}", True, color_config.UI_TEXT)
+        surface.blit(effect_surface, (x, y))
+
+        progress_label = self.assets.fonts["tiny"].render(
+            f"Upgrade Progress: {item['level']} / {item['max_level']}", True, color_config.UI_TEXT)
+        progress_rect = pygame.Rect(x, y + effect_surface.get_height() + 12, width - 32, 18)
+        pygame.draw.rect(surface, (*color_config.UI_BORDER, 120), progress_rect, border_radius=8)
+        if item['max_level'] > 0:
+            progress_fill = int((width - 36) * (item['level'] / item['max_level']))
+            pygame.draw.rect(surface, (*color_config.CYAN, 180), (x + 2, y + effect_surface.get_height() + 14, progress_fill, 14), border_radius=8)
+        surface.blit(progress_label, (x, y + effect_surface.get_height() + 10))
+
+        y += effect_surface.get_height() + progress_label.get_height() + 22
+        action_text = "Affordable" if player_coins >= item["cost"] else "Insufficient coins"
+        action_color = color_config.GREEN if player_coins >= item["cost"] else color_config.RED
+        action_surface = self.assets.fonts["small"].render(action_text, True, action_color)
+        surface.blit(action_surface, (x, y))
+
     def _get_shop_credit(self, player: "Player") -> int:
         profile = getattr(player, "current_profile", None) or getattr(player, "profile", None)
         player_coins = getattr(player, "coins", 0)
@@ -272,10 +462,6 @@ class Shop:
             and profile.coins >= item["cost"]
         )
         if (can_afford_directly or can_afford_from_profile) and item["level"] < item["max_level"]:
-            if not can_afford_directly and can_afford_from_profile:
-                profile.apply_purchase(item["cost"])
-                player.coins = int(profile.coins)
-
             # Special conditions for certain items
             if item["effect"] == "heal" and player.health >= player.max_health:
                 logger.warning(
@@ -300,7 +486,20 @@ class Shop:
                 return
 
             logger.info(f"✓ Purchase approved: {item['name']} for {item['cost']} coins")
-            if can_afford_directly:
+            if profile is not None and hasattr(profile, "apply_purchase"):
+                # Keep profile and profile credit in sync when a profile is active.
+                # Only refresh profile coins upward from the session balance, but do
+                # not overwrite profile credit when the profile has a larger balance.
+                if player.coins > int(profile.coins):
+                    profile.coins = player.coins
+                if not profile.apply_purchase(item["cost"]):
+                    logger.warning(
+                        f"✗ Purchase denied: {item['name']} - insufficient profile coins"
+                    )
+                    self._safe_play_sound("menu_select", 0.7)
+                    return
+                player.coins = int(profile.coins)
+            else:
                 player.coins -= item["cost"]
             self._safe_play_sound("shop_purchase", 0.7)
 
@@ -361,6 +560,21 @@ class Shop:
                     player.lives = 1
                 player.lives += 1
                 logger.info(f"  -> Extra life granted! Total lives: {player.lives}")
+
+            elif item["effect"].startswith("drone_"):
+                selected_level = int(item["effect"].split("_")[1])
+                if getattr(player, "drone_level", 0) >= selected_level:
+                    logger.warning(
+                        f"✗ Purchase denied: {item['name']} - drone level already unlocked"
+                    )
+                    self._safe_play_sound("menu_select", 0.7)
+                    return
+                player.set_drone_level(selected_level)
+                if hasattr(player, "current_profile") and player.current_profile:
+                    player.current_profile.upgrade_levels["drone_level"] = selected_level
+                elif hasattr(player, "profile") and player.profile:
+                    player.profile.upgrade_levels["drone_level"] = selected_level
+                logger.info(f"  -> Drone Mk {selected_level} unlocked!")
 
             # Special Abilities
             elif item["effect"] == "atomic_bomb":
@@ -455,6 +669,9 @@ class Shop:
             item["level"] += 1
             item["cost"] = int(item["base_cost"] * (1.5 ** item["level"]))
             logger.info(f"  -> Item level: {item['level']}, New cost: {item['cost']}")
+            if profile is not None:
+                SaveSystem.save_profile(profile)
+                logger.info(f"Profile '{profile.name}' saved after shop purchase.")
         else:
             # Play an error sound for denied purchases
             self._safe_play_sound("menu_select", 0.7)  # Use existing sound
@@ -475,8 +692,9 @@ class Shop:
         overlay.set_alpha(200)
         surface.blit(overlay, (0, 0))
 
-        panel_width = 700
-        panel_height = 600
+        # Make panel size relative to screen so it always fits
+        panel_width = min(900, game_config.SCREEN_WIDTH - 20)
+        panel_height = min(int(game_config.SCREEN_HEIGHT * 0.90), game_config.SCREEN_HEIGHT - 20)
         panel_x = (game_config.SCREEN_WIDTH - panel_width) // 2
         panel_y = (game_config.SCREEN_HEIGHT - panel_height) // 2
 
@@ -496,20 +714,62 @@ class Shop:
         )
         surface.blit(title, title_rect)
 
+        subtitle = self.assets.fonts["small"].render(
+            "Upgrade your ship and weapons using coins collected in-game.",
+            True,
+            color_config.UI_TEXT,
+        )
+        subtitle_rect = subtitle.get_rect(
+            center=(game_config.SCREEN_WIDTH // 2, panel_y + 75)
+        )
+        surface.blit(subtitle, subtitle_rect)
+
+        section_icons = {
+            "Drones": "engine1",
+            "Weapons": "gun00",
+            "Upgrades": "shield1",
+        }
+        icon_x = panel_x + 30
+        icon_y = panel_y + 110
+        for category, sprite_name in section_icons.items():
+            sprite = self.assets.get_sprite(sprite_name)
+            if sprite:
+                icon_image = pygame.transform.smoothscale(sprite, (32, 32))
+                surface.blit(icon_image, (icon_x, icon_y))
+            label = self.assets.fonts["tiny"].render(category, True, color_config.UI_TEXT)
+            label_x = icon_x + 38
+            surface.blit(label, (label_x, icon_y + 6))
+            icon_x = label_x + label.get_width() + 24
+
         shop_credit = self._get_shop_credit(player)
         coins_text = self.assets.fonts["medium"].render(
-            f"Coins: {player.coins}", True, color_config.YELLOW
+            f"Session: {player.coins}", True, color_config.YELLOW
         )
-        surface.blit(coins_text, (panel_x + 30, panel_y + 90))
+        surface.blit(coins_text, (panel_x + 30, panel_y + 170))
 
         if shop_credit != player.coins:
             credit_text = self.assets.fonts["small"].render(
                 f"Profile credit: {shop_credit}", True, color_config.CYAN
             )
-            surface.blit(credit_text, (panel_x + 30, panel_y + 120))
-            item_start_y = panel_y + 155
+            surface.blit(credit_text, (panel_x + 30, panel_y + 210))
+            item_start_y = panel_y + 245
         else:
-            item_start_y = panel_y + 140
+            credit_text = self.assets.fonts["small"].render(
+                "Profile credit is synced", True, color_config.UI_TEXT
+            )
+            surface.blit(credit_text, (panel_x + 30, panel_y + 210))
+            item_start_y = panel_y + 240
+
+        item_list_width = int((panel_width - 60) * 0.62)
+        info_panel_width = (panel_width - 60) - item_list_width
+        info_panel_x = panel_x + 30 + item_list_width + 20
+        info_panel_y = item_start_y
+        info_panel_height = panel_height - (info_panel_y - panel_y) - 80
+
+        # Dynamically fit as many items as the available vertical space allows.
+        # Each item is 80px tall; add 10px buffer per item for category headers.
+        item_area_height = info_panel_height - 10
+        self.max_visible_items = max(2, item_area_height // 90)
 
         # Get mouse position for hover detection
         mouse_pos = pygame.mouse.get_pos()
@@ -517,7 +777,7 @@ class Shop:
 
         # Calculate visible items based on scroll offset
         items_content_area_height = (
-            360  # Space for items (panel_height - title - coins - instructions)
+            info_panel_height - 20
         )
         item_height = 70
 
@@ -525,17 +785,19 @@ class Shop:
         visible_start = self.scroll_offset
         visible_end = min(visible_start + self.max_visible_items, len(self.items))
 
+        current_category = None
+
         # Draw scrollbar if needed
         if len(self.items) > self.max_visible_items:
-            scrollbar_x = panel_x + panel_width - 20
-            scrollbar_y = panel_y + 140
-            scrollbar_height = items_content_area_height
+            scrollbar_x = panel_x + item_list_width + 36
+            scrollbar_y = item_start_y
+            scrollbar_height = panel_y + panel_height - 80 - item_start_y
 
             # Background
             pygame.draw.rect(
                 surface,
                 color_config.UI_BORDER,
-                (scrollbar_x, scrollbar_y, 10, scrollbar_height),
+                (scrollbar_x, scrollbar_y, 8, scrollbar_height),
                 1,
             )
 
@@ -549,14 +811,44 @@ class Shop:
                 / max(1, len(self.items) - self.max_visible_items)
             )
             pygame.draw.rect(
-                surface, color_config.CYAN, (scrollbar_x, thumb_y, 10, thumb_height)
+                surface, color_config.CYAN, (scrollbar_x, thumb_y, 8, thumb_height)
             )
 
-        # Draw only visible items
+        # Draw only visible items — clip to the item list area to prevent overflow
+        category_icons = {
+            "Drones": "engine1",
+            "Weapons": "gun00",
+            "Upgrades": "shield1",
+        }
+
+        items_clip_rect = pygame.Rect(
+            panel_x + 28, item_start_y,
+            item_list_width + 4, panel_y + panel_height - 80 - item_start_y
+        )
+        surface.set_clip(items_clip_rect)
+
         for i in range(visible_start, visible_end):
             item = self.items[i]
+            category = item.get("category")
+            if category and category != current_category:
+                current_category = category
+                header_x = panel_x + 30
+                icon_sprite = None
+                icon_name = category_icons.get(category)
+                if icon_name:
+                    icon_sprite = self.assets.get_sprite(icon_name)
+                if icon_sprite:
+                    icon_image = pygame.transform.smoothscale(icon_sprite, (26, 26))
+                    icon_rect = icon_image.get_rect(topleft=(header_x, y_offset))
+                    surface.blit(icon_image, icon_rect)
+                    header_x += icon_rect.width + 8
+
+                header_surface = self.assets.fonts["small"].render(category.upper(), True, color_config.YELLOW)
+                surface.blit(header_surface, (header_x, y_offset + 4))
+                y_offset += max(header_surface.get_height(), 26) + 8
+
             selected = i == self.selected_index
-            item_rect = pygame.Rect(panel_x + 30, y_offset, panel_width - 70, 70)
+            item_rect = pygame.Rect(panel_x + 30, y_offset, item_list_width, 70)
             self.item_rects.append((i, item_rect))  # Store actual index with rect
 
             # Highlight on hover or selection
@@ -566,11 +858,37 @@ class Shop:
                 item,
                 panel_x + 30,
                 y_offset,
-                panel_width - 70,
+                item_list_width,
                 selected or is_hovered,
                 shop_credit,
             )
             y_offset += 80
+
+        surface.set_clip(None)  # Remove clipping
+
+        info_panel_rect = pygame.Rect(
+            info_panel_x,
+            info_panel_y,
+            info_panel_width,
+            info_panel_height,
+        )
+        pygame.draw.rect(surface, (*color_config.UI_BG, 220), info_panel_rect, border_radius=16)
+        pygame.draw.rect(surface, color_config.CYAN, info_panel_rect, 2, border_radius=16)
+
+        selected_item = None
+        if 0 <= self.selected_index < len(self.items):
+            selected_item = self.items[self.selected_index]
+
+        if selected_item:
+            self.draw_item_info_panel(
+                surface,
+                selected_item,
+                info_panel_x + 16,
+                info_panel_y + 16,
+                info_panel_width - 32,
+                info_panel_height - 32,
+                shop_credit,
+            )
 
         instructions = self.assets.fonts["small"].render(
             "↑↓/Scroll: Navigate | Click: Select/Purchase | ESC: Exit",
@@ -592,31 +910,48 @@ class Shop:
         selected: bool,
         player_coins: int,
     ):
-        bg_color = color_config.CYAN if selected else color_config.UI_BORDER
-        pygame.draw.rect(surface, bg_color, (x, y, width, 70), 2 if not selected else 0)
+        item_rect = pygame.Rect(x, y, width, 70)
+        base_color = color_config.UI_BORDER if selected else color_config.UI_BG
+        outline_color = color_config.CYAN if selected else color_config.UI_BORDER
+        pygame.draw.rect(surface, base_color, item_rect, border_radius=12)
+        pygame.draw.rect(surface, outline_color, item_rect, 2, border_radius=12)
 
         if selected:
-            pygame.draw.rect(surface, color_config.UI_BG, (x + 3, y + 3, width - 6, 64))
+            highlight_rect = pygame.Rect(x + 4, y + 4, width - 8, 62)
+            pygame.draw.rect(surface, (*color_config.CYAN, 40), highlight_rect, border_radius=10)
+
+        sprite_name = item.get("sprite_name")
+        sprite_width = 0
+        if sprite_name:
+            sprite = self.assets.get_sprite(sprite_name)
+            if sprite:
+                sprite_image = pygame.transform.smoothscale(sprite, (48, 48))
+                sprite_rect = sprite_image.get_rect(topright=(x + width - 14, y + 10))
+                surface.blit(sprite_image, sprite_rect)
+                sprite_width = sprite_rect.width + 8
 
         name_text = f"{item['name']} [Lv {item['level']}/{item['max_level']}]"
         name_surface = self.assets.fonts["medium"].render(
             name_text, True, color_config.WHITE
         )
-        surface.blit(name_surface, (x + 10, y + 10))
+        surface.blit(name_surface, (x + 16, y + 10))
 
         desc_surface = self.assets.fonts["small"].render(
             item["description"], True, color_config.UI_TEXT
         )
-        surface.blit(desc_surface, (x + 10, y + 40))
-
-        can_afford = player_coins >= item["cost"] and item["level"] < item["max_level"]
-        cost_color = color_config.GREEN if can_afford else color_config.RED
+        surface.blit(desc_surface, (x + 16, y + 40))
 
         if item["level"] >= item["max_level"]:
             cost_text = "MAX"
+            cost_color = color_config.CYAN
         else:
             cost_text = f"{item['cost']} coins"
+            cost_color = color_config.GREEN if player_coins >= item["cost"] else color_config.RED
 
         cost_surface = self.assets.fonts["medium"].render(cost_text, True, cost_color)
-        cost_rect = cost_surface.get_rect(right=x + width - 10, centery=y + 35)
+        cost_rect = cost_surface.get_rect(right=x + width - 20 - sprite_width, centery=y + 35)
+
+        badge_rect = pygame.Rect(cost_rect.left - 8, cost_rect.top - 5, cost_rect.width + 16, cost_rect.height + 10)
+        pygame.draw.rect(surface, color_config.BLACK, badge_rect, border_radius=8)
+        pygame.draw.rect(surface, cost_color, badge_rect, 2, border_radius=8)
         surface.blit(cost_surface, cost_rect)

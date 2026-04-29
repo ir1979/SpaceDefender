@@ -15,7 +15,13 @@ class Enemy(BaseEntity):
     def __init__(self, x: int, y: int, config: Dict[str, Any], target: Optional[BaseEntity] = None):
         self.config = config
         self.enemy_type = config.get('type', 'basic')
-        self.shape_type = config.get('shape', 'rectangle')
+        shape_config = config.get('shape', 'rectangle')
+        if isinstance(shape_config, list):
+            self.shape_type = random.choice(shape_config)
+        elif shape_config == 'random_enemy':
+            self.shape_type = self._choose_random_sprite_shape()
+        else:
+            self.shape_type = shape_config
         self.size = tuple(config.get('size', [40, 40]))
         self.color = tuple(config.get('color', color_config.RED))
         
@@ -37,6 +43,7 @@ class Enemy(BaseEntity):
         self.pulse_counter = 0.0
         self.pulse_speed = 0.08
         self.pulse_strength = 0.22
+        self.boss_phase = 1 if self.enemy_type == 'boss' else 0
         
         # Freeze effect (freeze_timer > 0 means enemy is frozen)
         self.frozen_timer = 0
@@ -50,6 +57,17 @@ class Enemy(BaseEntity):
         """Create enemy visual"""
         self.image = ShapeRenderer.create_shape(
             self.shape_type, self.size, self.color)
+
+    def _choose_random_sprite_shape(self):
+        """Select a random enemy sprite shape from the loaded asset manager."""
+        if ShapeRenderer.asset_manager:
+            enemy_options = [
+                name for name in ShapeRenderer.asset_manager.sprites
+                if name.startswith('enemy')
+            ]
+            if enemy_options:
+                return random.choice(enemy_options)
+        return 'rectangle'
     
     def update(self):
         """Update enemy"""
@@ -117,6 +135,20 @@ class Enemy(BaseEntity):
                 self.direction *= -1
             self.rect.x += self.direction * 2 * self.slow_factor
 
+        elif self.movement_pattern == 'swoop':
+            self.rect.y += effective_speed
+            self.rect.x += math.sin(self.movement_counter * 0.12) * 4 * self.slow_factor
+            if self.movement_counter % 50 == 0:
+                self.direction *= -1
+            self.rect.x += self.direction * 1 * self.slow_factor
+
+        elif self.movement_pattern == 'drift':
+            self.rect.y += effective_speed * 0.95
+            self.rect.x += self.direction * 1.4 * self.slow_factor
+            self.rect.y += math.sin(self.movement_counter * 0.07) * 1.5 * self.slow_factor
+            if self.movement_counter % 80 == 0:
+                self.direction = random.choice([-1, 1])
+
         elif self.movement_pattern == 'spiral':
             angle = self.movement_counter * 0.1
             self.rect.x += math.cos(angle) * 2 * self.slow_factor
@@ -136,6 +168,18 @@ class Enemy(BaseEntity):
         height = max(40, int(self.base_size[1] * scale))
         center = self.rect.center
         self.size = (width, height)
+
+        health_ratio = self.health / max(1, self.max_health)
+        if self.boss_phase == 1 and health_ratio < 0.7:
+            self.boss_phase = 2
+            self.speed *= 1.15
+            self.pulse_strength += 0.12
+        elif self.boss_phase == 2 and health_ratio < 0.35:
+            self.boss_phase = 3
+            self.speed *= 1.2
+            self.pulse_speed += 0.06
+            self.color = tuple(min(255, c + 20) for c in self.color)
+
         self._create_image()
         self.rect = self.image.get_rect(center=center)
 
@@ -211,7 +255,7 @@ class EnemyFactory:
         cls._enemy_configs = {
             'basic': {
                 'type': 'basic',
-                'shape': 'rectangle',
+                'shape': ['enemyRed2', 'enemyRed3', 'enemyRed4', 'enemyRed5', 'enemy_basic'],
                 'size': [40, 40],
                 'color': [255, 50, 50],
                 'health': 30,
@@ -222,7 +266,7 @@ class EnemyFactory:
             },
             'fast': {
                 'type': 'fast',
-                'shape': 'triangle',
+                'shape': ['enemyBlue3', 'enemyBlue4', 'enemyBlue5', 'enemy_fast'],
                 'size': [35, 35],
                 'color': [255, 150, 50],
                 'health': 20,
@@ -233,7 +277,7 @@ class EnemyFactory:
             },
             'tank': {
                 'type': 'tank',
-                'shape': 'circle',
+                'shape': ['enemyBlack1', 'enemyBlack2', 'enemyBlack3', 'enemyBlack4', 'enemyBlack5', 'enemy_tank'],
                 'size': [60, 60],
                 'color': [200, 50, 255],
                 'health': 80,
@@ -244,7 +288,7 @@ class EnemyFactory:
             },
             'weaver': {
                 'type': 'weaver',
-                'shape': 'diamond',
+                'shape': ['enemyGreen2', 'enemyGreen3', 'enemyGreen4', 'enemyGreen5', 'enemy_weaver'],
                 'size': [45, 45],
                 'color': [50, 255, 255],
                 'health': 40,
@@ -253,9 +297,53 @@ class EnemyFactory:
                 'coin_value': 20,
                 'score_value': 200
             },
+            'hunter': {
+                'type': 'hunter',
+                'shape': ['enemy_fast', 'enemyGreen3', 'enemyRed3', 'enemyBlue4'],
+                'size': [42, 42],
+                'color': [150, 255, 150],
+                'health': 35,
+                'speed': 2.2,
+                'movement': 'chase',
+                'coin_value': 25,
+                'score_value': 220
+            },
+            'swarmer': {
+                'type': 'swarmer',
+                'shape': ['enemyBlue3', 'enemyRed4', 'enemyBlack2'],
+                'size': [30, 30],
+                'color': [220, 220, 60],
+                'health': 18,
+                'speed': 3.5,
+                'movement': 'swoop',
+                'coin_value': 12,
+                'score_value': 120
+            },
+            'sentinel': {
+                'type': 'sentinel',
+                'shape': ['enemyGreen4', 'enemyGreen5', 'enemyBlue5'],
+                'size': [50, 50],
+                'color': [100, 200, 255],
+                'health': 55,
+                'speed': 1.8,
+                'movement': 'drift',
+                'coin_value': 28,
+                'score_value': 260
+            },
+            'assassin': {
+                'type': 'assassin',
+                'shape': ['enemyRed2', 'enemyRed5', 'enemyBlue4'],
+                'size': [42, 42],
+                'color': [180, 255, 150],
+                'health': 28,
+                'speed': 3.0,
+                'movement': 'chase',
+                'coin_value': 30,
+                'score_value': 280
+            },
             'boss': {
                 'type': 'boss',
-                'shape': 'star',
+                'shape': ['enemy_boss', 'enemy_boss_old', 'ufoRed', 'ufoYellow', 'ufoGreen'],
                 'size': [140, 140],
                 'color': [255, 255, 50],
                 'health': 400,
@@ -285,8 +373,8 @@ class EnemyFactory:
             scaled_config['coin_value'] = int(config['coin_value'] * (1 + level * 0.15))
             scaled_config['score_value'] = int(config['score_value'] * (1 + level * 0.15))
         else:
-            scaled_config['health'] = int(config['health'] * (1 + level * 0.2))
-            scaled_config['speed'] = config['speed'] * (1 + level * 0.05)
+            scaled_config['health'] = int(config['health'] * (1 + level * 0.25))
+            scaled_config['speed'] = config['speed'] * (1 + level * 0.06)
             scaled_config['coin_value'] = int(config['coin_value'] * (1 + level * 0.1))
             scaled_config['score_value'] = int(config['score_value'] * (1 + level * 0.1))
         
@@ -300,16 +388,44 @@ class EnemyFactory:
         return list(cls._enemy_configs.keys())
     
     @classmethod
-    def get_random_type(cls, level: int = 1):
-        """Get random enemy type based on level"""
-        types = cls.get_available_types()
-        
+    def get_random_type(cls, level: int = 1, wave_number: int = 1):
+        """Get random enemy type based on level and wave progression."""
+        if not cls._enemy_configs:
+            cls._create_default_configs()
+        base_pool = []
+
         if level <= 2:
-            return 'basic'
+            base_pool = ['basic', 'fast', 'swarmer']
         elif level <= 5:
-            return random.choice(['basic', 'basic', 'fast'])
+            base_pool = ['basic', 'fast', 'weaver', 'swarmer', 'assassin']
         elif level <= 10:
-            return random.choice(['basic', 'fast', 'weaver', 'tank', 'hunter'])
+            base_pool = ['basic', 'fast', 'weaver', 'tank', 'hunter', 'swarmer', 'assassin', 'sentinel']
         else:
-            non_boss_types = [t for t in types if t != 'boss']
-            return random.choice(non_boss_types if non_boss_types else types)
+            base_pool = [t for t in cls.get_available_types() if t != 'boss']
+
+        # Increase threat variety in later waves
+        wave_bonus = []
+        if wave_number > 1:
+            wave_bonus.extend(['fast', 'hunter'])
+        if wave_number > 2:
+            wave_bonus.extend(['assassin', 'tank'])
+        if wave_number > 4:
+            wave_bonus.extend(['sentinel', 'dodge_bot'])
+        if wave_number > 5:
+            wave_bonus.extend(['teleporter'])
+
+        if wave_bonus:
+            base_pool.extend(wave_bonus)
+
+        # Add a small chance for tougher enemies even in early stages
+        if level >= 3:
+            base_pool.extend(['weaver', 'assassin'])
+        if level >= 6:
+            base_pool.extend(['tank', 'hunter'])
+
+        if not base_pool:
+            base_pool = [t for t in cls.get_available_types() if t != 'boss']
+        if not base_pool:
+            base_pool = cls.get_available_types()
+
+        return random.choice(base_pool)

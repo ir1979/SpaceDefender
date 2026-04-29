@@ -10,7 +10,12 @@
       150,
       50
     ],
-    "shape": "enemy_fast",
+    "shape": [
+      "enemyBlue3",
+      "enemyBlue4",
+      "enemyBlue5",
+      "enemy_fast"
+    ],
     "size": [
       35,
       35
@@ -28,7 +33,13 @@
       255,
       50
     ],
-    "shape": "enemy_boss",
+    "shape": [
+      "enemy_boss",
+      "enemy_boss_old",
+      "ufoRed",
+      "ufoYellow",
+      "ufoGreen"
+    ],
     "size": [
       140,
       140
@@ -46,7 +57,13 @@
       50,
       50
     ],
-    "shape": "enemy_basic",
+    "shape": [
+      "enemyRed2",
+      "enemyRed3",
+      "enemyRed4",
+      "enemyRed5",
+      "enemy_basic"
+    ],
     "size": [
       40,
       40
@@ -64,7 +81,14 @@
       50,
       255
     ],
-    "shape": "enemy_tank",
+    "shape": [
+      "enemyBlack1",
+      "enemyBlack2",
+      "enemyBlack3",
+      "enemyBlack4",
+      "enemyBlack5",
+      "enemy_tank"
+    ],
     "size": [
       60,
       60
@@ -82,7 +106,13 @@
       255,
       255
     ],
-    "shape": "enemy_weaver",
+    "shape": [
+      "enemyGreen2",
+      "enemyGreen3",
+      "enemyGreen4",
+      "enemyGreen5",
+      "enemy_weaver"
+    ],
     "size": [
       45,
       45
@@ -100,11 +130,203 @@
       255,
       150
     ],
-    "shape": "enemy_fast",
+    "shape": [
+      "enemy_fast",
+      "enemyGreen3",
+      "enemyRed3",
+      "enemyBlue4"
+    ],
     "size": [
       42,
       42
     ],
     "score_value": 220
+  },
+  "swarmer": {
+    "type": "swarmer",
+    "speed": 3.5,
+    "health": 18,
+    "coin_value": 12,
+    "movement": "swoop",
+    "color": [
+      220,
+      220,
+      60
+    ],
+    "shape": [
+      "enemyBlue3",
+      "enemyRed4",
+      "enemyBlack2"
+    ],
+    "size": [
+      30,
+      30
+    ],
+    "score_value": 120
+  },
+  "sentinel": {
+    "type": "sentinel",
+    "speed": 1.8,
+    "health": 55,
+    "coin_value": 28,
+    "movement": "drift",
+    "color": [
+      100,
+      200,
+      255
+    ],
+    "shape": [
+      "enemyGreen4",
+      "enemyGreen5",
+      "enemyBlue5"
+    ],
+    "size": [
+      50,
+      50
+    ],
+    "score_value": 260
+  },
+  "assassin": {
+    "type": "assassin",
+    "speed": 3.0,
+    "health": 28,
+    "coin_value": 30,
+    "movement": "chase",
+    "color": [
+      180,
+      255,
+      150
+    ],
+    "shape": [
+      "enemyRed2",
+      "enemyRed5",
+      "enemyBlue4"
+    ],
+    "size": [
+      42,
+      42
+    ],
+    "score_value": 280
+  },
+  "dodge_bot": {
+    "type": "dodge",
+    "shape": [
+      "enemyRed4",
+      "enemy_fast"
+    ],
+    "size": [
+      42,
+      42
+    ],
+    "color": [
+      255,
+      200,
+      80
+    ],
+    "health": 45,
+    "speed": 2.2,
+    "movement": "dodge",
+    "attack": "direct",
+    "fire_rate": 90,
+    "coin_value": 30,
+    "score_value": 260
+  },
+  "teleporter": {
+    "type": "teleporter",
+    "shape": [
+      "ufoYellow",
+      "enemyBlue5",
+      "ufoGreen"
+    ],
+    "size": [
+      45,
+      45
+    ],
+    "color": [
+      180,
+      120,
+      255
+    ],
+    "health": 35,
+    "speed": 1.5,
+    "movement": "teleport",
+    "teleport_interval": 100,
+    "attack": "spread",
+    "fire_rate": 120,
+    "coin_value": 28,
+    "score_value": 270
+  },
+  "gunner": {
+    "type": "gunner",
+    "shape": [
+      "enemyGreen5",
+      "enemyBlue4"
+    ],
+    "size": [
+      48,
+      48
+    ],
+    "color": [
+      140,
+      255,
+      140
+    ],
+    "health": 40,
+    "speed": 1.8,
+    "movement": "drift",
+    "attack": "spread",
+    "fire_rate": 80,
+    "coin_value": 32,
+    "score_value": 320
+  },
+  "homing_hunter": {
+    "type": "homing",
+    "shape": [
+      "enemyRed5",
+      "enemyRed4"
+    ],
+    "size": [
+      40,
+      40
+    ],
+    "color": [
+      255,
+      120,
+      120
+    ],
+    "health": 38,
+    "speed": 2.2,
+    "movement": "homing",
+    "attack": "homing",
+    "fire_rate": 100,
+    "homing_strength": 0.12,
+    "coin_value": 35,
+    "score_value": 340
+  },
+  "mini_boss": {
+    "type": "mini_boss",
+    "shape": [
+      "enemy_boss_old",
+      "enemy_boss",
+      "ufoRed"
+    ],
+    "size": [
+      90,
+      90
+    ],
+    "color": [
+      255,
+      150,
+      50
+    ],
+    "health": 120,
+    "speed": 1.2,
+    "movement": "zigzag",
+    "attack": "arc",
+    "fire_rate": 110,
+    "coin_value": 80,
+    "score_value": 700,
+    "dodge_range": 140,
+    "homing_strength": 0.08
   }
 }

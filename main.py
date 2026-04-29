@@ -32,8 +32,6 @@ def main():
             args.mode = 'client'
         else:
             args.mode = 'game'
-    
-    # Initialize logging
     logger = setup_logging()
     logger.info(f"Starting Space Defender in {args.mode} mode...")
     
@@ -44,7 +42,7 @@ def main():
     
     elif args.mode == 'client':
         # Run as network client - show menus first, then connect on user action
-        game = Game(None, is_server=False)
+        game = Game(None, is_server=False, fullscreen=True)
         # Store server connection details for the menu
         game.server_host = args.host
         game.server_port = args.port
@@ -52,7 +50,7 @@ def main():
     
     else:
         # Run as local single-player game
-        game = Game(None, is_server=False)
+        game = Game(None, is_server=False, fullscreen=True)
         game.run()
 
 if __name__ == "__main__":

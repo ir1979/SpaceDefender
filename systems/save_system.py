@@ -35,6 +35,10 @@ class PlayerProfile:
         # Example: {'atomic_bomb': 2, 'enemy_freeze': 3}
         self.weapon_inventory = {}
 
+        # Cosmetic unlocks and profile customization
+        self.unlocked_skins = ["astral"]
+        self.selected_skin = "astral"
+
         # Shop upgrades persisted across sessions
         self.upgrade_levels = {
             "max_health": 0,
@@ -43,7 +47,12 @@ class PlayerProfile:
             "fire_rate": 0,
             "extra_life": 0,
             "piercing": 0,
+            "drone_level": 0,
         }
+
+        # Daily challenge / progress tracking
+        self.daily_challenge_date = ""
+        self.daily_challenge_completed = False
 
         # transient / session state
         self.current_score = 0
@@ -85,6 +94,10 @@ class PlayerProfile:
             "current_coins": self.current_coins,
             "current_level": self.current_level,
             "weapon_inventory": self.weapon_inventory,
+            "unlocked_skins": self.unlocked_skins,
+            "selected_skin": self.selected_skin,
+            "daily_challenge_date": self.daily_challenge_date,
+            "daily_challenge_completed": self.daily_challenge_completed,
             "upgrade_levels": self.upgrade_levels,
         }
 
@@ -99,6 +112,10 @@ class PlayerProfile:
         profile.last_played = data.get("last_played", time.time())
         # Load weapon inventory
         profile.weapon_inventory = data.get("weapon_inventory", {})
+        profile.unlocked_skins = data.get("unlocked_skins", ["astral"])
+        profile.selected_skin = data.get("selected_skin", "astral")
+        profile.daily_challenge_date = data.get("daily_challenge_date", "")
+        profile.daily_challenge_completed = data.get("daily_challenge_completed", False)
         profile.upgrade_levels = data.get(
             "upgrade_levels",
             {
@@ -111,7 +128,7 @@ class PlayerProfile:
             },
         )
         # Ensure all expected upgrade keys exist for backward compatibility
-        for key in ["max_health", "damage", "speed", "fire_rate", "extra_life", "piercing"]:
+        for key in ["max_health", "damage", "speed", "fire_rate", "extra_life", "piercing", "drone_level"]:
             profile.upgrade_levels.setdefault(key, 0)
         # Load transient/session state
         # When loading a profile for a fresh game session, always start with 0 score
@@ -170,6 +187,7 @@ class PlayerProfile:
         )
         self.total_score += score
         self.total_coins += coins
+        self.current_coins = self.total_coins
         self.highest_level = max(self.highest_level, level)
         self.total_time_played += time_played
         self.last_played = time.time()
@@ -182,12 +200,17 @@ class PlayerProfile:
         Syncs the profile's state after a shopping session.
         The session_coins (from player.coins) becomes the new total.
         """
-        logger.info(
-            f"Profile '{self.name}': Syncing after shop. New total_coins: {session_coins}"
-        )
         self.current_coins = session_coins
         self.total_coins = session_coins
         self.last_played = time.time()
+        logger.info(
+            f"Profile '{self.name}': Syncing after shop. New total_coins: {session_coins}"
+        )
+
+    def unlock_skin(self, skin_name: str):
+        if skin_name not in self.unlocked_skins:
+            self.unlocked_skins.append(skin_name)
+            logger.info(f"Profile '{self.name}': Unlocked skin '{skin_name}'.")
 
     def apply_purchase(self, cost: int):
         """
@@ -219,6 +242,7 @@ class PlayerProfile:
         )
         player.lives = 1 + self.upgrade_levels.get("extra_life", 0)
         player.piercing_shots = self.upgrade_levels.get("piercing", 0) > 0
+        player.drone_level = self.upgrade_levels.get("drone_level", 0)
         if self.weapon_inventory:
             player.weapons = list(self.weapon_inventory.keys())
             player.weapon_inventory = self.weapon_inventory.copy()
@@ -226,6 +250,9 @@ class PlayerProfile:
                 player.selected_weapon_index = 0
         elif hasattr(player, "weapons") and not player.weapons:
             player.selected_weapon_index = 0
+
+        if hasattr(player, 'set_ship_skin') and getattr(self, 'selected_skin', None):
+            player.set_ship_skin(self.selected_skin)
 
 
 class SaveSystem:

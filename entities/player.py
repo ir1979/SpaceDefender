@@ -52,7 +52,19 @@ class Player(BaseEntity):
         self.triple_shot_timer = 0
         self.triple_shot_duration = 0  # Frames remaining for triple shot
         self.piercing_shots = False  # Bullets penetrate enemies
+        self.piercing_timer = 0
+        self.speed_boost = False
+        self.speed_boost_timer = 0
+        self.damage_boost = False
+        self.damage_boost_timer = 0
         self.enemy_freeze_duration = 0  # Frames remaining for enemy freeze
+        self.drone_level = 0
+
+        # Combo and score streaks
+        self.kill_streak = 0
+        self.combo_multiplier = 1
+        self.combo_timer = 0
+        self.max_combo = 1
 
         # Game state attributes
         self.lives = 1  # Extra lives
@@ -103,16 +115,16 @@ class Player(BaseEntity):
         keys = pygame.key.get_pressed()
 
         # Movement from keyboard (arrow keys AND WASD)
-        accel_x = 0.0
-        accel_y = 0.0
+        move_x = 0.0
+        move_y = 0.0
         if keys[pygame.K_LEFT] or keys[pygame.K_a]:
-            accel_x -= self.acceleration
+            move_x -= 1.0
         if keys[pygame.K_RIGHT] or keys[pygame.K_d]:
-            accel_x += self.acceleration
+            move_x += 1.0
         if keys[pygame.K_UP] or keys[pygame.K_w]:
-            accel_y -= self.acceleration
+            move_y -= 1.0
         if keys[pygame.K_DOWN] or keys[pygame.K_s]:
-            accel_y += self.acceleration
+            move_y += 1.0
 
         # Mouse guidance remains subtle, not direct teleportation.
         mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -123,29 +135,20 @@ class Player(BaseEntity):
         distance = math.hypot(dist_x, dist_y)
         MOUSE_DEAD_ZONE = 25
 
-        if distance > MOUSE_DEAD_ZONE:
+        if move_x == 0.0 and move_y == 0.0 and distance > MOUSE_DEAD_ZONE:
             norm_x = dist_x / distance
             norm_y = dist_y / distance
-            accel_x += norm_x * self.acceleration * self.mouse_follow_factor
-            accel_y += norm_y * self.acceleration * self.mouse_follow_factor
+            move_x = norm_x * self.mouse_follow_factor
+            move_y = norm_y * self.mouse_follow_factor
 
-        # Apply acceleration and velocity
-        self.velocity[0] += accel_x
-        self.velocity[1] += accel_y
-
-        # Apply damping when no active input exists
-        if accel_x == 0 and accel_y == 0:
-            self.velocity[0] *= self.drag
-            self.velocity[1] *= self.drag
-
-        # Clamp speed to max values
-        self.velocity[0] = max(-self.max_speed, min(self.max_speed, self.velocity[0]))
-        self.velocity[1] = max(-self.max_speed, min(self.max_speed, self.velocity[1]))
-
-        # Avoid tiny jitter when slowing down
-        if abs(self.velocity[0]) < 0.05:
+        speed_multiplier = 1.35 if self.speed_boost else 1.0
+        if move_x != 0.0 or move_y != 0.0:
+            magnitude = math.hypot(move_x, move_y)
+            if magnitude > 0:
+                self.velocity[0] = (move_x / magnitude) * self.speed * speed_multiplier
+                self.velocity[1] = (move_y / magnitude) * self.speed * speed_multiplier
+        else:
             self.velocity[0] = 0.0
-        if abs(self.velocity[1]) < 0.05:
             self.velocity[1] = 0.0
 
         self.rect.x += int(self.velocity[0])
@@ -180,12 +183,46 @@ class Player(BaseEntity):
             if self.triple_shot_timer == 0:
                 self.triple_shot = False
 
+        if self.piercing_timer > 0:
+            self.piercing_timer -= 1
+            if self.piercing_timer == 0:
+                self.piercing_shots = False
+
+        if self.speed_boost_timer > 0:
+            self.speed_boost_timer -= 1
+            if self.speed_boost_timer == 0:
+                self.speed_boost = False
+
+        if self.damage_boost_timer > 0:
+            self.damage_boost_timer -= 1
+            if self.damage_boost_timer == 0:
+                self.damage_boost = False
+
+        if self.combo_timer > 0:
+            self.combo_timer -= 1
+            if self.combo_timer == 0:
+                self.reset_combo()
+
     def _update_invincibility(self):
         """Update invincibility frames"""
         if self.invincible_timer > 0:
             self.invincible_timer -= 1
             if self.invincible_timer == 0:
                 self.invincible = False
+
+    def add_kill_combo(self):
+        """Increase combo multiplier when enemies are destroyed in quick succession."""
+        self.kill_streak += 1
+        self.combo_timer = 180  # 6 seconds at 30 FPS
+        self.combo_multiplier = min(5, 1 + self.kill_streak // 3)
+        self.max_combo = max(self.max_combo, self.combo_multiplier)
+        return self.combo_multiplier
+
+    def reset_combo(self):
+        """Reset kill streak and combo bonuses."""
+        self.kill_streak = 0
+        self.combo_multiplier = 1
+        self.combo_timer = 0
 
     def shoot(self, weapon_type: str = "default") -> List["Bullet"]:
         """Fire weapon"""
@@ -199,11 +236,15 @@ class Player(BaseEntity):
         self.fire_cooldown = fire_rate_modifier
 
         speed = -16  # Negative = UP
+        damage = int(self.damage * (1.25 if self.damage_boost else 1.0))
+        bullet_config = {
+            'piercing': self.piercing_shots,
+        }
 
         if self.triple_shot:
             bullets.append(
                 BulletFactory.create(
-                    weapon_type, self.rect.centerx, self.rect.top, speed, self.damage, 0
+                    weapon_type, self.rect.centerx, self.rect.top, speed, damage, 0, extra_config=bullet_config
                 )
             )
             bullets.append(
@@ -212,8 +253,9 @@ class Player(BaseEntity):
                     self.rect.centerx,
                     self.rect.top,
                     speed,
-                    self.damage,
+                    damage,
                     -15,
+                    extra_config=bullet_config,
                 )
             )
             bullets.append(
@@ -222,14 +264,15 @@ class Player(BaseEntity):
                     self.rect.centerx,
                     self.rect.top,
                     speed,
-                    self.damage,
+                    damage,
                     15,
+                    extra_config=bullet_config,
                 )
             )
         else:
             bullets.append(
                 BulletFactory.create(
-                    weapon_type, self.rect.centerx, self.rect.top, speed, self.damage, 0
+                    weapon_type, self.rect.centerx, self.rect.top, speed, damage, 0, extra_config=bullet_config
                 )
             )
 
@@ -246,8 +289,17 @@ class Player(BaseEntity):
         elif power_type == "triple_shot":
             self.triple_shot = True
             self.triple_shot_timer = 450
+        elif power_type == "piercing":
+            self.piercing_shots = True
+            self.piercing_timer = 360
+        elif power_type == "speed_boost":
+            self.speed_boost = True
+            self.speed_boost_timer = 360
+        elif power_type == "damage_boost":
+            self.damage_boost = True
+            self.damage_boost_timer = 360
         elif power_type == "health":
-            self.health = min(self.health + 30, self.max_health)
+            self.health = min(self.health + 20, self.max_health)
 
     def take_damage(self, amount: int):
         """Take damage"""
@@ -261,6 +313,7 @@ class Player(BaseEntity):
             self.health -= amount
             self.invincible = True
             self.invincible_timer = 60
+            self.reset_combo()
 
     def draw(self, surface: pygame.Surface):
         """Draw player with effects"""
@@ -269,9 +322,22 @@ class Player(BaseEntity):
 
         surface.blit(self.image, self.rect)
 
-        # Draw shield
+        # Draw shield using sprite if available, otherwise fallback to outline
         if self.has_shield:
-            pygame.draw.circle(surface, color_config.CYAN, self.rect.center, 40, 2)
+            shield_sprite = None
+            if ShapeRenderer.asset_manager:
+                shield_sprite = (
+                    ShapeRenderer.asset_manager.get_sprite("shield1")
+                    or ShapeRenderer.asset_manager.get_sprite("shield")
+                )
+
+            if shield_sprite:
+                shield_size = int(max(self.rect.width, self.rect.height) * 1.7)
+                shield_image = pygame.transform.smoothscale(shield_sprite, (shield_size, shield_size))
+                shield_rect = shield_image.get_rect(center=self.rect.center)
+                surface.blit(shield_image, shield_rect)
+            else:
+                pygame.draw.circle(surface, color_config.CYAN, self.rect.center, 40, 2)
 
     def add_weapon(self, weapon_name: str):
         """Add a weapon/ability to player's inventory"""
@@ -309,6 +375,10 @@ class Player(BaseEntity):
                 )
             return True
         return False
+
+    def set_drone_level(self, level: int):
+        """Assign the player a support drone level."""
+        self.drone_level = max(0, min(5, int(level)))
 
     def get_weapon_count(self, weapon_name: str) -> int:
         """Get the count of a specific weapon available"""

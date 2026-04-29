@@ -39,3 +39,28 @@ def test_bullet_update_removes_bullet_off_screen():
 
     bullet.update()
     assert not bullet.alive()
+
+
+def test_default_player_bullet_is_blue_laser():
+    BulletFactory._weapon_configs = {}
+    bullet = BulletFactory.create("default", 50, 50, -10, 1, 0)
+
+    assert bullet.shape_type == "bullet_laser"
+    assert bullet.color == (0, 120, 255)
+    assert bullet.size == (4, 20)
+
+
+def test_enemy_bullet_color_is_red():
+    BulletFactory._weapon_configs = {}
+    bullet = BulletFactory.create(
+        "default",
+        50,
+        50,
+        12,
+        1,
+        0,
+        extra_config={"owner": "enemy"},
+    )
+
+    assert bullet.owner == "enemy"
+    assert bullet.color == (255, 50, 50)

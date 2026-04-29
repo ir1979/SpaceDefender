@@ -23,6 +23,7 @@ from systems.network import send_data, receive_data, test_connection, DEFAULT_SE
 from systems.logger import get_logger
 from entities import Player, EnemyFactory, BulletFactory, PowerUp
 from entities.base_entity import ShapeRenderer
+from entities.drone import Drone
 from ui import HUD, Shop, TextInput
 
 logger = get_logger('space_defender.game')
@@ -32,36 +33,53 @@ class Level:
     
     def __init__(self, level_num: int):
         self.level_num = level_num
-        self.enemies_to_spawn = 30 + (level_num * 15)
+        self.enemies_to_spawn = 55 + (level_num * 25)
         self.enemies_spawned = 0
         self.boss_spawned = False
         self.spawn_timer = 0
-        self.spawn_delay = max(20, 60 - (level_num * 3))
+        self.spawn_delay = max(10, 45 - (level_num * 4))
         self.powerup_timer = 0
-        self.powerup_delay = 300
-        self.time_limit = game_config.LEVEL_TIME_LIMIT + (level_num * 10)
-        self.time_remaining = self.time_limit
+        self.powerup_delay = max(320, 440 - (level_num * 18))
+        self.wave_number = 1
+        self.wave_progress = 0
+        self.wave_size = max(8, 16 + (level_num * 2))
+        self.max_active_enemies = min(26, 14 + level_num * 2)
         self.start_time = time.time()
+        self.elapsed_time = 0.0
+        self.time_limit = game_config.LEVEL_TIME_LIMIT
+        self.time_remaining = float(self.time_limit)
     
     def update_timer(self):
-        elapsed = time.time() - self.start_time
-        self.time_remaining = max(0, self.time_limit - elapsed)
-        return self.time_remaining > 0
+        self.elapsed_time = time.time() - self.start_time
+        self.time_remaining = max(0.0, self.time_limit - self.elapsed_time)
+        return self.time_remaining > 0.0
     
-    def should_spawn_enemy(self) -> bool:
-        if self.enemies_spawned < self.enemies_to_spawn:
-            self.spawn_timer += 1
-            if self.spawn_timer >= self.spawn_delay:
-                self.spawn_timer = 0
-                self.enemies_spawned += 1
-                return True
+    def should_spawn_enemy(self, active_enemy_count: int) -> bool:
+        if self.enemies_spawned >= self.enemies_to_spawn:
+            return False
+
+        if active_enemy_count >= self.max_active_enemies:
+            return False
+
+        self.spawn_timer += 1
+        if self.spawn_timer >= self.spawn_delay:
+            self.spawn_timer = 0
+            self.enemies_spawned += 1
+            self.wave_progress += 1
+            if self.wave_progress >= self.wave_size:
+                self.wave_progress = 0
+                self.wave_number += 1
+                self.spawn_delay = max(10, self.spawn_delay - 2)
+                self.max_active_enemies = min(24, self.max_active_enemies + 1)
+            return True
         return False
     
     def should_spawn_powerup(self) -> bool:
         self.powerup_timer += 1
         if self.powerup_timer >= self.powerup_delay:
             self.powerup_timer = 0
-            return random.random() < 0.3
+            chance = max(0.05, 0.12 - (self.level_num - 1) * 0.003)
+            return random.random() < chance
         return False
 
     def should_spawn_boss(self, active_regular_enemies: int) -> bool:
@@ -79,15 +97,17 @@ class Level:
 
 class Game:
     """Main game controller"""
-    def __init__(self, profile: PlayerProfile = None, is_server=False):
+    def __init__(self, profile: PlayerProfile = None, is_server=False, fullscreen=False):
         """
-        Initializes the Game. 
+        Initializes the Game.
         :param is_server: If True, runs without GUI, Assets, or Sound.
+        :param fullscreen: If True, opens the game in fullscreen mode.
         """
         self.is_server = is_server
         self.is_network_mode = False # Default to False, client will set to True
         self.player_id = None # Will be assigned by server during handshake
         self.running = True
+        self.fullscreen = fullscreen
         
         # --- 1. Headless vs GUI Environment Setup ---
         if self.is_server:
@@ -99,7 +119,16 @@ class Game:
             self.assets = None  # No images/sounds loaded on server
         else:
             pygame.init()
-            self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+            if self.fullscreen:
+                display_info = pygame.display.Info()
+                game_config.SCREEN_WIDTH = display_info.current_w
+                game_config.SCREEN_HEIGHT = display_info.current_h
+                self.screen = pygame.display.set_mode(
+                    (game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT),
+                    pygame.FULLSCREEN,
+                )
+            else:
+                self.screen = pygame.display.set_mode((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
             pygame.display.set_caption(game_config.TITLE)
             self.assets = AssetManager()
         
@@ -119,6 +148,7 @@ class Game:
         self.enemies = pygame.sprite.Group()
         self.bullets = pygame.sprite.Group()
         self.powerups = pygame.sprite.Group()
+        self.drones = pygame.sprite.Group()
 
         # --- 3. GUI & Feedback Variables (Always initialized to avoid crashes) ---
         self.duplicate_error_timer = 0
@@ -142,8 +172,13 @@ class Game:
         self.creating_new_profile = False
         self.menu_buttons = []
         self.menu_selected_index = 0
+        self.menu_animation_phase = 0.0
+        self.menu_hover_alpha = 80
+        self.next_level_pending = False
+        self.daily_challenge = None
         self.text_input = None
         self.quit_confirm_selected = True
+        self.quit_confirm_context = 'game'
         self.quit_yes_rect = None
         self.quit_no_rect = None
         self.game_state_from_server = None
@@ -173,6 +208,7 @@ class Game:
         self.camera_shake_intensity = 0  # Intensity of screen shake (0 = none)
         self.camera_shake_duration = 0   # Frames remaining for shake effect
         self.atomic_bomb_flash = 0       # Alpha value for white flash (0-255)
+        self.game_background = None       # Procedural background for the play scene
         
         # Network performance tracking
         self.waiting_start_time = None
@@ -185,6 +221,7 @@ class Game:
             self.stars = self.create_starfield()
             self.hud = HUD(self.assets)
             self.shop = Shop(self.assets)
+            self.game_background = self.assets.get_level_background(self.current_level)
             self._init_loading_list()
             # Connect the shape renderer to the asset manager so sprites can be loaded
             ShapeRenderer.set_asset_manager(self.assets)
@@ -212,6 +249,39 @@ class Game:
         ]
         self.loading_items_total = len(self.loading_items)
 
+    def _refresh_player_drone(self):
+        """Spawn or refresh the player's support drones."""
+        self.drones.empty()
+        if self.player and getattr(self.player, "drone_level", 0) > 0:
+            offsets = [-60, 60]
+            for offset in offsets:
+                drone = Drone(self.player, self.player.drone_level, offset_x=offset)
+                self.drones.add(drone)
+
+    def _sync_player_drone(self):
+        """Ensure the player's drones match the unlocked drone level."""
+        if not self.player:
+            return
+        desired_level = getattr(self.player, "drone_level", 0)
+        current_drone = next(iter(self.drones), None)
+        if desired_level <= 0:
+            if current_drone:
+                self.drones.empty()
+            return
+        if (
+            current_drone is None
+            or current_drone.level != desired_level
+            or len(self.drones) != 2
+        ):
+            self._refresh_player_drone()
+
+    def _update_drones(self):
+        """Update all support drones and let them fire at enemies."""
+        self._sync_player_drone()
+        for drone in list(self.drones):
+            drone.update()
+            drone.try_fire(self.enemies, self.bullets, self.all_sprites)
+
     def _init_game(self):
         # In network mode, the client doesn't initialize the game, the server does.
         if self.is_network_mode:
@@ -221,6 +291,53 @@ class Game:
         if self.profile:
             self.current_profile = self.profile
         self.init_game()
+
+    def generate_daily_challenge(self):
+        """Generate or refresh the player's daily challenge."""
+        today = time.strftime("%Y-%m-%d")
+        if not self.current_profile:
+            return None
+
+        if self.current_profile.daily_challenge_date != today:
+            self.current_profile.daily_challenge_date = today
+            self.current_profile.daily_challenge_completed = False
+            challenge_choices = [
+                {"title": "Clear 2 levels", "description": "Complete 2 levels in one session.", "reward": 50},
+                {"title": "Collect 150 coins", "description": "Earn 150 coins during a run.", "reward": 75},
+                {"title": "Defeat 30 enemies", "description": "Destroy 30 enemies before taking a hit.", "reward": 100},
+                {"title": "Survive 5 minutes", "description": "Keep your ship alive for 5 minutes.", "reward": 80},
+            ]
+            self.daily_challenge = random.choice(challenge_choices)
+            self.current_profile.daily_challenge_date = today
+            self.current_profile.daily_challenge_completed = False
+        return self.daily_challenge
+
+    def check_daily_challenge_completion(self):
+        """Check if the current session has completed the daily challenge."""
+        if not self.current_profile or not self.daily_challenge:
+            return False
+
+        title = self.daily_challenge.get("title", "")
+        if title == "Clear 2 levels":
+            completed = self.current_level > 2
+        elif title == "Collect 150 coins":
+            completed = self.player.coins - getattr(self.current_profile, 'session_start_coins', 0) >= 150
+        elif title == "Defeat 30 enemies":
+            completed = getattr(self.player, 'kills', 0) >= 30
+        elif title == "Survive 5 minutes":
+            completed = time.time() - self.session_start_time >= 300
+        else:
+            completed = False
+
+        if completed and not self.current_profile.daily_challenge_completed:
+            self.current_profile.daily_challenge_completed = True
+            reward = self.daily_challenge.get("reward", 0)
+            self.current_profile.total_coins += reward
+            self.player.coins += reward
+            logger.info(
+                f"Daily challenge completed: {self.daily_challenge['title']} - reward {reward} coins"
+            )
+        return completed
 
     def handle_events(self):
         for event in pygame.event.get():
@@ -233,9 +350,12 @@ class Game:
             if self.state == GameState.SPLASH_SCREEN:
                 if event.type in [pygame.KEYDOWN, pygame.MOUSEBUTTONDOWN]:
                     if self.splash_ready:
-                        # Go to PROFILE_SELECT to choose existing profile or create new
-                        self.state = GameState.PROFILE_SELECT
+                        # Go directly to username/password entry instead of listing profiles
+                        self.state = GameState.NAME_INPUT
                         self.splash_skipped = True
+                        self.text_input = TextInput(
+                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                            self.assets.fonts['medium'], placeholder="Profile Name")
             
             elif self.state == GameState.NAME_INPUT:
                 if self.text_input:
@@ -243,130 +363,73 @@ class Game:
                     if result:
                         profile_name = result.strip()
                         if profile_name:
-                            if SaveSystem.profile_exists(profile_name):
-                                self.duplicate_profile_error = True
-                                self.duplicate_error_timer = 180 # 3 seconds at 60 FPS
-                            else:
-                                # Store the new profile name and transition to password input
-                                self.new_profile_name = profile_name
-                                self.state = GameState.PASSWORD_INPUT
-                                self.authenticating_profile = profile_name  # Reuse field for display
-                                self.password_input = TextInput(
-                                    game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
-                                    self.assets.fonts['medium'], is_password=True)
-                        else:
-                            self.duplicate_profile_error = True
-                            self.duplicate_error_timer = 180
+                            self.new_profile_name = profile_name
+                            self.authenticating_profile = profile_name
+                            self.state = GameState.PASSWORD_INPUT
+                            self.password_input = TextInput(
+                                game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
+                                self.assets.fonts['medium'], is_password=True, placeholder="Password")
+                            self.text_input = None
                     elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                         # Cancel profile creation, go back to profile select
                         self.state = GameState.PROFILE_SELECT
                         self.creating_new_profile = False
-            
-            if self.state == GameState.PROFILE_SELECT:
+
+            elif self.state == GameState.PROFILE_SELECT:
                 if event.type == pygame.KEYDOWN:
                     if self.server_socket:
                         try:
                             self.server_socket.close()
-                        except Exception: pass
-                    if event.key == pygame.K_ESCAPE:
-                        # ESC allows users to create a new profile instead of selecting existing
-                        self.creating_new_profile = True
-                        self.state = GameState.NAME_INPUT
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
-                    elif event.key == pygame.K_n:
-                        self.creating_new_profile = True
-                        self.state = GameState.NAME_INPUT
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
-                    elif event.unicode.isdigit():
-                        idx = int(event.unicode) - 1
-                        profiles = SaveSystem.get_profiles()
-                        if 0 <= idx < len(profiles):
-                            # Transition to PASSWORD_INPUT state for authentication
-                            self.authenticating_profile = profiles[idx].name
-                            self.state = GameState.PASSWORD_INPUT
-                            self.password_input = TextInput(
-                                game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
-                                self.assets.fonts['medium'], is_password=True)
-                            self.password_error = False
-                    elif event.key == pygame.K_DELETE or event.key == pygame.K_BACKSPACE:
-                        profiles = SaveSystem.get_profiles()
-                        if profiles:
-                            idx = self.profile_selected_index
-                            if 0 <= idx < len(profiles):
-                                self._delete_profile_at_index(idx)
+                        except Exception:
+                            pass
+                    self.state = GameState.NAME_INPUT
+                    self.text_input = TextInput(
+                        game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                        self.assets.fonts['medium'], placeholder="Profile Name")
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    for box_rect, idx in self.profile_buttons:
-                        if box_rect.collidepoint(event.pos):
-                            profiles = SaveSystem.get_profiles()
-                            if 0 <= idx < len(profiles):
-                                # Transition to PASSWORD_INPUT state for authentication
-                                self.authenticating_profile = profiles[idx].name
-                                self.state = GameState.PASSWORD_INPUT
-                                self.password_input = TextInput(
-                                    game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
-                                    self.assets.fonts['medium'], is_password=True)
-                                self.password_error = False
-                                break
-                    if self.new_profile_button and self.new_profile_button.collidepoint(event.pos):
-                        self.creating_new_profile = True
-                        self.state = GameState.NAME_INPUT
-                        self.text_input = TextInput(
-                            game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                            self.assets.fonts['medium'])
-                
-                elif event.type == pygame.MOUSEMOTION:
-                    for box_rect, idx in self.profile_buttons:
-                        if box_rect.collidepoint(event.pos):
-                            self.profile_selected_index = idx
-                            break
-            
+                    self.state = GameState.NAME_INPUT
+                    self.text_input = TextInput(
+                        game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
+                        self.assets.fonts['medium'], placeholder="Profile Name")
+
             elif self.state == GameState.PASSWORD_INPUT:
                 if self.password_input:
                     result = self.password_input.handle_event(event)
-                    if result:
+                    if result is not None:
                         password = result.strip()
-                        # Check if this is creating a new profile or authenticating
-                        if self.new_profile_name:
-                            # Creating new profile
-                            self.profile = PlayerProfile(self.new_profile_name, password)
-                            SaveSystem.save_profile(self.profile)
-                            self._apply_profile_start_level(self.profile)
-                            self.new_profile_name = None
-                            self.state = GameState.MAIN_MENU
-                        else:
-                            # Authenticating existing profile
-                            if SaveSystem.verify_password(self.authenticating_profile, password):
-                                profile = SaveSystem.load_profile(self.authenticating_profile)
+                        profile_name = self.new_profile_name or self.authenticating_profile
+                        if profile_name and SaveSystem.profile_exists(profile_name):
+                            if SaveSystem.verify_password(profile_name, password):
+                                profile = SaveSystem.load_profile(profile_name)
                                 self.profile = profile
                                 self._apply_profile_start_level(profile)
+                                self.new_profile_name = None
                                 self.state = GameState.MAIN_MENU
                             else:
-                                # Password incorrect
                                 self.password_error = True
                                 self.password_error_timer = 180  # 3 seconds at 60 FPS
                                 self.password_input = TextInput(
                                     game_config.SCREEN_WIDTH // 2 - 150, 350, 300, 60,
-                                    self.assets.fonts['medium'], is_password=True)
+                                    self.assets.fonts['medium'], is_password=True, placeholder="Password")
+                        else:
+                            self.profile = PlayerProfile(profile_name, password)
+                            SaveSystem.save_profile(self.profile)
+                            self._apply_profile_start_level(self.profile)
+                            self.new_profile_name = None
+                            self.state = GameState.MAIN_MENU
                     elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                        # Cancel password input
                         if self.new_profile_name:
-                            # Cancel new profile creation, go back to name input
                             self.new_profile_name = None
                             self.state = GameState.NAME_INPUT
                             self.text_input = TextInput(
                                 game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                                self.assets.fonts['medium'])
+                                self.assets.fonts['medium'], placeholder="Profile Name")
                         else:
-                            # Cancel authentication, go back to profile select
                             self.state = GameState.PROFILE_SELECT
                             self.authenticating_profile = None
                         self.password_input = None
                         self.password_error = False
-            
+
             elif self.state == GameState.MAIN_MENU:
                 if event.type == pygame.KEYDOWN:
                     if event.key in [pygame.K_UP, pygame.K_w]:
@@ -378,7 +441,9 @@ class Game:
                             _, action = self.menu_buttons[self.menu_selected_index]
                             self._handle_menu_action(action)
                     elif event.key == pygame.K_ESCAPE:
-                        self.running = False
+                        self.state = GameState.QUIT_CONFIRM
+                        self.quit_confirm_context = 'game'
+                        self.quit_confirm_selected = False
                 elif event.type == pygame.MOUSEMOTION:
                     mouse_pos = event.pos
                     for i, (button_rect, action) in enumerate(self.menu_buttons):
@@ -386,15 +451,18 @@ class Game:
                             self.menu_selected_index = i
                             break
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.menu_buttons:
-                        _, action = self.menu_buttons[self.menu_selected_index]
-                        self._handle_menu_action(action)
+                    for i, (button_rect, action) in enumerate(self.menu_buttons):
+                        if button_rect.collidepoint(event.pos):
+                            self.menu_selected_index = i
+                            self._handle_menu_action(action)
+                            break
 
             elif self.state == GameState.PLAYING:
                 if event.type == pygame.KEYDOWN:
                     if event.key in [pygame.K_q, pygame.K_ESCAPE]:
                         self.state = GameState.QUIT_CONFIRM
-                        self.quit_confirm_selected = True # Default to YES
+                        self.quit_confirm_context = 'stage'
+                        self.quit_confirm_selected = False
                     elif event.key == pygame.K_p:
                         self.state = GameState.PAUSED
                     elif event.key in [pygame.K_e, pygame.K_TAB]:
@@ -411,7 +479,7 @@ class Game:
                                 if not self.player.has_weapon('atomic_bomb'):
                                     logger.warning("No atomic bombs available!")
                                     self.assets.play_sound('menu_select', 0.5)  # Error feedback
-                                    break
+                                    continue  # skip to next event, don't break the loop
                                 # Use the atomic bomb (decrement count)
                                 self.player.use_weapon('atomic_bomb')
                                 
@@ -429,7 +497,8 @@ class Game:
                                 for enemy in enemies_to_destroy:
                                     coins_reward = random.randint(5, 15)
                                     self.player.coins += coins_reward
-                                    score = int(enemy.max_health * 10)
+                                    multiplier = self.player.add_kill_combo()
+                                    score = int(enemy.max_health * 10 * multiplier)
                                     self.player.score += score
                                     # Create explosion particles at enemy location
                                     self.particle_system.emit_explosion(
@@ -444,7 +513,7 @@ class Game:
                                 if not self.player.has_weapon('enemy_freeze'):
                                     logger.warning("No enemy freeze available!")
                                     self.assets.play_sound('menu_select', 0.5)  # Error feedback
-                                    break
+                                    continue  # skip to next event
                                 # Use the enemy freeze (decrement count)
                                 self.player.use_weapon('enemy_freeze')
 
@@ -458,36 +527,37 @@ class Game:
                                 if not self.player.has_weapon('shockwave'):
                                     logger.warning("No shockwave weapon available!")
                                     self.assets.play_sound('menu_select', 0.5)
-                                    break
+                                    continue  # skip to next event
                                 self.player.use_weapon('shockwave')
 
                                 logger.info("🌊 SHOCKWAVE ACTIVATED!")
                                 self.assets.play_sound('explosion', 0.8)
-                                self.camera_shake_intensity = 10
-                                self.camera_shake_duration = 20
+                                self.camera_shake_intensity = 14
+                                self.camera_shake_duration = 26
                                 enemies_list = list(self.enemies)
                                 for enemy in enemies_list:
                                     dx = enemy.rect.centerx - self.player.rect.centerx
                                     dy = enemy.rect.centery - self.player.rect.centery
                                     dist = max(1, math.sqrt(dx*dx + dy*dy))
-                                    damage = max(10, int(150 / (dist / 50)))
+                                    damage = max(40, int(280 / (dist / 40)))
                                     enemy.health -= damage
-                                    push_x = int(dx / dist * 80)
-                                    push_y = int(dy / dist * 80)
+                                    push_x = int(dx / dist * 100)
+                                    push_y = int(dy / dist * 100)
                                     enemy.rect.x += push_x
                                     enemy.rect.y += push_y
                                     self.particle_system.emit_explosion(
                                         enemy.rect.centerx, enemy.rect.centery,
-                                        color_config.CYAN, count=8)
+                                        color_config.CYAN, count=12)
                                     if enemy.health <= 0:
                                         self.player.coins += random.randint(5, 15)
-                                        self.player.score += int(enemy.max_health * 10)
+                                        multiplier = self.player.add_kill_combo()
+                                        self.player.score += int(enemy.max_health * 10 * multiplier)
                                         enemy.kill()
                             elif weapon == 'chain_lightning':
                                 if not self.player.has_weapon('chain_lightning'):
                                     logger.warning("No chain lightning weapon available!")
                                     self.assets.play_sound('menu_select', 0.5)
-                                    break
+                                    continue  # skip to next event
                                 self.player.use_weapon('chain_lightning')
 
                                 logger.info("⚡ CHAIN LIGHTNING ACTIVATED!")
@@ -506,14 +576,15 @@ class Game:
                                             color_config.YELLOW, count=12)
                                         if enemy.health <= 0:
                                             self.player.coins += random.randint(5, 15)
-                                            self.player.score += int(enemy.max_health * 10)
+                                            multiplier = self.player.add_kill_combo()
+                                            self.player.score += int(enemy.max_health * 10 * multiplier)
                                             enemy.kill()
                                         chain_damage = int(chain_damage * 0.7)
                             elif weapon == 'time_warp':
                                 if not self.player.has_weapon('time_warp'):
                                     logger.warning("No time warp weapon available!")
                                     self.assets.play_sound('menu_select', 0.5)
-                                    break
+                                    continue  # skip to next event
                                 self.player.use_weapon('time_warp')
 
                                 logger.info("💫 TIME WARP ACTIVATED! Slowing all enemies!")
@@ -528,7 +599,7 @@ class Game:
                                 if not self.player.has_weapon('spread_burst'):
                                     logger.warning("No spread burst weapon available!")
                                     self.assets.play_sound('menu_select', 0.5)
-                                    break
+                                    continue  # skip to next event
                                 self.player.use_weapon('spread_burst')
 
                                 logger.info("🎯 SPREAD BURST ACTIVATED!")
@@ -548,7 +619,7 @@ class Game:
                                 if not self.player.has_weapon('meteor_strike'):
                                     logger.warning("No meteor strike weapon available!")
                                     self.assets.play_sound('menu_select', 0.5)
-                                    break
+                                    continue  # skip to next event
                                 self.player.use_weapon('meteor_strike')
 
                                 logger.info("☄️ METEOR STRIKE ACTIVATED!")
@@ -570,7 +641,8 @@ class Game:
                                             color_config.ORANGE, count=20)
                                         if enemy.health <= 0:
                                             self.player.coins += _rng.randint(10, 25)
-                                            self.player.score += int(enemy.max_health * 10)
+                                            multiplier = self.player.add_kill_combo()
+                                            self.player.score += int(enemy.max_health * 10 * multiplier)
                                             enemy.kill()
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.player:
@@ -594,14 +666,12 @@ class Game:
 
                 if self.shop.handle_input(event, self.player):
                     # This block is entered when the shop is closed.
-                    # We must only save if a purchase was actually made.
-                    if self.current_profile and self.player and self.player.coins != self.current_profile.total_coins:
-                        logger.info(f"Shop closed with a change in coins. "
-                                    f"Old: {self.current_profile.total_coins}, New: {self.player.coins}. Saving profile.")
-                        self.current_profile.sync_after_shop(self.player.coins) # Sync and save
+                    if self.current_profile and self.player:
+                        logger.info("Shop closed. Saving any profile changes made in the shop.")
+                        self.current_profile.sync_after_shop(self.player.coins)
                         SaveSystem.save_profile(self.current_profile)
                     else:
-                        logger.info("Shop closed without any purchase. No save needed.")
+                        logger.info("Shop closed without an active profile. No save performed.")
                     self.state = GameState.MAIN_MENU
 
             elif self.state == GameState.QUIT_CONFIRM:
@@ -612,27 +682,28 @@ class Game:
                         self.quit_confirm_selected = True # Select YES
                     elif event.key in [pygame.K_RETURN, pygame.K_SPACE]:
                         if self.quit_confirm_selected: # YES
-                            # Player chose to quit the level. We should end the game session
-                            # but not penalize their total accumulated coins.
-                            # The correct way to do this is to simply reload the profile,
-                            # discarding any transient changes from the aborted game.
+                            if self.quit_confirm_context == 'game':
+                                self.running = False
+                            else:
+                                if self.current_profile:
+                                    self.current_profile = SaveSystem.load_profile(self.current_profile.name)
+                                self.all_sprites.empty()
+                                self.state = GameState.MAIN_MENU
+                        else: # NO
+                            self.state = GameState.MAIN_MENU if self.quit_confirm_context == 'game' else GameState.PLAYING
+                    elif event.key == pygame.K_ESCAPE:
+                        self.state = GameState.MAIN_MENU if self.quit_confirm_context == 'game' else GameState.PLAYING
+                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    if self.quit_yes_rect and self.quit_yes_rect.collidepoint(event.pos):
+                        if self.quit_confirm_context == 'game':
+                            self.running = False
+                        else:
                             if self.current_profile:
                                 self.current_profile = SaveSystem.load_profile(self.current_profile.name)
                             self.all_sprites.empty()
                             self.state = GameState.MAIN_MENU
-                        else: # NO
-                            self.state = GameState.PLAYING
-                    elif event.key == pygame.K_ESCAPE:
-                        self.state = GameState.PLAYING # Cancel
-                elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    if self.quit_yes_rect and self.quit_yes_rect.collidepoint(event.pos):
-                        # Player chose to quit the level.
-                        if self.current_profile:
-                            self.current_profile = SaveSystem.load_profile(self.current_profile.name)
-                        self.all_sprites.empty()
-                        self.state = GameState.MAIN_MENU
                     elif self.quit_no_rect and self.quit_no_rect.collidepoint(event.pos):
-                        self.state = GameState.PLAYING
+                        self.state = GameState.MAIN_MENU if self.quit_confirm_context == 'game' else GameState.PLAYING
 
             elif self.state == GameState.SERVER_CONNECT:
                 if event.type == pygame.KEYDOWN:
@@ -725,6 +796,8 @@ class Game:
                         else:
                             self.state = GameState.MAIN_MENU
                     elif event.key == pygame.K_ESCAPE:
+                        if self.state == GameState.LEVEL_COMPLETE:
+                            self.next_level_pending = True
                         self.state = GameState.MAIN_MENU
 
     # draw() was consolidated later in the file to keep a single canonical
@@ -744,8 +817,8 @@ class Game:
     def update_starfield(self):
         for i, (x, y, size) in enumerate(self.stars):
             y += size * 0.5
-            if y > game_config.SCREEN_HEIGHT:
-                y = 0
+            if y - size > game_config.SCREEN_HEIGHT:
+                y = -size
                 x = random.randint(0, game_config.SCREEN_WIDTH)
             self.stars[i] = (x, y, size)
     
@@ -754,6 +827,75 @@ class Game:
             brightness = 100 + (size * 50)
             color = (brightness, brightness, brightness)
             pygame.draw.circle(self.screen, color, (int(x), int(y)), size)
+
+    def draw_progress_bar(self, x: int, y: int, width: int, height: int, progress: float, color):
+        progress = max(0.0, min(1.0, progress))
+        bg_rect = pygame.Rect(x, y, width, height)
+        fg_rect = pygame.Rect(x + 2, y + 2, int((width - 4) * progress), height - 4)
+        pygame.draw.rect(self.screen, (*color_config.UI_BORDER, 190), bg_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (*color, 190), fg_rect, border_radius=10)
+
+    def create_random_background(self) -> pygame.Surface:
+        """Generate a random space-themed background for the game scene."""
+        width = game_config.SCREEN_WIDTH
+        height = game_config.SCREEN_HEIGHT
+        surface = pygame.Surface((width, height))
+
+        # Pick a randomized gradient palette
+        palettes = [
+            ((8, 12, 30), (20, 60, 120)),
+            ((10, 15, 40), (70, 18, 100)),
+            ((12, 8, 35), (30, 100, 80)),
+            ((20, 10, 30), (80, 40, 120)),
+            ((4, 20, 50), (18, 80, 140)),
+        ]
+        start_color, end_color = random.choice(palettes)
+
+        for y in range(height):
+            t = y / max(1, height - 1)
+            r = int(start_color[0] + (end_color[0] - start_color[0]) * t)
+            g = int(start_color[1] + (end_color[1] - start_color[1]) * t)
+            b = int(start_color[2] + (end_color[2] - start_color[2]) * t)
+            pygame.draw.line(surface, (r, g, b), (0, y), (width, y))
+
+        # Add soft nebula glows
+        for _ in range(random.randint(3, 5)):
+            nebula_color = random.choice([
+                (255, 120, 200),
+                (120, 200, 255),
+                (180, 80, 255),
+                (255, 180, 80),
+                (140, 255, 180),
+            ])
+            radius = random.randint(width // 6, width // 3)
+            nebula_surface = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(
+                nebula_surface,
+                (*nebula_color, random.randint(35, 65)),
+                (radius, radius),
+                radius,
+            )
+            nebula_x = random.randint(-radius // 2, width - radius // 2)
+            nebula_y = random.randint(-radius // 2, height - radius // 2)
+            surface.blit(nebula_surface, (nebula_x, nebula_y), special_flags=pygame.BLEND_ADD)
+
+        # Add scattered star clusters and bright points
+        for _ in range(random.randint(130, 200)):
+            x = random.randint(0, width)
+            y = random.randint(0, height)
+            size = random.choice([1, 1, 2])
+            brightness = random.randint(120, 255)
+            pygame.draw.circle(surface, (brightness, brightness, brightness), (x, y), size)
+
+        for _ in range(random.randint(12, 20)):
+            x = random.randint(0, width)
+            y = random.randint(0, height)
+            size = random.randint(2, 4)
+            brightness = random.randint(190, 255)
+            pygame.draw.circle(surface, (brightness, brightness, brightness), (x, y), size)
+
+        return surface
+
     def init_game(self):
         """Initialize or reset the game state for a new level."""
         self.all_sprites.empty()
@@ -779,10 +921,17 @@ class Game:
                 self.player.coins = self.current_profile.coins
                 self.player.score = self.current_profile.score
                 self.current_profile.apply_upgrades(self.player)
+                self.daily_challenge = self.generate_daily_challenge()
+
+            self.player.reset_combo()
+            self.player.combo_multiplier = 1
 
             # Ensure the local player is part of the render/update sprite group.
             self.all_sprites.add(self.player)
+            self._refresh_player_drone()
         self.level = Level(self.current_level)
+        if self.assets:
+            self.game_background = self.assets.get_level_background(self.current_level)
         self.session_start_time = time.time()
 
     def apply_server_state(self, state: dict):
@@ -855,7 +1004,11 @@ class Game:
                 speed = float(b_state.get('speed', -10))
                 damage = int(b_state.get('damage', 1))
                 angle = float(b_state.get('angle', 0))
-                bullet = BulletFactory.create(weapon, bx, by, speed, damage, angle)
+                owner = b_state.get('owner', 'player')
+                bullet = BulletFactory.create(
+                    weapon, bx, by, speed, damage, angle,
+                    {'owner': owner}
+                )
                 if bullet:
                     self.bullets.add(bullet)
                     self.all_sprites.add(bullet)
@@ -913,7 +1066,7 @@ class Game:
                 self.state = GameState.NAME_INPUT
                 self.text_input = TextInput(
                     game_config.SCREEN_WIDTH // 2 - 200, 350, 400, 60,
-                    self.assets.fonts['medium'])
+                    self.assets.fonts['medium'], placeholder="Profile Name")
             return True
         return False
 
@@ -946,6 +1099,8 @@ class Game:
             self.players[0].current_profile = self.current_profile
             self.players[0].profile = self.current_profile
             self.current_profile.apply_upgrades(self.players[0])
+            if self.shop:
+                self.shop.set_profile(self.current_profile)
 
     def save_and_exit(self):
         if self.current_profile and self.player:
@@ -1161,10 +1316,12 @@ class Game:
             
             if self.atomic_bomb_flash > 0:
                 self.atomic_bomb_flash -= 8  # Fade out the flash
-            
-            # Update timer
-            if not self.level.update_timer():
-                if self.current_profile:
+
+            # Update the stage timer and end the level if time runs out.
+            if self.level and not self.level.update_timer():
+                if not self.is_server and self.current_profile:
+                    if self.daily_challenge:
+                        self.check_daily_challenge_completion()
                     coins_earned = self.player.coins - self.current_profile.session_start_coins
                     session_time = time.time() - self.session_start_time
                     self.current_profile.end_game(
@@ -1174,16 +1331,14 @@ class Game:
                         session_time
                     )
                     SaveSystem.save_profile(self.current_profile)
-                    SaveSystem.save_high_score(
-                        self.current_profile,
-                        self.player.score,
-                        self.current_level
-                    )
-                self.state = GameState.GAME_OVER
+                if not self.is_server and self.assets:
+                    self.assets.play_sound('level_complete', 0.8)
+                self.state = GameState.LEVEL_COMPLETE
                 return
-            
+
             # Update sprites
             self.all_sprites.update()
+            self._update_drones()
             if not self.is_server: # Particles are a client-side effect
                 self.particle_system.update()
             
@@ -1214,8 +1369,9 @@ class Game:
                     self.all_sprites.add(boss)
 
             # Spawn enemies
-            if not self.level.boss_spawned and self.level.should_spawn_enemy():
-                enemy_type = EnemyFactory.get_random_type(self.current_level)
+            active_regular_enemies = len([e for e in self.enemies if e.enemy_type != 'boss'])
+            if not self.level.boss_spawned and self.level.should_spawn_enemy(active_regular_enemies):
+                enemy_type = EnemyFactory.get_random_type(self.current_level, self.level.wave_number)
                 enemy = EnemyFactory.create(
                     enemy_type,
                     random.randint(50, game_config.SCREEN_WIDTH - 50),
@@ -1229,7 +1385,15 @@ class Game:
             
             # Spawn power-ups
             if self.level.should_spawn_powerup():
-                power_type = random.choice(['rapid_fire', 'shield', 'triple_shot', 'health'])
+                power_type = random.choice([
+                    'rapid_fire',
+                    'shield',
+                    'triple_shot',
+                    'health',
+                    'piercing',
+                    'speed_boost',
+                    'damage_boost',
+                ])
                 powerup = PowerUp(
                     random.randint(50, game_config.SCREEN_WIDTH - 50),
                     -30,
@@ -1238,41 +1402,66 @@ class Game:
                 self.powerups.add(powerup)
                 self.all_sprites.add(powerup)
             
-            # Check bullet-enemy collisions
-            for bullet in self.bullets:
-                hit_enemies = pygame.sprite.spritecollide(bullet, self.enemies, False)
-                if hit_enemies:
-                    bullet.kill()
-                    if not self.is_server:
-                        self.assets.play_sound('enemy_hit', 0.7)
-                    for enemy in hit_enemies:
-                        enemy.health -= bullet.damage
-                        if enemy.health <= 0:
-                            if not self.is_server:
-                                self.particle_system.emit_explosion(
-                                    enemy.rect.centerx, enemy.rect.centery,
-                                    color_config.RED, 30)
-                                self.assets.play_sound('explosion', 0.8)
-                            coins_gained = enemy.coin_value
-                            score_gained = enemy.score_value
-                            # On server, update players[0]; on client, update self.player
-                            if self.is_server and self.players:
-                                self.players[0].coins += coins_gained
-                                self.players[0].score += score_gained
-                            elif not self.is_server and self.player:
-                                self.player.coins += coins_gained
-                                self.player.score += score_gained
-                            logger.debug(f"Enemy destroyed. Player gained {coins_gained} coins, {score_gained} score.")
-                            enemy.kill()
-                        else:
-                            if not self.is_server:
-                                self.particle_system.emit_explosion(
-                                    bullet.rect.centerx, bullet.rect.centery,
-                                    color_config.ORANGE, 10)
-            
-            # --- Player Collision Logic ---
+# --- Player Collision Logic ---
             # This logic needs to handle both a single local player and multiple server-side players.
             players_to_check = self.players if self.is_server else ([self.player] if self.player else [])
+
+            # Check bullet collisions for ownership-aware damage
+            for bullet in list(self.bullets):
+                owner = getattr(bullet, 'owner', 'player')
+                if owner == 'player':
+                    hit_enemies = pygame.sprite.spritecollide(bullet, self.enemies, False)
+                    if hit_enemies:
+                        if not getattr(bullet, 'piercing', False):
+                            bullet.kill()
+                        if not self.is_server:
+                            self.assets.play_sound('enemy_hit', 0.7)
+                        for enemy in hit_enemies:
+                            enemy.health -= bullet.damage
+                            if enemy.health <= 0:
+                                if not self.is_server:
+                                    self.particle_system.emit_explosion(
+                                        enemy.rect.centerx, enemy.rect.centery,
+                                        color_config.RED, 30)
+                                    self.assets.play_sound('explosion', 0.8)
+                                coins_gained = enemy.coin_value
+                                if not self.is_server and self.player:
+                                    multiplier = self.player.add_kill_combo()
+                                    score_gained = int(enemy.score_value * multiplier)
+                                    self.player.coins += coins_gained
+                                    self.player.score += score_gained
+                                elif self.is_server and self.players:
+                                    score_gained = enemy.score_value
+                                    self.players[0].coins += coins_gained
+                                    self.players[0].score += score_gained
+                                else:
+                                    score_gained = enemy.score_value
+                                logger.debug(
+                                    f"Enemy destroyed. Player gained {coins_gained} coins, {score_gained} score. "
+                                    f"Combo x{getattr(self.player, 'combo_multiplier', 1)}"
+                                )
+                                enemy.kill()
+                            else:
+                                if not self.is_server:
+                                    self.particle_system.emit_explosion(
+                                        bullet.rect.centerx, bullet.rect.centery,
+                                        color_config.ORANGE, 10)
+                else:
+                    for player_obj in players_to_check:
+                        if pygame.sprite.collide_rect(bullet, player_obj):
+                            if not getattr(bullet, 'piercing', False):
+                                bullet.kill()
+                            player_obj.take_damage(bullet.damage)
+                            if hasattr(player_obj, 'reset_combo'):
+                                player_obj.reset_combo()
+                            logger.info(f"Player hit by enemy projectile for {bullet.damage} damage.")
+                            if not self.is_server and self.particle_system:
+                                self.particle_system.emit_explosion(
+                                    player_obj.rect.centerx, player_obj.rect.centery,
+                                    color_config.RED, 15)
+                            break
+
+            # --- Player Collision Logic ---
 
             for player_obj in players_to_check:
                 # Check player-enemy collisions
@@ -1329,6 +1518,8 @@ class Game:
                 len(self.enemies) == 0):
                 if not self.is_server and self.current_profile:
                     # This block was missing. It's crucial for saving progress.
+                    if self.daily_challenge:
+                        self.check_daily_challenge_completion()
                     coins_earned = self.player.coins - self.current_profile.session_start_coins
                     session_time = time.time() - self.session_start_time
                     self.current_profile.end_game(
@@ -1351,8 +1542,14 @@ class Game:
         if self.is_server or not self.screen:
             return
         
-        self.screen.fill(color_config.BLACK)
-        self.draw_starfield()
+        if self.state == GameState.SPLASH_SCREEN:
+            self.screen.fill(color_config.BLACK)
+        elif self.game_background:
+            self.screen.blit(self.game_background, (0, 0))
+            self.draw_starfield()
+        else:
+            self.screen.fill(color_config.BLACK)
+            self.draw_starfield()
         
         if self.state == GameState.SPLASH_SCREEN:
             self.draw_splash_screen()
@@ -1382,6 +1579,9 @@ class Game:
                 # Draw sprites with shake offset
                 for sprite in self.all_sprites:
                     self.screen.blit(sprite.image, (sprite.rect.x + shake_offset_x, sprite.rect.y + shake_offset_y))
+
+                for drone in self.drones:
+                    self.screen.blit(drone.image, (drone.rect.x + shake_offset_x, drone.rect.y + shake_offset_y))
 
                 for enemy in self.enemies:
                     # Draw health bar with shake offset
@@ -1436,26 +1636,47 @@ class Game:
                             self.screen,
                             hud_player,
                             int(self.game_state_from_server.get('level', self.current_level)),
-                            self.game_state_from_server.get('time_remaining', 0)
+                            self.game_state_from_server.get('time_remaining', 0),
+                            None,
+                            combo_multiplier=1,
+                            wave_number=int(self.game_state_from_server.get('wave_number', 1)),
                         )
                     else:
                         # Before first server state arrives: show placeholder HUD
                         if self.player:
-                            time_remaining = self.level.time_remaining if self.level else 0
-                            self.hud.draw(self.screen, self.player, self.current_level, time_remaining)
+                            elapsed = self.level.elapsed_time if self.level else 0
+                            self.hud.draw(
+                                self.screen,
+                                self.player,
+                                self.current_level,
+                                elapsed,
+                                None,
+                                combo_multiplier=getattr(self.player, 'combo_multiplier', 1),
+                                wave_number=self.level.wave_number if self.level else 1,
+                            )
                 else:
                     # Local single-player HUD
-                    time_remaining = self.level.time_remaining if self.level else 0
-                    self.hud.draw(self.screen, self.player, self.current_level, time_remaining)
+                    elapsed = self.level.elapsed_time if self.level else 0
+                    self.hud.draw(
+                        self.screen,
+                        self.player,
+                        self.current_level,
+                        self.level.time_remaining if self.level else 0,
+                        self.level.time_limit if self.level else None,
+                        combo_multiplier=getattr(self.player, 'combo_multiplier', 1),
+                        wave_number=self.level.wave_number if self.level else 1,
+                    )
         
         elif self.state == GameState.PAUSED:
             if self.player:
                 self.all_sprites.draw(self.screen)
+                self.drones.draw(self.screen)
                 self.draw_pause_screen()
         
         elif self.state == GameState.SHOP:
             if self.player:
                 self.all_sprites.draw(self.screen)
+                self.drones.draw(self.screen)
                 self.shop.draw(self.screen, self.player)
         
         elif self.state == GameState.LEVEL_COMPLETE:
@@ -1470,6 +1691,7 @@ class Game:
         elif self.state == GameState.QUIT_CONFIRM:
             if self.player:
                 self.all_sprites.draw(self.screen)
+                self.drones.draw(self.screen)
                 for enemy in self.enemies:
                     enemy.draw_health_bar(self.screen)
                 self.particle_system.draw(self.screen)
@@ -1632,259 +1854,182 @@ class Game:
         self.screen.blit(created_text, created_rect)
     
     def draw_name_input(self):
-        """Draw name input screen for creating a new profile"""
+        """Draw name input screen for entering a profile name."""
         screen_w = game_config.SCREEN_WIDTH
         screen_h = game_config.SCREEN_HEIGHT
-        
-        # Draw title
-        title = self.assets.fonts['large'].render("CREATE NEW PROFILE", True, color_config.GREEN)
-        title_rect = title.get_rect(center=(screen_w // 2, 150))
+
+        overlay = pygame.Surface((screen_w, screen_h))
+        overlay.fill(color_config.BLACK)
+        overlay.set_alpha(220)
+        self.screen.blit(overlay, (0, 0))
+
+        box_width = min(680, screen_w - 40)
+        box_height = min(420, screen_h - 40)
+        box_x = (screen_w - box_width) // 2
+        box_y = (screen_h - box_height) // 2
+
+        pygame.draw.rect(self.screen, color_config.UI_BG, (box_x, box_y, box_width, box_height))
+        pygame.draw.rect(self.screen, color_config.CYAN, (box_x, box_y, box_width, box_height), 3)
+
+        title = self.assets.fonts['large'].render("ENTER PROFILE NAME", True, color_config.GREEN)
+        title_rect = title.get_rect(center=(screen_w // 2, box_y + int(box_height * 0.14)))
         self.screen.blit(title, title_rect)
-        
-        # Explanation
+
         explanation = self.assets.fonts['medium'].render(
-            "Enter a unique username for your new profile",
+            "Enter your profile name, then set or enter a password.",
             True, color_config.WHITE)
-        explanation_rect = explanation.get_rect(center=(screen_w // 2, 220))
+        explanation_rect = explanation.get_rect(center=(screen_w // 2, box_y + int(box_height * 0.26)))
         self.screen.blit(explanation, explanation_rect)
-        
-        # Username label
-        username_label = self.assets.fonts['medium'].render("Username:", True, color_config.UI_TEXT)
-        username_label_rect = username_label.get_rect(topleft=(screen_w // 2 - 200, 280))
+
+        username_label = self.assets.fonts['medium'].render("Profile name:", True, color_config.UI_TEXT)
+        username_label_rect = username_label.get_rect(topleft=(box_x + 40, box_y + int(box_height * 0.38)))
         self.screen.blit(username_label, username_label_rect)
-        
-        # Password input field
+
         if self.text_input:
+            # Position the text input field relative to the dialog box
+            self.text_input.rect.x = box_x + 40
+            self.text_input.rect.y = box_y + 200
+            self.text_input.rect.width = box_width - 80
             self.text_input.draw(self.screen)
-        
-        # Display duplicate profile error message if active
-        if self.duplicate_profile_error:
-            # Note: timer is already decremented in update() — do NOT decrement here again
-            error_text = self.assets.fonts['medium'].render(
-                "❌ Username already exists! Please choose a different one.",
-                True, color_config.RED)
-            error_rect = error_text.get_rect(center=(screen_w // 2, 380))
-            self.screen.blit(error_text, error_rect)
-        
-        # Detailed instructions
+
         hint1 = self.assets.fonts['small'].render(
-            "After entering username, you'll be asked to set a password",
+            "If this name exists, you'll enter the password to access it.",
             True, color_config.UI_TEXT)
-        hint1_rect = hint1.get_rect(center=(screen_w // 2, 440))
+        hint1_rect = hint1.get_rect(center=(screen_w // 2, box_y + int(box_height * 0.66)))
         self.screen.blit(hint1, hint1_rect)
-        
+
         hint2 = self.assets.fonts['small'].render(
+            "If the name is new, a profile will be created.",
+            True, color_config.UI_TEXT)
+        hint2_rect = hint2.get_rect(center=(screen_w // 2, box_y + int(box_height * 0.74)))
+        self.screen.blit(hint2, hint2_rect)
+
+        hint3 = self.assets.fonts['small'].render(
             "Press ENTER to continue • ESC to cancel",
             True, color_config.UI_TEXT)
-        hint2_rect = hint2.get_rect(center=(screen_w // 2, 470))
-        self.screen.blit(hint2, hint2_rect)
+        hint3_rect = hint3.get_rect(center=(screen_w // 2, box_y + int(box_height * 0.86)))
+        self.screen.blit(hint3, hint3_rect)
     
     def draw_profile_select(self):
-        """Draw profile selection screen (centered & responsive)"""
+        """Draw simplified profile selection prompt."""
         screen_w = game_config.SCREEN_WIDTH
         screen_h = game_config.SCREEN_HEIGHT
-        margin = 20
 
-        title = self.assets.fonts['large'].render("SELECT PROFILE", True, color_config.CYAN)
-        title_rect = title.get_rect(center=(screen_w // 2, int(screen_h * 0.08)))
+        overlay = pygame.Surface((screen_w, screen_h))
+        overlay.fill(color_config.BLACK)
+        overlay.set_alpha(200)
+        self.screen.blit(overlay, (0, 0))
+
+        box_width = min(720, screen_w - 40)
+        box_height = min(320, screen_h - 40)
+        box_x = (screen_w - box_width) // 2
+        box_y = (screen_h - box_height) // 2
+
+        pygame.draw.rect(self.screen, color_config.UI_BG, (box_x, box_y, box_width, box_height))
+        pygame.draw.rect(self.screen, color_config.UI_BORDER, (box_x, box_y, box_width, box_height), 3)
+
+        title = self.assets.fonts['large'].render("PROFILE LOGIN", True, color_config.CYAN)
+        title_rect = title.get_rect(center=(screen_w // 2, box_y + 60))
         self.screen.blit(title, title_rect)
-        
-        # Subtitle explaining the options
-        subtitle = self.assets.fonts['small'].render(
-            "Click a profile to authenticate with password • N or ESC to create new profile",
+
+        subtitle = self.assets.fonts['medium'].render(
+            "Enter your profile name and password on the next screen.",
             True, color_config.UI_TEXT)
-        subtitle_rect = subtitle.get_rect(center=(screen_w // 2, int(screen_h * 0.14)))
+        subtitle_rect = subtitle.get_rect(center=(screen_w // 2, box_y + 130))
         self.screen.blit(subtitle, subtitle_rect)
-        
-        profiles = SaveSystem.get_profiles()
-        box_width = min(700, screen_w - 400)
-        box_height = 80
-        x = (screen_w - box_width) // 2
-        y_offset = int(screen_h * 0.22)
-        mouse_pos = pygame.mouse.get_pos()
-        
-        # Clear and rebuild profile button list
-        self.profile_buttons = []
-        
-        for i, profile in enumerate(profiles[:5]):
-            box_rect = pygame.Rect(x, y_offset, box_width, box_height)
-            self.profile_buttons.append((box_rect, i))
-            
-            # Check if mouse is hovering over this profile and update selection
-            if box_rect.collidepoint(mouse_pos):
-                self.profile_selected_index = i
-            
-            is_selected = (i == self.profile_selected_index)
-            
-            # Draw background with highlight if selected
-            if is_selected:
-                pygame.draw.rect(self.screen, color_config.CYAN, box_rect)
-                pygame.draw.rect(self.screen, color_config.WHITE, box_rect, 3)
-            else:
-                pygame.draw.rect(self.screen, color_config.UI_BG, box_rect)
-                pygame.draw.rect(self.screen, color_config.UI_BORDER, box_rect, 2)
-            
-            # Text positions inside box
-            text_pad = 20
-            num_text = f"{i + 1}."
-            num_surface = self.assets.fonts['medium'].render(num_text, True, (color_config.BLACK if is_selected else color_config.YELLOW))
-            self.screen.blit(num_surface, (x + text_pad, y_offset + 10))
-            
-            name_surface = self.assets.fonts['medium'].render(profile.name, True, (color_config.BLACK if is_selected else color_config.WHITE))
-            self.screen.blit(name_surface, (x + text_pad + 60, y_offset + 10))
-            
-            stats_text = f"Lvl {profile.highest_level} | Score: {profile.total_score} | Coins: {profile.total_coins}"
-            stats_surface = self.assets.fonts['small'].render(stats_text, True, (color_config.BLACK if is_selected else color_config.UI_TEXT))
-            self.screen.blit(stats_surface, (x + text_pad + 60, y_offset + 45))
-            
-            y_offset += box_height + 20
-        
-        # New Profile button - centered under the boxes
-        new_profile_rect = pygame.Rect(x, y_offset + 10, box_width, 60)
-        self.new_profile_button = new_profile_rect
-        new_hovered = new_profile_rect.collidepoint(mouse_pos)
-        
-        if new_hovered:
-            pygame.draw.rect(self.screen, color_config.GREEN, new_profile_rect)
-            pygame.draw.rect(self.screen, color_config.WHITE, new_profile_rect, 3)
-            new_profile_color = color_config.BLACK
-        else:
-            pygame.draw.rect(self.screen, color_config.UI_BG, new_profile_rect)
-            pygame.draw.rect(self.screen, color_config.GREEN, new_profile_rect, 2)
-            new_profile_color = color_config.GREEN
-        
-        new_profile = self.assets.fonts['medium'].render("N or ESC - Create New Profile", True, new_profile_color)
-        new_rect = new_profile.get_rect(center=new_profile_rect.center)
-        self.screen.blit(new_profile, new_rect)
-        
-        hint = self.assets.fonts['small'].render(
-            "Select with mouse or keyboard (1-5) • Existing profiles require password authentication",
+
+        prompt = self.assets.fonts['small'].render(
+            "Press any key or click to continue to profile credentials.",
+            True, color_config.WHITE)
+        prompt_rect = prompt.get_rect(center=(screen_w // 2, box_y + 200))
+        self.screen.blit(prompt, prompt_rect)
+
+        warning = self.assets.fonts['small'].render(
+            "No profile list will be shown. Use the name and password directly.",
             True, color_config.UI_TEXT)
-        hint_rect = hint.get_rect(center=(screen_w // 2, y_offset + 110))
-        self.screen.blit(hint, hint_rect)
+        warning_rect = warning.get_rect(center=(screen_w // 2, box_y + 240))
+        self.screen.blit(warning, warning_rect)
     
     def draw_password_input(self):
         """Draw password input screen with clear distinction between authentication and creation"""
         screen_w = game_config.SCREEN_WIDTH
         screen_h = game_config.SCREEN_HEIGHT
-        
-        # Determine if creating new profile or authenticating existing
-        is_creating = bool(self.new_profile_name)
-        
-        # Draw overlay
+
+        profile_name = self.new_profile_name or self.authenticating_profile
+        is_existing = bool(profile_name and SaveSystem.profile_exists(profile_name))
+        is_creating = bool(profile_name) and not is_existing
+
         overlay = pygame.Surface((screen_w, screen_h))
         overlay.fill(color_config.BLACK)
-        overlay.set_alpha(220)
+        overlay.set_alpha(210)
         self.screen.blit(overlay, (0, 0))
-        
-        # Draw dialog box - larger for new profile, normal for authentication
-        box_width = 600 if is_creating else 550
-        box_height = 400 if is_creating else 360
+
+        box_width = min(620, screen_w - 40)
+        box_height = min(400, screen_h - 40)
         box_x = (screen_w - box_width) // 2
         box_y = (screen_h - box_height) // 2
-        
-        # Color coding based on state
+
         border_color = color_config.GREEN if is_creating else color_config.CYAN
-        
-        pygame.draw.rect(self.screen, color_config.UI_BG, (box_x, box_y, box_width, box_height))
+        if self.password_error and not is_creating:
+            border_color = color_config.RED
+
+        pygame.draw.rect(self.screen, (*color_config.UI_BG, 220), (box_x, box_y, box_width, box_height))
         pygame.draw.rect(self.screen, border_color, (box_x, box_y, box_width, box_height), 4)
-        
-        # ===== CREATING NEW PROFILE =====
-        if is_creating:
-            # Title with color emphasis
-            title = self.assets.fonts['large'].render("CREATE NEW PROFILE", True, color_config.GREEN)
-            title_rect = title.get_rect(center=(screen_w // 2, box_y + 30))
-            self.screen.blit(title, title_rect)
-            
-            # Large explanatory text
-            explanation = self.assets.fonts['medium'].render(
-                "This username is new. Set a password to protect your profile.",
-                True, color_config.WHITE)
-            explanation_rect = explanation.get_rect(center=(screen_w // 2, box_y + 85))
-            self.screen.blit(explanation, explanation_rect)
-            
-            # Username display
-            username_label = self.assets.fonts['small'].render("Username:", True, color_config.UI_TEXT)
-            username_label_rect = username_label.get_rect(topleft=(box_x + 40, box_y + 140))
-            self.screen.blit(username_label, username_label_rect)
-            
-            username_value = self.assets.fonts['medium'].render(
-                self.new_profile_name, True, color_config.GREEN)
-            username_value_rect = username_value.get_rect(topleft=(box_x + 40, box_y + 165))
-            self.screen.blit(username_value, username_value_rect)
-            
-            # Password field label
-            pwd_label = self.assets.fonts['medium'].render("Set Password:", True, color_config.WHITE)
-            pwd_label_rect = pwd_label.get_rect(topleft=(box_x + 40, box_y + 220))
-            self.screen.blit(pwd_label, pwd_label_rect)
-            
-            # Instructions
-            instructions = self.assets.fonts['small'].render(
-                "Choose a password to secure your profile • Press ENTER to confirm • ESC to cancel",
-                True, color_config.UI_TEXT)
-            instructions_rect = instructions.get_rect(center=(screen_w // 2, box_y + 360))
-            self.screen.blit(instructions, instructions_rect)
-        
-        # ===== AUTHENTICATING EXISTING PROFILE =====
-        else:
-            # Title with color emphasis
-            title = self.assets.fonts['large'].render("AUTHENTICATE PROFILE", True, color_config.CYAN)
-            title_rect = title.get_rect(center=(screen_w // 2, box_y + 30))
-            self.screen.blit(title, title_rect)
-            
-            # Large explanatory text
-            explanation = self.assets.fonts['medium'].render(
-                "This profile already exists. Enter your password to access it.",
-                True, color_config.WHITE)
-            explanation_rect = explanation.get_rect(center=(screen_w // 2, box_y + 85))
-            self.screen.blit(explanation, explanation_rect)
-            
-            # Username display
-            username_label = self.assets.fonts['small'].render("Profile:", True, color_config.UI_TEXT)
-            username_label_rect = username_label.get_rect(topleft=(box_x + 40, box_y + 140))
-            self.screen.blit(username_label, username_label_rect)
-            
-            username_value = self.assets.fonts['medium'].render(
-                self.authenticating_profile, True, color_config.CYAN)
-            username_value_rect = username_value.get_rect(topleft=(box_x + 40, box_y + 165))
-            self.screen.blit(username_value, username_value_rect)
-            
-            # Password field label
-            pwd_label = self.assets.fonts['medium'].render("Password:", True, color_config.WHITE)
-            pwd_label_rect = pwd_label.get_rect(topleft=(box_x + 40, box_y + 220))
-            self.screen.blit(pwd_label, pwd_label_rect)
-            
-            # Instructions
-            instructions = self.assets.fonts['small'].render(
-                "Enter your password • Press ENTER to submit • ESC to cancel",
-                True, color_config.UI_TEXT)
-            instructions_rect = instructions.get_rect(center=(screen_w // 2, box_y + 320))
-            self.screen.blit(instructions, instructions_rect)
-        
-        # Password input field (common for both states)
+
+        title_text = "CREATE PROFILE" if is_creating else "AUTHENTICATE PROFILE"
+        title_color = color_config.GREEN if is_creating else color_config.CYAN
+        title = self.assets.fonts['large'].render(title_text, True, title_color)
+        title_rect = title.get_rect(center=(screen_w // 2, box_y + 50))
+        self.screen.blit(title, title_rect)
+
+        explanation_text = (
+            "No existing profile found. Set a password to create it."
+            if is_creating else
+            "This profile already exists. Enter the password to access it."
+        )
+        explanation = self.assets.fonts['medium'].render(explanation_text, True, color_config.WHITE)
+        explanation_rect = explanation.get_rect(center=(screen_w // 2, box_y + 100))
+        self.screen.blit(explanation, explanation_rect)
+
+        username_label = self.assets.fonts['small'].render("Profile:", True, color_config.UI_TEXT)
+        username_label_rect = username_label.get_rect(topleft=(box_x + 40, box_y + 150))
+        self.screen.blit(username_label, username_label_rect)
+
+        username_value = self.assets.fonts['medium'].render(
+            profile_name or "", True,
+            color_config.GREEN if is_creating else color_config.CYAN)
+        username_value_rect = username_value.get_rect(topleft=(box_x + 40, box_y + 175))
+        self.screen.blit(username_value, username_value_rect)
+
+        pwd_label_text = "Set Password:" if is_creating else "Password:"
+        pwd_label = self.assets.fonts['medium'].render(pwd_label_text, True, color_config.WHITE)
+        pwd_label_rect = pwd_label.get_rect(topleft=(box_x + 40, box_y + 230))
+        self.screen.blit(pwd_label, pwd_label_rect)
+
         if self.password_input:
             self.password_input.update()
-            # Adjust position based on state
-            pwd_input_y = box_y + 250 if is_creating else box_y + 245
+            pwd_input_y = box_y + 270
             original_y = self.password_input.rect.y
             self.password_input.rect.y = pwd_input_y
             self.password_input.draw(self.screen)
             self.password_input.rect.y = original_y
-        
-        # Error message with timeout
-        if self.password_error:
-            self.password_error_timer -= 1
-            if self.password_error_timer <= 0:
-                self.password_error = False
-            else:
-                # Blinking effect for error message
-                if self.password_error_timer % 30 > 15:
-                    error_msg = self.assets.fonts['medium'].render(
-                        "❌ INCORRECT PASSWORD - Try again or press ESC to go back",
-                        True, color_config.RED)
-                    error_y = box_y + 310 if is_creating else box_y + 280
-                    error_rect = error_msg.get_rect(center=(screen_w // 2, error_y))
-                    self.screen.blit(error_msg, error_rect)
+
+        instructions_text = (
+            "Choose a password and press ENTER to create your profile."
+            if is_creating else
+            "Enter your password • Press ENTER to submit • ESC to cancel"
+        )
+        instructions = self.assets.fonts['small'].render(instructions_text, True, color_config.UI_TEXT)
+        instructions_rect = instructions.get_rect(center=(screen_w // 2, box_y + 340))
+        self.screen.blit(instructions, instructions_rect)
+
+        if self.password_error and not is_creating:
+            if self.password_error_timer > 0:
+                error_msg = self.assets.fonts['medium'].render(
+                    "❌ Incorrect password. Press ESC to retry.",
+                    True, color_config.RED)
+                error_rect = error_msg.get_rect(center=(screen_w // 2, box_y + 380))
+                self.screen.blit(error_msg, error_rect)
     
     def draw_main_menu(self):
         """Draw main menu (responsive layout)"""
@@ -1896,135 +2041,257 @@ class Game:
         title_rect = title.get_rect(center=(screen_w // 2, title_y))
         self.screen.blit(title, title_rect)
 
+        self.menu_animation_phase += 0.04
+        if self.menu_animation_phase > math.pi * 2:
+            self.menu_animation_phase -= math.pi * 2
+
+        # Player stats and daily challenge summary
         if self.current_profile:
+            if self.daily_challenge is None:
+                self.daily_challenge = self.generate_daily_challenge()
+
             welcome = self.assets.fonts['medium'].render(
                 f"Welcome, {self.current_profile.name}!", True, color_config.GREEN)
             welcome_rect = welcome.get_rect(center=(screen_w // 2, title_y + 80))
             self.screen.blit(welcome, welcome_rect)
 
-            stats_text = f"Total Score: {self.current_profile.total_score} | " \
-                        f"Total Coins: {self.current_profile.total_coins} | " \
-                        f"Best Level: {self.current_profile.highest_level}"
+            stats_text = (
+                f"Score: {self.current_profile.total_score}  |  "
+                f"Coins: {self.current_profile.total_coins}  |  "
+                f"Best Level: {self.current_profile.highest_level}"
+            )
             stats = self.assets.fonts['small'].render(stats_text, True, color_config.UI_TEXT)
             stats_rect = stats.get_rect(center=(screen_w // 2, title_y + 120))
             self.screen.blit(stats, stats_rect)
 
-        # Menu layout
+            if self.daily_challenge:
+                    # Place the challenge box to the right of the button panel.
+                    # Pre-compute the panel right edge (panel_width=560 defined below).
+                    _menu_panel_right = (screen_w + 560) // 2
+                    ch_avail_w = screen_w - _menu_panel_right - 10
+                    if ch_avail_w >= 100:
+                        ch_box_w = min(340, ch_avail_w)
+                        challenge_box = pygame.Rect(_menu_panel_right + 10, title_y + 40, ch_box_w, 160)
+                        pygame.draw.rect(self.screen, (*color_config.UI_BG, 220), challenge_box, border_radius=18)
+                        pygame.draw.rect(self.screen, color_config.CYAN, challenge_box, 2, border_radius=18)
+
+                        challenge_title_label = self.assets.fonts['small'].render(
+                            "Daily Challenge", True, color_config.YELLOW)
+                        self.screen.blit(challenge_title_label, (challenge_box.left + 18, challenge_box.top + 18))
+
+                        ch_title = self.daily_challenge['title']
+                        challenge_desc = self.daily_challenge['description']
+                        challenge_reward = self.daily_challenge['reward']
+                        challenge_prefix = "COMPLETED: " if self.current_profile.daily_challenge_completed else "TODAY'S GOAL: "
+
+                        challenge_text = self.assets.fonts['tiny'].render(
+                            f"{challenge_prefix}{ch_title}", True, color_config.WHITE)
+                        self.screen.blit(challenge_text, (challenge_box.left + 18, challenge_box.top + 52))
+
+                        reward_text = self.assets.fonts['tiny'].render(
+                            challenge_desc, True, color_config.UI_TEXT)
+                        self.screen.blit(reward_text, (challenge_box.left + 18, challenge_box.top + 80))
+
+                        progress_text = self.assets.fonts['small'].render(
+                            f"Reward: {challenge_reward} coins", True, color_config.CYAN)
+                        self.screen.blit(progress_text, (challenge_box.left + 18, challenge_box.top + 112))
+
+                        if self.current_profile.daily_challenge_completed:
+                            status_surface = self.assets.fonts['small'].render(
+                                "Status: Completed", True, color_config.GREEN)
+                        else:
+                            status_surface = self.assets.fonts['small'].render(
+                                "Status: In Progress", True, color_config.YELLOW)
+                        self.screen.blit(status_surface, (challenge_box.left + 18, challenge_box.top + 138))
+
+        ring_center = (screen_w // 2, title_y + 40)
+        for i in range(4):
+            radius = 110 + (i * 28) + int(math.sin(self.menu_animation_phase + i * 0.9) * 12)
+            alpha = max(10, 80 - (i * 15))
+            ring = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+            pygame.draw.circle(ring, (*color_config.CYAN, alpha), (radius, radius), radius, 2)
+            self.screen.blit(ring, ring.get_rect(center=ring_center))
+
         mouse_pos = pygame.mouse.get_pos()
         start_y = int(screen_h * 0.45)
-        spacing = int(screen_h * 0.06)
+        spacing = int(screen_h * 0.08)
         options = [
             ("PRESS ENTER TO START", pygame.K_RETURN, "play"),
         ]
-        
-        # Add "PLAY ONLINE" option if server connection details are provided
+
         if self.server_host and self.server_port:
             options.append(("O - PLAY ONLINE", pygame.K_o, "play_online"))
-        
+
         options.extend([
             ("S - SHOP", pygame.K_s, "shop"),
             ("H - HIGH SCORES", pygame.K_h, "scores"),
-            ("P - CHANGE PROFILE", pygame.K_p, "profile"),
             ("ESC - QUIT", pygame.K_ESCAPE, "quit")
         ])
 
-        # Store button rects for mouse detection
+        panel_width = 560
+        panel_height = len(options) * spacing + 40
+        panel_rect = pygame.Rect(
+            (screen_w - panel_width) // 2,
+            start_y - 45,
+            panel_width,
+            panel_height,
+        )
+        pygame.draw.rect(self.screen, (*color_config.UI_BG, 220), panel_rect, border_radius=24)
+        pygame.draw.rect(self.screen, color_config.UI_BORDER, panel_rect, 3, border_radius=24)
+
         self.menu_buttons = []
-        button_width = min(520, screen_w - 300)
-        button_height = 56
 
         for idx, (text, key, action) in enumerate(options):
             y = start_y + idx * spacing
+            button_width = panel_width - 40
+            button_height = 56
             button_rect = pygame.Rect(
-                screen_w // 2 - button_width // 2,
+                panel_rect.left + 20,
                 y - button_height // 2,
                 button_width,
-                button_height
+                button_height,
             )
+            hovered = button_rect.collidepoint(mouse_pos)
+            selected = idx == self.menu_selected_index
 
-            is_selected = (idx == self.menu_selected_index)
-            if is_selected:
-                pygame.draw.rect(self.screen, color_config.CYAN, button_rect)
-                surface = self.assets.fonts['medium'].render(text, True, color_config.BLACK)
+            button_surface = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
+            if selected:
+                pulse = 180 + int(math.sin(self.menu_animation_phase * 2.2 + idx) * 30)
+                pygame.draw.rect(button_surface, (40, 40, pulse, 240), button_surface.get_rect(), border_radius=16)
+                pygame.draw.rect(button_surface, color_config.WHITE, button_surface.get_rect(), 2, border_radius=16)
+                text_color = color_config.WHITE  # White text is always readable on dark button
+            elif hovered:
+                pygame.draw.rect(button_surface, (*color_config.UI_BG, 220), button_surface.get_rect(), border_radius=16)
+                pygame.draw.rect(button_surface, color_config.CYAN, button_surface.get_rect(), 2, border_radius=16)
+                text_color = color_config.WHITE
             else:
-                surface = self.assets.fonts['medium'].render(text, True, color_config.WHITE)
+                pygame.draw.rect(button_surface, (*color_config.UI_BG, 200), button_surface.get_rect(), border_radius=16)
+                pygame.draw.rect(button_surface, color_config.UI_BORDER, button_surface.get_rect(), 2, border_radius=16)
+                text_color = color_config.UI_TEXT
 
-            rect = surface.get_rect(center=button_rect.center)
-            self.screen.blit(surface, rect)
+            self.screen.blit(button_surface, button_rect.topleft)
+
+            option_surface = self.assets.fonts['medium'].render(text, True, text_color)
+            option_rect = option_surface.get_rect(center=button_rect.center)
+            self.screen.blit(option_surface, option_rect)
+
+            if hovered and not selected:
+                glow = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
+                pygame.draw.rect(glow, (*color_config.CYAN, 40), glow.get_rect(), border_radius=16)
+                self.screen.blit(glow, button_rect.topleft)
+
             self.menu_buttons.append((button_rect, action))
+
+        tip_text = "Use arrows or mouse to navigate. Press ENTER to select."
+        tip_surface = self.assets.fonts['small'].render(tip_text, True, color_config.UI_TEXT)
+        tip_rect = tip_surface.get_rect(center=(screen_w // 2, panel_rect.bottom + 40))
+        self.screen.blit(tip_surface, tip_rect)
     
     def draw_pause_screen(self):
         """Draw pause overlay"""
         overlay = pygame.Surface((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
         overlay.fill(color_config.BLACK)
-        overlay.set_alpha(150)
+        overlay.set_alpha(170)
         self.screen.blit(overlay, (0, 0))
-        
+
+        panel_width = 560
+        panel_height = 260
+        panel_x = (game_config.SCREEN_WIDTH - panel_width) // 2
+        panel_y = (game_config.SCREEN_HEIGHT - panel_height) // 2
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, (*color_config.UI_BG, 220), panel_rect, border_radius=20)
+        pygame.draw.rect(self.screen, color_config.CYAN, panel_rect, 3, border_radius=20)
+
         paused_text = self.assets.fonts['title'].render("PAUSED", True, color_config.CYAN)
-        paused_rect = paused_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 300))
+        paused_rect = paused_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, panel_y + 60))
         self.screen.blit(paused_text, paused_rect)
-        
+
         continue_text = self.assets.fonts['medium'].render(
             "Press P to Continue", True, color_config.WHITE)
-        continue_rect = continue_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 400))
+        continue_rect = continue_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, panel_y + 130))
         self.screen.blit(continue_text, continue_rect)
+
+        help_text = self.assets.fonts['small'].render(
+            "ESC: Quit to Menu | E: Cycle Weapon | B: Use Weapon", True, color_config.UI_TEXT)
+        help_rect = help_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, panel_y + 190))
+        self.screen.blit(help_text, help_rect)
     
     def draw_quit_confirm(self):
         """Draw quit confirmation dialog with warning and Yes/No buttons"""
-        overlay = pygame.Surface((game_config.SCREEN_WIDTH, game_config.SCREEN_HEIGHT))
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        overlay = pygame.Surface((screen_w, screen_h))
         overlay.fill(color_config.BLACK)
         overlay.set_alpha(180)
         self.screen.blit(overlay, (0, 0))
-        
-        # Title
-        title_text = self.assets.fonts['title'].render("QUIT GAME?", True, color_config.RED)
-        title_rect = title_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 200))
+
+        center_x = screen_w // 2
+
+        # Title and contextual messages
+        if self.quit_confirm_context == 'stage':
+            title = "LEAVE THIS STAGE?"
+            message = "Are you sure you want to leave? If you leave, you will lose your points."
+        else:
+            title = "EXIT THE GAME?"
+            message = "Are you sure you want to leave the game?"
+
+        title_y = int(screen_h * 0.24)
+        title_text = self.assets.fonts['title'].render(title, True, color_config.RED)
+        title_rect = title_text.get_rect(center=(center_x, title_y))
         self.screen.blit(title_text, title_rect)
-        
-        # Warning message - updated to be more accurate
-        warning = self.assets.fonts['medium'].render(
-            "Progress from this session will be lost!", True, color_config.YELLOW)
-        warning_rect = warning.get_rect(center=(game_config.SCREEN_WIDTH // 2, 280))
+
+        warn_y = int(screen_h * 0.33)
+        warn_text = self.assets.fonts['medium'].render(message, True, color_config.WHITE)
+        warn_rect = warn_text.get_rect(center=(center_x, warn_y))
+        self.screen.blit(warn_text, warn_rect)
+
+        warning_y = int(screen_h * 0.38)
+        warning = self.assets.fonts['small'].render(
+            "Select YES to confirm or NO to continue.", True, color_config.UI_TEXT)
+        warning_rect = warning.get_rect(center=(center_x, warning_y))
         self.screen.blit(warning, warning_rect)
-        
+
         # Button dimensions
-        button_width = 120
-        button_height = 50
-        button_y = 380
-        button_spacing = 150
-        
-        yes_x = game_config.SCREEN_WIDTH // 2 - button_spacing
-        no_x = game_config.SCREEN_WIDTH // 2 + button_spacing
-        
+        button_width = max(100, int(screen_w * 0.12))
+        button_height = max(44, int(screen_h * 0.065))
+        button_y = int(screen_h * 0.50)
+        button_spacing = max(100, int(screen_w * 0.15))
+
+        yes_x = center_x - button_spacing
+        no_x = center_x + button_spacing
+
         # Store button rects for mouse click handling
         self.quit_yes_rect = pygame.Rect(yes_x - button_width // 2, button_y - button_height // 2,
                                          button_width, button_height)
         self.quit_no_rect = pygame.Rect(no_x - button_width // 2, button_y - button_height // 2,
                                         button_width, button_height)
-        
+
         # Draw buttons with selection highlight
-        yes_color = color_config.GREEN if self.quit_confirm_selected else (60, 60, 60)
-        no_color = color_config.RED if not self.quit_confirm_selected else (60, 60, 60)
-        
-        # Yes button
-        pygame.draw.rect(self.screen, yes_color, self.quit_yes_rect)
-        pygame.draw.rect(self.screen, color_config.WHITE, self.quit_yes_rect, 2)
+        yes_color = color_config.RED if self.quit_confirm_selected else (60, 60, 60)
+        no_color = color_config.GREEN if not self.quit_confirm_selected else (60, 60, 60)
+
+        pygame.draw.rect(self.screen, yes_color, self.quit_yes_rect, border_radius=14)
+        pygame.draw.rect(self.screen, color_config.WHITE, self.quit_yes_rect, 2, border_radius=14)
         yes_text = self.assets.fonts['medium'].render("YES", True, color_config.WHITE)
         yes_text_rect = yes_text.get_rect(center=self.quit_yes_rect.center)
         self.screen.blit(yes_text, yes_text_rect)
-        
-        # No button
-        pygame.draw.rect(self.screen, no_color, self.quit_no_rect)
-        pygame.draw.rect(self.screen, color_config.WHITE, self.quit_no_rect, 2)
+
+        pygame.draw.rect(self.screen, no_color, self.quit_no_rect, border_radius=14)
+        pygame.draw.rect(self.screen, color_config.WHITE, self.quit_no_rect, 2, border_radius=14)
         no_text = self.assets.fonts['medium'].render("NO", True, color_config.WHITE)
         no_text_rect = no_text.get_rect(center=self.quit_no_rect.center)
         self.screen.blit(no_text, no_text_rect)
-        
-        # Instructions
+
+        if self.quit_confirm_selected:
+            focus_rect = pygame.Rect(self.quit_yes_rect.inflate(12, 12))
+        else:
+            focus_rect = pygame.Rect(self.quit_no_rect.inflate(12, 12))
+        pygame.draw.rect(self.screen, color_config.CYAN, focus_rect, 3, border_radius=18)
+
         instructions = self.assets.fonts['small'].render(
-            "LEFT/A: No  |  RIGHT/D: Yes  |  ENTER: Confirm  |  ESC: Cancel", 
-            True, color_config.CYAN)
-        instructions_rect = instructions.get_rect(center=(game_config.SCREEN_WIDTH // 2, 470))
+            "LEFT/A: No  |  RIGHT/D: Yes  |  ENTER: Confirm  |  ESC: Cancel",
+            True, color_config.UI_BORDER)
+        instructions_rect = instructions.get_rect(center=(center_x, int(screen_h * 0.62)))
         self.screen.blit(instructions, instructions_rect)
     
     def draw_level_complete(self):
@@ -2032,107 +2299,177 @@ class Game:
         self.screen.fill(color_config.BLACK)
         self.draw_starfield()
         
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        overlay = pygame.Surface((screen_w, screen_h), pygame.SRCALPHA)
+        overlay.fill((*color_config.BLACK, 200))
+        self.screen.blit(overlay, (0, 0))
+
+        panel_width = 700
+        panel_height = 460
+        panel_x = (screen_w - panel_width) // 2
+        panel_y = (screen_h - panel_height) // 2
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, (*color_config.UI_BG, 230), panel_rect, border_radius=24)
+        pygame.draw.rect(self.screen, color_config.CYAN, panel_rect, 3, border_radius=24)
+
         title = self.assets.fonts['large'].render(
             f"LEVEL {self.current_level} COMPLETE!", True, color_config.GREEN)
-        title_rect = title.get_rect(center=(game_config.SCREEN_WIDTH // 2, 200))
+        title_rect = title.get_rect(center=(screen_w // 2, panel_y + 60))
         self.screen.blit(title, title_rect)
-        
-        time_bonus = int(self.level.time_remaining * 10)
-        time_text = self.assets.fonts['medium'].render(
-            f"Time Bonus: {time_bonus} points", True, color_config.CYAN)
-        time_rect = time_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 280))
-        self.screen.blit(time_text, time_rect)
-        
-        bonus = self.assets.fonts['medium'].render(
-            f"Coin Bonus: {game_config.LEVEL_COIN_BONUS} Coins", True, color_config.YELLOW)
-        bonus_rect = bonus.get_rect(center=(game_config.SCREEN_WIDTH // 2, 340))
-        self.screen.blit(bonus, bonus_rect)
-        
-        score = self.assets.fonts['medium'].render(
-            f"Total Score: {self.player.score}", True, color_config.WHITE)
-        score_rect = score.get_rect(center=(game_config.SCREEN_WIDTH // 2, 400))
-        self.screen.blit(score, score_rect)
-        
-        continue_text = self.assets.fonts['medium'].render(
-            "Press ENTER to Continue or ESC for Menu", True, color_config.CYAN)
-        continue_rect = continue_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 500))
-        self.screen.blit(continue_text, continue_rect)
+
+        coins_earned = self.player.coins - getattr(self.current_profile, 'session_start_coins', 0)
+        coins_earned = max(coins_earned, 0)
+        best_level = getattr(self.current_profile, 'highest_level', self.current_level)
+        next_level = self.current_level + 1
+        next_goal = f"Reach Level {next_level} to unlock tougher enemies."
+        if self.current_level >= 5:
+            next_goal = f"Survive Level {next_level} to earn a rare upgrade reward."
+
+        left_x = panel_x + 50
+        right_x = panel_x + panel_width - 370
+        y = panel_y + 130
+
+        summary_items = [
+            ("Coins earned", f"{coins_earned}"),
+            ("Total score", f"{self.player.score}"),
+            ("Best level", f"{best_level}"),
+            ("Next goal", next_goal),
+        ]
+
+        for label, value in summary_items:
+            label_surface = self.assets.fonts['small'].render(label, True, color_config.UI_TEXT)
+            value_surface = self.assets.fonts['medium'].render(value, True, color_config.WHITE if label != "Next goal" else color_config.CYAN)
+            self.screen.blit(label_surface, (left_x, y))
+            self.screen.blit(value_surface, (left_x, y + label_surface.get_height() + 4))
+            y += label_surface.get_height() + value_surface.get_height() + 18
+
+        if self.current_profile and self.current_profile.daily_challenge_completed:
+            reward_value = self.daily_challenge.get('reward', 0)
+            reward_surface = self.assets.fonts['medium'].render(
+                f"Daily Challenge Reward: +{reward_value} coins", True, color_config.GREEN)
+            self.screen.blit(reward_surface, (right_x, panel_y + 130))
+            self.draw_progress_bar(right_x, panel_y + 180, 280, 24, 1.0, color_config.GREEN)
+            reward_label = self.assets.fonts['small'].render("Challenge completed", True, color_config.UI_TEXT)
+            self.screen.blit(reward_label, (right_x, panel_y + 210))
+        else:
+            challenge_box = pygame.Rect(right_x, panel_y + 130, 280, 140)
+            pygame.draw.rect(self.screen, (*color_config.BLACK, 180), challenge_box, border_radius=18)
+            pygame.draw.rect(self.screen, color_config.CYAN, challenge_box, 2, border_radius=18)
+            status_title = self.assets.fonts['small'].render("Challenge Status", True, color_config.YELLOW)
+            self.screen.blit(status_title, (right_x + 16, panel_y + 146))
+            if self.daily_challenge:
+                status_text = self.assets.fonts['tiny'].render(
+                    self.daily_challenge['description'], True, color_config.UI_TEXT)
+                self.screen.blit(status_text, (right_x + 16, panel_y + 176))
+                self.draw_progress_bar(right_x + 16, panel_y + 220, 248, 18, 0.6, color_config.CYAN)
+                progress_label = self.assets.fonts['tiny'].render("Keep going!", True, color_config.WHITE)
+                self.screen.blit(progress_label, (right_x + 16, panel_y + 248))
+
+        action_text = self.assets.fonts['medium'].render(
+            "Press ENTER to Continue or ESC to return to the menu", True, color_config.CYAN)
+        action_rect = action_text.get_rect(center=(screen_w // 2, panel_y + panel_height - 40))
+        self.screen.blit(action_text, action_rect)
     
     def draw_game_over(self):
         """Draw game over screen"""
         self.screen.fill(color_config.BLACK)
         self.draw_starfield()
-        
+
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        center_x = screen_w // 2
+
         title = self.assets.fonts['title'].render("GAME OVER", True, color_config.RED)
-        title_rect = title.get_rect(center=(game_config.SCREEN_WIDTH // 2, 180))
+        title_rect = title.get_rect(center=(center_x, int(screen_h * 0.24)))
         self.screen.blit(title, title_rect)
-        
+
+        y = int(screen_h * 0.34)
         if self.current_profile:
             name_text = self.assets.fonts['medium'].render(
                 self.current_profile.name, True, color_config.CYAN)
-            name_rect = name_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 260))
+            name_rect = name_text.get_rect(center=(center_x, y))
             self.screen.blit(name_text, name_rect)
-        
-        final_score = self.assets.fonts['large'].render(
-            f"Final Score: {self.player.score}", True, color_config.WHITE)
-        score_rect = final_score.get_rect(center=(game_config.SCREEN_WIDTH // 2, 320))
-        self.screen.blit(final_score, score_rect)
-        
-        coins_text = self.assets.fonts['medium'].render(
-            f"Total Coins Earned: {self.player.coins}", True, color_config.YELLOW)
-        coins_rect = coins_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 390))
-        self.screen.blit(coins_text, coins_rect)
-        
-        level_text = self.assets.fonts['medium'].render(
-            f"Reached Level: {self.current_level}", True, color_config.CYAN)
-        level_rect = level_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 450))
-        self.screen.blit(level_text, level_rect)
-        
+            y += name_text.get_height() + int(screen_h * 0.04)
+
+        if self.player:
+            final_score = self.assets.fonts['large'].render(
+                f"Final Score: {self.player.score}", True, color_config.WHITE)
+            score_rect = final_score.get_rect(center=(center_x, y))
+            self.screen.blit(final_score, score_rect)
+            y += final_score.get_height() + int(screen_h * 0.04)
+
+            coins_text = self.assets.fonts['medium'].render(
+                f"Total Coins Earned: {self.player.coins}", True, color_config.YELLOW)
+            coins_rect = coins_text.get_rect(center=(center_x, y))
+            self.screen.blit(coins_text, coins_rect)
+            y += coins_text.get_height() + int(screen_h * 0.04)
+
+            level_text = self.assets.fonts['medium'].render(
+                f"Reached Level: {self.current_level}", True, color_config.CYAN)
+            level_rect = level_text.get_rect(center=(center_x, y))
+            self.screen.blit(level_text, level_rect)
+
         continue_text = self.assets.fonts['medium'].render(
             "Press ENTER or ESC to Return to Menu", True, color_config.WHITE)
-        continue_rect = continue_text.get_rect(center=(game_config.SCREEN_WIDTH // 2, 550))
+        continue_rect = continue_text.get_rect(center=(center_x, int(screen_h * 0.78)))
         self.screen.blit(continue_text, continue_rect)
     
     def draw_high_scores(self):
         """Draw high scores screen"""
         self.screen.fill(color_config.BLACK)
         self.draw_starfield()
-        
+
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        center_x = screen_w // 2
+
         title = self.assets.fonts['title'].render("HIGH SCORES", True, color_config.CYAN)
-        title_rect = title.get_rect(center=(game_config.SCREEN_WIDTH // 2, 100))
+        title_rect = title.get_rect(center=(center_x, int(screen_h * 0.13)))
         self.screen.blit(title, title_rect)
-        
+
         scores = SaveSystem.get_high_scores()
-        
-        if not scores:
+
+        # Consolidate so a profile name is shown only once (keeping their best score)
+        best_scores_map = {}
+        for entry in scores:
+            name = entry['name']
+            # if name is not in map or if this score is strictly better
+            if name not in best_scores_map or entry['score'] > best_scores_map[name]['score']:
+                best_scores_map[name] = entry
+                
+        # Sort consolidated scores by score descending
+        consolidated_scores = sorted(list(best_scores_map.values()), key=lambda x: x['score'], reverse=True)
+
+        if not consolidated_scores:
             no_scores = self.assets.fonts['medium'].render(
                 "No high scores yet!", True, color_config.WHITE)
-            no_scores_rect = no_scores.get_rect(center=(game_config.SCREEN_WIDTH // 2, 300))
+            no_scores_rect = no_scores.get_rect(center=(center_x, screen_h // 2))
             self.screen.blit(no_scores, no_scores_rect)
         else:
-            y_offset = 200
-            for i, entry in enumerate(scores[:5]):
-                rank_text = f"{i + 1}."
-                name_text = entry['name']
-                score_text = f"Score: {entry['score']}"
-                level_text = f"Level: {entry['level']}"
-                
-                rank_surface = self.assets.fonts['medium'].render(rank_text, True, color_config.YELLOW)
-                name_surface = self.assets.fonts['medium'].render(name_text, True, color_config.CYAN)
-                score_surface = self.assets.fonts['medium'].render(score_text, True, color_config.WHITE)
-                level_surface = self.assets.fonts['small'].render(level_text, True, color_config.UI_TEXT)
-                
-                self.screen.blit(rank_surface, (150, y_offset))
-                self.screen.blit(name_surface, (220, y_offset))
-                self.screen.blit(score_surface, (450, y_offset))
-                self.screen.blit(level_surface, (680, y_offset + 5))
-                
-                y_offset += 50
-        
+            y_offset = int(screen_h * 0.27)
+            row_height = int(screen_h * 0.08)
+            col_rank = int(screen_w * 0.14)
+            col_name = int(screen_w * 0.22)
+            col_score = int(screen_w * 0.50)
+            col_level = int(screen_w * 0.72)
+            for i, entry in enumerate(consolidated_scores[:5]):
+                rank_surface = self.assets.fonts['medium'].render(f"{i + 1}.", True, color_config.YELLOW)
+                name_surface = self.assets.fonts['medium'].render(entry['name'], True, color_config.CYAN)
+                score_surface = self.assets.fonts['medium'].render(f"Score: {entry['score']}", True, color_config.WHITE)
+                level_surface = self.assets.fonts['small'].render(f"Level: {entry['level']}", True, color_config.UI_TEXT)
+
+                self.screen.blit(rank_surface, (col_rank, y_offset))
+                self.screen.blit(name_surface, (col_name, y_offset))
+                self.screen.blit(score_surface, (col_score, y_offset))
+                self.screen.blit(level_surface, (col_level, y_offset + 5))
+
+                y_offset += row_height
+
         back_text = self.assets.fonts['medium'].render(
             "Press ESC to Return", True, color_config.UI_TEXT)
         back_rect = back_text.get_rect(
-            center=(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 50))
+            center=(center_x, screen_h - int(screen_h * 0.07)))
         self.screen.blit(back_text, back_rect)
 
     def draw_waiting_for_players(self):
@@ -2224,7 +2561,6 @@ class Game:
         if self.connect_to_server(host, port):
             logger.info("Connected to server. Initializing game...")
             self.init_game()
-            self.state = GameState.PLAYING
             self.state = GameState.WAITING_FOR_PLAYERS
         else:
             self.server_test_result = f"Failed to connect to {host}:{port}"
@@ -2232,17 +2568,23 @@ class Game:
     
     def _init_server_connect_inputs(self):
         """Initialize server connection input fields."""
+        screen_w = game_config.SCREEN_WIDTH
+        screen_h = game_config.SCREEN_HEIGHT
+        box_width = min(500, screen_w - 40)
+        box_x = (screen_w - box_width) // 2
+        box_y = max(20, int(screen_h * 0.16))
+
         if not self.server_connect_input:
             self.server_connect_input = TextInput(
-                game_config.SCREEN_WIDTH // 2 - 150, 280, 300, 50,
-                self.assets.fonts['medium'], max_length=30
+                box_x + 30, box_y + 70, box_width - 60, 50,
+                self.assets.fonts['medium'], max_length=30, placeholder="Server Address"
             )
             self.server_connect_input.text = self.server_host
-        
+
         if not self.server_port_input:
             self.server_port_input = TextInput(
-                game_config.SCREEN_WIDTH // 2 - 75, 360, 150, 50,
-                self.assets.fonts['medium'], max_length=5
+                box_x + 30, box_y + 170, box_width - 60, 50,
+                self.assets.fonts['medium'], max_length=5, placeholder="Port"
             )
             self.server_port_input.text = str(self.server_port)
     
@@ -2250,49 +2592,54 @@ class Game:
         """Draw the server connection screen."""
         screen_w = game_config.SCREEN_WIDTH
         screen_h = game_config.SCREEN_HEIGHT
-        
+
         # Initialize inputs if needed
         self._init_server_connect_inputs()
-        
+
         # Draw overlay
         overlay = pygame.Surface((screen_w, screen_h))
         overlay.fill(color_config.BLACK)
         overlay.set_alpha(220)
         self.screen.blit(overlay, (0, 0))
-        
+
         # Draw title
         title = self.assets.fonts['large'].render("PLAY ONLINE", True, color_config.CYAN)
-        title_rect = title.get_rect(center=(screen_w // 2, 80))
+        title_rect = title.get_rect(center=(screen_w // 2, int(screen_h * 0.10)))
         self.screen.blit(title, title_rect)
-        
+
         # Draw box
-        box_width = 500
-        box_height = 450
+        box_width = min(500, screen_w - 40)
+        box_height = min(450, screen_h - int(screen_h * 0.20))
         box_x = (screen_w - box_width) // 2
-        box_y = 120
-        
+        box_y = max(20, int(screen_h * 0.16))
+
         pygame.draw.rect(self.screen, color_config.UI_BG, (box_x, box_y, box_width, box_height))
         pygame.draw.rect(self.screen, color_config.CYAN, (box_x, box_y, box_width, box_height), 3)
-        
+
         # Server Address
         addr_label = self.assets.fonts['medium'].render("Server Address:", True, color_config.WHITE)
         self.screen.blit(addr_label, (box_x + 30, box_y + 40))
-        
+
         # Draw address input field
         self.server_connect_input.rect.x = box_x + 30
         self.server_connect_input.rect.y = box_y + 70
+        self.server_connect_input.rect.width = box_width - 60
         self.server_connect_input.draw(self.screen)
-        
+        if self.server_selected_index == 0:
+            pygame.draw.rect(self.screen, color_config.CYAN, self.server_connect_input.rect, 3, border_radius=10)
+
         # Server Port
         port_label = self.assets.fonts['medium'].render("Port:", True, color_config.WHITE)
         self.screen.blit(port_label, (box_x + 30, box_y + 140))
-        
+
         # Draw port input field
         self.server_port_input.rect.x = box_x + 30
         self.server_port_input.rect.y = box_y + 170
+        self.server_port_input.rect.width = box_width - 60
         self.server_port_input.draw(self.screen)
-        
-        # Draw test result message
+        if self.server_selected_index == 1:
+            pygame.draw.rect(self.screen, color_config.CYAN, self.server_port_input.rect, 3, border_radius=10)
+
         if self.server_test_result and self.server_test_result_timer > 0:
             self.server_test_result_timer -= 1
             success = self.server_test_result.startswith("Connected")
@@ -2300,42 +2647,57 @@ class Game:
             result_text = self.assets.fonts['small'].render(self.server_test_result, True, result_color)
             result_rect = result_text.get_rect(center=(screen_w // 2, box_y + 230))
             self.screen.blit(result_text, result_rect)
-        
+
         # Button dimensions
-        button_width = 140
-        button_height = 50
+        button_width = max(100, int(box_width * 0.28))
+        button_height = max(44, int(screen_h * 0.065))
         button_y = box_y + 280
-        
+
         # Test Connection button
         test_btn_x = box_x + 30
         self.server_test_button_rect = pygame.Rect(test_btn_x, button_y, button_width, button_height)
         test_selected = (self.server_selected_index == 2)
-        test_color = color_config.YELLOW if test_selected else color_config.UI_BORDER
-        pygame.draw.rect(self.screen, test_color, self.server_test_button_rect, 2)
+        pygame.draw.rect(
+            self.screen,
+            (*color_config.YELLOW, 40) if test_selected else (*color_config.UI_BG, 160),
+            self.server_test_button_rect,
+            border_radius=12,
+        )
+        pygame.draw.rect(self.screen, color_config.YELLOW if test_selected else color_config.UI_BORDER, self.server_test_button_rect, 2, border_radius=12)
         test_text = self.assets.fonts['small'].render("TEST", True, color_config.WHITE)
         test_rect = test_text.get_rect(center=self.server_test_button_rect.center)
         self.screen.blit(test_text, test_rect)
-        
+
         # Connect button
         connect_btn_x = box_x + box_width - button_width - 30
         self.server_connect_button_rect = pygame.Rect(connect_btn_x, button_y, button_width, button_height)
         connect_selected = (self.server_selected_index == 3)
-        connect_color = color_config.GREEN if connect_selected else color_config.UI_BORDER
-        pygame.draw.rect(self.screen, connect_color, self.server_connect_button_rect, 2)
+        pygame.draw.rect(
+            self.screen,
+            (*color_config.GREEN, 40) if connect_selected else (*color_config.UI_BG, 160),
+            self.server_connect_button_rect,
+            border_radius=12,
+        )
+        pygame.draw.rect(self.screen, color_config.GREEN if connect_selected else color_config.UI_BORDER, self.server_connect_button_rect, 2, border_radius=12)
         connect_text = self.assets.fonts['small'].render("CONNECT", True, color_config.WHITE)
         connect_rect = connect_text.get_rect(center=self.server_connect_button_rect.center)
         self.screen.blit(connect_text, connect_rect)
-        
+
         # Back button
         back_btn_x = box_x + (box_width - button_width) // 2
-        self.server_back_button_rect = pygame.Rect(back_btn_x, button_y + 70, button_width, button_height)
+        self.server_back_button_rect = pygame.Rect(back_btn_x, button_y + button_height + 14, button_width, button_height)
         back_selected = (self.server_selected_index == 4)
-        back_color = color_config.RED if back_selected else color_config.UI_BORDER
-        pygame.draw.rect(self.screen, back_color, self.server_back_button_rect, 2)
+        pygame.draw.rect(
+            self.screen,
+            (*color_config.CYAN, 40) if back_selected else (*color_config.UI_BG, 160),
+            self.server_back_button_rect,
+            border_radius=12,
+        )
+        pygame.draw.rect(self.screen, color_config.CYAN if back_selected else color_config.UI_BORDER, self.server_back_button_rect, 2, border_radius=12)
         back_text = self.assets.fonts['small'].render("BACK", True, color_config.WHITE)
         back_rect = back_text.get_rect(center=self.server_back_button_rect.center)
         self.screen.blit(back_text, back_rect)
-        
+
         # Instructions
         instructions = self.assets.fonts['tiny'].render(
             "1: Address | 2: Port | 3: Test | 4: Connect | 5: Back | TAB: Next | ENTER: Select",
@@ -2345,7 +2707,7 @@ class Game:
 
     def _handle_menu_action(self, action: str):
         """Handle actions based on main menu selection."""
-        if action == "play_online":  # Multiplayer via network - go to server connect screen
+        if action == "play_online":  
             self._init_server_connect_inputs()
             self.server_selected_index = 0
             self.server_test_result = None
@@ -2354,14 +2716,17 @@ class Game:
 
         if action == "play":
             logger.info("Game started (via menu)")
+            if self.next_level_pending:
+                self.current_level += 1
+                self.next_level_pending = False
             self.init_game()
             self.state = GameState.PLAYING
         elif action == "shop":
             logger.info("Shop opened (via menu)")
-            # Ensure player exists for shop access
+            
             if not self.player or self.player is None:
                 self.player = Player(game_config.SCREEN_WIDTH // 2, game_config.SCREEN_HEIGHT - 100)
-            # Always sync coins from profile when opening shop
+            
             if self.current_profile:
                 self.player.coins = self.current_profile.coins
             self.state = GameState.SHOP
@@ -2372,5 +2737,7 @@ class Game:
             logger.info("Profile selection (via menu)")
             self.state = GameState.PROFILE_SELECT
         elif action == "quit":
-            logger.info("Game quit (via menu)")
-            self.running = False
+            logger.info("Quit selected from menu")
+            self.state = GameState.QUIT_CONFIRM
+            self.quit_confirm_context = 'game'
+            self.quit_confirm_selected = False

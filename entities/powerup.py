@@ -27,6 +27,18 @@ class PowerUp(BaseEntity):
         'health': {
             'color': color_config.GREEN,
             'shape': 'diamond'
+        },
+        'piercing': {
+            'color': color_config.YELLOW,
+            'shape': 'star'
+        },
+        'speed_boost': {
+            'color': color_config.BLUE,
+            'shape': 'diamond'
+        },
+        'damage_boost': {
+            'color': color_config.RED,
+            'shape': 'hexagon'
         }
     }
     
