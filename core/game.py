@@ -178,6 +178,7 @@ class Game:
         self.daily_challenge = None
         self.text_input = None
         self.quit_confirm_selected = True
+        self.quit_confirm_hovered = None
         self.quit_confirm_context = 'game'
         self.quit_yes_rect = None
         self.quit_no_rect = None
@@ -693,6 +694,16 @@ class Game:
                             self.state = GameState.MAIN_MENU if self.quit_confirm_context == 'game' else GameState.PLAYING
                     elif event.key == pygame.K_ESCAPE:
                         self.state = GameState.MAIN_MENU if self.quit_confirm_context == 'game' else GameState.PLAYING
+                elif event.type == pygame.MOUSEMOTION:
+                    mouse_pos = event.pos
+                    if self.quit_yes_rect and self.quit_yes_rect.collidepoint(mouse_pos):
+                        self.quit_confirm_hovered = 'yes'
+                        self.quit_confirm_selected = True
+                    elif self.quit_no_rect and self.quit_no_rect.collidepoint(mouse_pos):
+                        self.quit_confirm_hovered = 'no'
+                        self.quit_confirm_selected = False
+                    else:
+                        self.quit_confirm_hovered = None
                 elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                     if self.quit_yes_rect and self.quit_yes_rect.collidepoint(event.pos):
                         if self.quit_confirm_context == 'game':
@@ -2266,9 +2277,14 @@ class Game:
         self.quit_no_rect = pygame.Rect(no_x - button_width // 2, button_y - button_height // 2,
                                         button_width, button_height)
 
-        # Draw buttons with selection highlight
-        yes_color = color_config.RED if self.quit_confirm_selected else (60, 60, 60)
-        no_color = color_config.GREEN if not self.quit_confirm_selected else (60, 60, 60)
+        # Draw buttons with selection/hover highlight
+        yes_hover = self.quit_confirm_hovered == 'yes'
+        no_hover = self.quit_confirm_hovered == 'no'
+        yes_active = yes_hover or self.quit_confirm_selected
+        no_active = no_hover or (not self.quit_confirm_selected)
+
+        yes_color = color_config.RED if yes_active else (60, 60, 60)
+        no_color = color_config.GREEN if no_active else (60, 60, 60)
 
         pygame.draw.rect(self.screen, yes_color, self.quit_yes_rect, border_radius=14)
         pygame.draw.rect(self.screen, color_config.WHITE, self.quit_yes_rect, 2, border_radius=14)
@@ -2282,7 +2298,11 @@ class Game:
         no_text_rect = no_text.get_rect(center=self.quit_no_rect.center)
         self.screen.blit(no_text, no_text_rect)
 
-        if self.quit_confirm_selected:
+        if yes_hover:
+            focus_rect = pygame.Rect(self.quit_yes_rect.inflate(16, 16))
+        elif no_hover:
+            focus_rect = pygame.Rect(self.quit_no_rect.inflate(16, 16))
+        elif self.quit_confirm_selected:
             focus_rect = pygame.Rect(self.quit_yes_rect.inflate(12, 12))
         else:
             focus_rect = pygame.Rect(self.quit_no_rect.inflate(12, 12))

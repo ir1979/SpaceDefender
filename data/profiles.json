@@ -3,19 +3,19 @@
     "reza": {
       "name": "reza",
       "password": "reza123",
-      "total_score": 3836346,
-      "total_coins": 11110991855568998445299,
+      "total_score": 3936666,
+      "total_coins": 11110991855568682953825,
       "highest_level": 14,
-      "games_played": 51,
-      "total_time_played": 3650.077645730972,
-      "last_played": 1777481495.1037047,
+      "games_played": 52,
+      "total_time_played": 3736.7570645332335,
+      "last_played": 1780502469.6032355,
       "score": 0,
-      "coins": 11110991855568998445299,
+      "coins": 11110991855568682953825,
       "current_score": 0,
-      "current_coins": 11110991855568998445299,
+      "current_coins": 11110991855568682953825,
       "current_level": 1,
       "weapon_inventory": {
-        "atomic_bomb": 22,
+        "atomic_bomb": 23,
         "shockwave": 20,
         "spread_burst": 29,
         "chain_lightning": 18,
@@ -28,13 +28,13 @@
         "screenshot_2026_04_18_162500"
       ],
       "selected_skin": "screenshot_2026_04_18_162500",
-      "daily_challenge_date": "2026-04-29",
+      "daily_challenge_date": "2026-06-03",
       "daily_challenge_completed": false,
       "upgrade_levels": {
         "max_health": 37,
         "damage": 22,
         "speed": 22,
-        "fire_rate": 32,
+        "fire_rate": 36,
         "extra_life": 3,
         "piercing": 1,
         "drone_level": 5
@@ -688,6 +688,12 @@
       "timestamp": 1777051692.324488
     },
     {
+      "name": "reza",
+      "score": 100320,
+      "level": 14,
+      "timestamp": 1780502445.9275177
+    },
+    {
       "name": "Reza",
       "score": 84900,
       "level": 14,
@@ -728,12 +734,6 @@
       "score": 25840,
       "level": 14,
       "timestamp": 1775677059.6174412
-    },
-    {
-      "name": "Reza",
-      "score": 21360,
-      "level": 14,
-      "timestamp": 1771874428.881623
     }
   ]
 }

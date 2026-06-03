@@ -1,6 +1,6 @@
 @echo off
 REM Space Defender - Build Script for Windows
-REM Run this script to build the Windows executable
+REM Run this script to build the Windows executable and optional NSIS installer
 
 REM -- ensure execution under cmd.exe when invoked from PowerShell --
 REM PowerShell will execute each batch line separately, causing syntax errors.
@@ -32,12 +32,16 @@ if errorlevel 1 (
 )
 
 REM Install required packages if not already installed
-echo Installing required packages...
-pip install pygame pyinstaller --quiet
+python -c "import pygame, PyInstaller" >nul 2>&1
 if errorlevel 1 (
-    echo ERROR: Failed to install required packages
-    pause
-    exit /b 1
+    echo Installing required packages from installer\requirements.txt...
+    pip install -r requirements.txt --quiet
+    if errorlevel 1 (
+        echo ERROR: Failed to install required packages
+        echo If you are offline, install pygame and pyinstaller from local wheels first.
+        pause
+        exit /b 1
+    )
 )
 
 REM Determine target architecture (default = system bitness)
@@ -61,11 +65,9 @@ if /i "%ARCH%"=="32" (
 REM create output directory if needed
 if not exist "%OUTDIR%" mkdir "%OUTDIR%"
 
-REM Run PyInstaller
-REM When passing an existing .spec file, --specpath is not permitted;
-REM only set distpath/workpath to keep build artifacts separate.
+REM Build the executable
 echo Building executable for %ARCH%-bit Windows...
-pyinstaller space_defender.spec --clean %PYINSTALLER_ARCH% --distpath "%OUTDIR%" --workpath "build"
+pyinstaller space_defender.spec --clean %PYINSTALLER_ARCH% --distpath "%OUTDIR%" --workpath "build" --noconfirm
 
 if errorlevel 1 (
     echo ERROR: Build failed
@@ -74,32 +76,26 @@ if errorlevel 1 (
 )
 
 REM Optionally create a simple NSIS-based installer if makensis is installed
+set "NSIS_PATH="
 where makensis >nul 2>&1
 if %errorlevel%==0 (
-    echo makensis found – creating installer...
-    set "NSIS_SCRIPT=build\space_defender_%ARCH%.nsi"
-    >"%NSIS_SCRIPT%" echo !define PRODUCT_NAME "Space Defender"
-    >>"%NSIS_SCRIPT%" echo !define VERSION "2.1"
-    >>"%NSIS_SCRIPT%" echo !define COMPANY_NAME "Ali Mortazavi"
-    >>"%NSIS_SCRIPT%" echo !define EXE_NAME "SpaceDefender.exe"
-    >>"%NSIS_SCRIPT%" echo !define ARCH "%ARCH%"
-    >>"%NSIS_SCRIPT%" echo OutFile "..\dist\win%ARCH%\${PRODUCT_NAME}-setup-%ARCH%.exe"
-    >>"%NSIS_SCRIPT%" echo InstallDir "$PROGRAMFILES\${PRODUCT_NAME}"
-    >>"%NSIS_SCRIPT%" echo Page directory
-    >>"%NSIS_SCRIPT%" echo Page instfiles
-    >>"%NSIS_SCRIPT%" echo Section "Install"
-    >>"%NSIS_SCRIPT%" echo   SetOutPath "$INSTDIR"
-    >>"%NSIS_SCRIPT%" echo   File "..\dist\win%ARCH%\${EXE_NAME}"
-    >>"%NSIS_SCRIPT%" echo   CreateShortcut "$DESKTOP\${PRODUCT_NAME}.lnk" "$INSTDIR\${EXE_NAME}"
-    >>"%NSIS_SCRIPT%" echo SectionEnd
-    makensis "%NSIS_SCRIPT%"
+    for /f "delims=" %%A in ('where makensis') do set "NSIS_PATH=%%A" & goto :FoundNSIS
+)
+if exist "%ProgramFiles%\NSIS\Bin\makensis.exe" set "NSIS_PATH=%ProgramFiles%\NSIS\Bin\makensis.exe"
+if exist "%ProgramFiles(x86)%\NSIS\Bin\makensis.exe" set "NSIS_PATH=%ProgramFiles(x86)%\NSIS\Bin\makensis.exe"
+:FoundNSIS
+if defined NSIS_PATH (
+    echo makensis found at %NSIS_PATH% – creating installer...
+    "%NSIS_PATH%" /DARCH=%ARCH% "space_defender.nsi"
+) else (
+    echo makensis not found; skipping NSIS installer generation.
 )
 
 echo ============================================
 echo Build complete!
 echo ============================================
-echo Executable location: %OUTDIR%\SpaceDefender.exe
-if exist "%OUTDIR%\${PRODUCT_NAME}-setup-%ARCH%.exe" echo Installer created: %OUTDIR%\${PRODUCT_NAME}-setup-%ARCH%.exe
+echo Executable location: %OUTDIR%\SpaceDefender\SpaceDefender.exe
+if exist "%OUTDIR%\Space Defender-setup-%ARCH%.exe" echo Installer created: %OUTDIR%\Space Defender-setup-%ARCH%.exe
 echo.
-echo To run the game, double-click SpaceDefender.exe (or use the installer if generated)
-pause
+echo To run the game, copy the full folder and launch SpaceDefender.exe, or use the installer if generated.
+if not defined SKIP_PAUSE pause
