@@ -103,18 +103,46 @@ Different enemy variants with unique behaviors:
 
 ### Prerequisites
 
-- Python 3.7 or higher
+- Conda / Miniconda installed on the build machine
+- `py311` Conda environment for building the package
 - Pygame 2.0+
 
-### Install on Windows
+### Install on Windows (build environment)
 
 Open PowerShell and run:
 
 ```powershell
 cd \path\to\space_defender
+conda env create -f environment.yml
+conda activate py311
 python -m pip install --upgrade pip
-python -m pip install pygame
-python -m pip install pytest
+python -m pip install -r installer\requirements.txt
+```
+
+> During development and build, run Python from the activated `py311` environment.
+
+> The final packaged installer and executable do not require Python or Conda on the end-user system.
+
+### Build the Windows installers
+
+From the `installer` directory, run:
+
+```powershell
+.\build.bat all
+```
+
+This builds both x64 and x86 target installers, producing:
+
+- `installer\dist\win64\SpaceDefender` and `installer\dist\win64\Space Defender-setup-64.exe`
+- `installer\dist\win32\SpaceDefender` and `installer\dist\win32\Space Defender-setup-32.exe`
+
+The installer bundles the Python runtime, Pygame, and SDL libraries so the end-user machine does not need Python, Conda, or a separate SDL install.
+
+If you only need a single architecture, use:
+
+```powershell
+.\build.bat 64
+.\build.bat 32
 ```
 
 ### Install on Linux
