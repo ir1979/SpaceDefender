@@ -2,8 +2,8 @@
 
 A fast-paced, action-packed space shooter game built with Python and Pygame. Defend your ship against waves of enemies, collect power-ups, and unlock new weapons in this thrilling arcade-style adventure!
 
-**Version:** 2.1  
-**Developer:** Ali Mortazavi
+**Version:** 2.2  
+**Developer:** **Ali Mortazavi**
 
 ---
 
@@ -15,11 +15,14 @@ Space Defender is a classic-style shoot-em-up game where you pilot a spaceship t
 
 - **Single Player & Multiplayer Co-op**: Play solo or with a friend on the same network
 - **Progressive Difficulty**: Each level introduces more enemies and faster-paced combat
-- **Weapon Arsenal**: Multiple weapon types with unique fire patterns and power-ups
+- **Weapon Arsenal**: Multiple weapon types with unique fire patterns and power-ups, including devastating **Atomic Bombs**
+- **Companion Drones**: Deploy helper drones to assist you in combat
+- **Rich Environments & UI**: Enhanced dynamic backgrounds and a polished user interface
 - **Shop System**: Earn coins and upgrade your weapons and health between levels
 - **Player Profiles**: Save your progress and compete for high scores
 - **Smooth Gameplay**: Optimized 30 FPS performance with responsive controls
 - **Professional Logging**: Detailed server-side logging with configurable verbosity
+- **Well-Documented Code**: Comprehensive inline comments for easier modding and contribution
 
 ---
 
@@ -294,7 +297,7 @@ python server.py 35555 -v 3     # High (all debug info)
 
 ## 📝 License
 
-Created by Ali Mortazavi for Kharazmi High School.
+Created by **Ali Mortazavi** for Kharazmi High School.
 
 ---
 
