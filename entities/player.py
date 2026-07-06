@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from .bullet import Bullet
 
 
+# FEATURE: Player Entity
 class Player(BaseEntity):
     """Player spaceship"""
 

@@ -1,7 +1,7 @@
 """
 Space Defender - Improved Authoritative Server
 Performance Improvements:
-- 60 FPS tick rate (up from 30) for more responsive gameplay
+- 30 FPS tick rate (matches client's game_config.FPS) for consistent enemy/bullet speed in online mode
 - Faster waiting state broadcast (0.2s instead of 0.5s)
 - Timeout protection for waiting state (60 seconds max)
 - Better client disconnect handling
@@ -33,7 +33,7 @@ DEFAULT_PORT = 35555
 VERBOSE_LEVEL = 1  # Default verbosity level (0-3)
 
 # Performance tuning
-SERVER_FPS = 60  # Increased from 30 for better responsiveness
+SERVER_FPS = 30  # Must match client tick rate (config.settings.game_config.FPS); otherwise enemy/bullet speed appears 2x faster in online mode.
 WAITING_BROADCAST_INTERVAL = 0.2  # Reduced from 0.5s for faster updates
 WAITING_TIMEOUT = 30.0  # Maximum time to wait for players (60 seconds)
 
@@ -154,7 +154,7 @@ def broadcast_state(state: dict):
             logger.info(f"Removed disconnected player {player_id}")
 
 def game_loop():
-    """Main simulation loop (60 FPS tick rate for better responsiveness)."""
+    """Main simulation loop (30 FPS tick rate, matches client game_config.FPS)."""
     vprint("[SERVER] Logic thread started.", level=2)
     try:
         # Initialize Game with is_server=True
@@ -298,7 +298,10 @@ def game_loop():
                     game.all_sprites.update()
 
                     # Spawn enemies
-                    if game.level.should_spawn_enemy() and game.state == GameState.PLAYING:
+                    active_regular_enemies = len([e for e in game.enemies if e.enemy_type != 'boss'])
+                    if (not game.level.boss_spawned
+                            and game.level.should_spawn_enemy(active_regular_enemies)
+                            and game.state == GameState.PLAYING):
                         enemy_type = EnemyFactory.get_random_type(game.current_level, game.level.wave_number)
                         enemy = EnemyFactory.create(
                             enemy_type,
@@ -350,6 +353,7 @@ def game_loop():
         shutdown_event.set()
 
         
+# FEATURE: Network Server Entry
 def main(argv=None):
     global VERBOSE_LEVEL
     

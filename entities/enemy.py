@@ -9,6 +9,7 @@ from typing import Dict, Any, Optional
 from .base_entity import BaseEntity, ShapeRenderer
 from config.settings import color_config
 
+# FEATURE: Enemy Entity
 class Enemy(BaseEntity):
     """Enemy entity with configurable behavior"""
     

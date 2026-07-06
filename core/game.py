@@ -95,6 +95,7 @@ class Level:
         self.boss_spawned = True
         return True
 
+# FEATURE: Main Game Loop
 class Game:
     """Main game controller"""
     def __init__(self, profile: PlayerProfile = None, is_server=False, fullscreen=False):

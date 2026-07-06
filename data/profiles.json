@@ -672,6 +672,99 @@
         "piercing": 0,
         "drone_level": 0
       }
+    },
+    "reza1": {
+      "name": "reza1",
+      "password": "reza123",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1780668999.975116,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0,
+        "drone_level": 0
+      }
+    },
+    "ali": {
+      "name": "ali",
+      "password": "ali",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1781954738.9348452,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0,
+        "drone_level": 0
+      }
+    },
+    "a": {
+      "name": "a",
+      "password": "a",
+      "total_score": 0,
+      "total_coins": 0,
+      "highest_level": 1,
+      "games_played": 0,
+      "total_time_played": 0,
+      "last_played": 1783350350.780775,
+      "score": 0,
+      "coins": 0,
+      "current_score": 0,
+      "current_coins": 0,
+      "current_level": 1,
+      "weapon_inventory": {},
+      "unlocked_skins": [
+        "astral"
+      ],
+      "selected_skin": "astral",
+      "daily_challenge_date": "",
+      "daily_challenge_completed": false,
+      "upgrade_levels": {
+        "max_health": 0,
+        "damage": 0,
+        "speed": 0,
+        "fire_rate": 0,
+        "extra_life": 0,
+        "piercing": 0,
+        "drone_level": 0
+      }
     }
   },
   "high_scores": [

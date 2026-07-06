@@ -1,8 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""
-Windows Version Info for Space Defender
-"""
-
+# Windows Version Info for Space Defender.
+# Embedded into SpaceDefender.exe by PyInstaller (EXE(..., version=...)).
+# PyInstaller 6.x evaluates this file as a single Python expression, so it
+# must contain ONLY comments above and one VSVersionInfo(...) call below -
+# no docstrings, no other statements.
 VSVersionInfo(
   ffi=FixedFileInfo(
     filevers=(2, 1, 0, 0),
@@ -27,6 +28,7 @@ VSVersionInfo(
             StringStruct(u'OriginalFilename', u'SpaceDefender.exe'),
             StringStruct(u'ProductName', u'Space Defender'),
             StringStruct(u'ProductVersion', u'2.1.0.0'),
+            StringStruct(u'LegalCopyright', u'Copyright (C) Ali Mortazavi'),
           ]
         )
       ]
